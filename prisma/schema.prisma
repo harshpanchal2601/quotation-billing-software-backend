@@ -1,0 +1,610 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+enum AddressType {
+  BILLING
+  SHIPPING
+  OTHER
+}
+
+enum ItemSourceType {
+  MANUAL
+  WEBSITE_IMPORT
+  CSV_IMPORT
+}
+
+enum QuotationStatus {
+  DRAFT
+  PENDING
+  SENT
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+enum TaxMode {
+  CGST_SGST
+  IGST
+  NONE
+}
+
+enum DiscountType {
+  NONE
+  PERCENTAGE
+  FIXED
+}
+
+enum SequenceResetRule {
+  FINANCIAL_YEAR
+  CALENDAR_YEAR
+  NEVER
+}
+
+enum TermType {
+  DELIVERY
+  DISPATCH
+  PAYMENT
+  TAX
+  FREIGHT
+  WARRANTY
+  REMARKS
+  GENERAL
+}
+
+enum DocumentType {
+  QUOTATION_PDF
+}
+
+enum ImportBatchStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+enum ImportRowStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  IMPORTED
+  FAILED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  LOGIN
+  LOGOUT
+  PASSWORD_CHANGE
+  STATUS_CHANGE
+  GENERATE_PDF
+  IMPORT
+}
+
+model User {
+  id                Int                      @id @default(autoincrement())
+  name              String                   @db.VarChar(191)
+  email             String                   @unique @db.VarChar(191)
+  username          String                   @unique @db.VarChar(191)
+  passwordHash      String                   @map("password_hash") @db.VarChar(191)
+  role              UserRole                 @default(ADMIN)
+  status            UserStatus               @default(ACTIVE)
+  lastLoginAt       DateTime?                @map("last_login_at")
+  passwordChangedAt DateTime?                @map("password_changed_at")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  deletedAt         DateTime?                @map("deleted_at")
+  authSessions      AuthSession[]
+  companiesCreated  Company[]                @relation("CompanyCreatedBy")
+  companiesUpdated  Company[]                @relation("CompanyUpdatedBy")
+  itemsCreated      Item[]                   @relation("ItemCreatedBy")
+  itemsUpdated      Item[]                   @relation("ItemUpdatedBy")
+  quotationsCreated Quotation[]              @relation("QuotationCreatedBy")
+  quotationsUpdated Quotation[]              @relation("QuotationUpdatedBy")
+  statusChanges     QuotationStatusHistory[] @relation("QuotationStatusChangedBy")
+  quotationVersions QuotationVersion[]       @relation("QuotationVersionCreatedBy")
+  attachments       QuotationAttachment[]    @relation("QuotationAttachmentUploadedBy")
+  documents         GeneratedDocument[]      @relation("GeneratedDocumentGeneratedBy")
+  importBatches     ImportBatch[]            @relation("ImportBatchStartedBy")
+  auditLogs         AuditLog[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model AuthSession {
+  id               Int       @id @default(autoincrement())
+  userId           Int       @map("user_id")
+  refreshTokenHash String    @map("refresh_token_hash") @db.VarChar(191)
+  ipAddress        String?   @map("ip_address") @db.VarChar(45)
+  userAgent        String?   @map("user_agent") @db.Text
+  expiresAt        DateTime  @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([refreshTokenHash])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model BusinessProfile {
+  id               Int               @id @default(autoincrement())
+  legalName        String            @map("legal_name") @db.VarChar(191)
+  displayName      String            @map("display_name") @db.VarChar(191)
+  gstin            String?           @db.VarChar(20)
+  pan              String?           @db.VarChar(20)
+  cin              String?           @db.VarChar(30)
+  addressLine1     String            @map("address_line_1") @db.VarChar(191)
+  addressLine2     String?           @map("address_line_2") @db.VarChar(191)
+  city             String            @db.VarChar(191)
+  state            String            @db.VarChar(191)
+  postalCode       String            @map("postal_code") @db.VarChar(20)
+  country          String            @default("India") @db.VarChar(191)
+  primaryPhone     String?           @map("primary_phone") @db.VarChar(30)
+  secondaryPhone   String?           @map("secondary_phone") @db.VarChar(30)
+  primaryEmail     String?           @map("primary_email") @db.VarChar(191)
+  secondaryEmail   String?           @map("secondary_email") @db.VarChar(191)
+  website          String?           @db.VarChar(191)
+  logoPath         String?           @map("logo_path") @db.VarChar(191)
+  signaturePath    String?           @map("signature_path") @db.VarChar(191)
+  stampPath        String?           @map("stamp_path") @db.VarChar(191)
+  primaryColour    String            @default("#168A56") @map("primary_colour") @db.VarChar(20)
+  secondaryColour  String            @default("#082B67") @map("secondary_colour") @db.VarChar(20)
+  defaultCurrency  String            @default("INR") @map("default_currency") @db.VarChar(3)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  bankDetails      BankDetail[]
+  quotationSetting QuotationSetting?
+
+  @@map("business_profiles")
+}
+
+model BankDetail {
+  id                Int             @id @default(autoincrement())
+  businessProfileId Int             @map("business_profile_id")
+  bankName          String          @map("bank_name") @db.VarChar(191)
+  accountName       String          @map("account_name") @db.VarChar(191)
+  accountNumber     String          @map("account_number") @db.VarChar(50)
+  accountType       String?         @map("account_type") @db.VarChar(50)
+  ifscCode          String?         @map("ifsc_code") @db.VarChar(20)
+  branchName        String?         @map("branch_name") @db.VarChar(191)
+  swiftCode         String?         @map("swift_code") @db.VarChar(20)
+  upiId             String?         @map("upi_id") @db.VarChar(191)
+  isDefault         Boolean         @default(false) @map("is_default")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  deletedAt         DateTime?       @map("deleted_at")
+  businessProfile   BusinessProfile @relation(fields: [businessProfileId], references: [id])
+
+  @@index([businessProfileId])
+  @@map("bank_details")
+}
+
+model QuotationSetting {
+  id                        Int               @id @default(autoincrement())
+  businessProfileId         Int               @unique @map("business_profile_id")
+  quotationPrefix           String            @default("BUMINEX") @map("quotation_prefix") @db.VarChar(50)
+  financialYearFormat       String            @default("YYYY-YY") @map("financial_year_format") @db.VarChar(20)
+  nextSequenceNumber        Int               @default(1) @map("next_sequence_number")
+  sequenceResetRule         SequenceResetRule @default(FINANCIAL_YEAR) @map("sequence_reset_rule")
+  defaultValidityDays       Int               @default(30) @map("default_validity_days")
+  defaultTaxMode            TaxMode           @default(CGST_SGST) @map("default_tax_mode")
+  defaultGstRate            Decimal           @default(18.00) @map("default_gst_rate") @db.Decimal(5, 2)
+  defaultDeliveryTerms      String?           @map("default_delivery_terms") @db.Text
+  defaultDispatchTerms      String?           @map("default_dispatch_terms") @db.Text
+  defaultPaymentTerms       String?           @map("default_payment_terms") @db.Text
+  defaultFreightTerms       String?           @map("default_freight_terms") @db.Text
+  defaultWarrantyTerms      String?           @map("default_warranty_terms") @db.Text
+  defaultRemarks            String?           @map("default_remarks") @db.Text
+  defaultTermsAndConditions String?           @map("default_terms_and_conditions") @db.LongText
+  showBankDetails           Boolean           @default(true) @map("show_bank_details")
+  showAmountInWords         Boolean           @default(true) @map("show_amount_in_words")
+  createdAt                 DateTime          @default(now()) @map("created_at")
+  updatedAt                 DateTime          @updatedAt @map("updated_at")
+  businessProfile           BusinessProfile   @relation(fields: [businessProfileId], references: [id])
+
+  @@map("quotation_settings")
+}
+
+model Company {
+  id          Int              @id @default(autoincrement())
+  companyCode String           @unique @map("company_code") @db.VarChar(50)
+  name        String           @db.VarChar(191)
+  legalName   String?          @map("legal_name") @db.VarChar(191)
+  gstin       String?          @db.VarChar(20)
+  pan         String?          @db.VarChar(20)
+  website     String?          @db.VarChar(191)
+  notes       String?          @db.Text
+  isActive    Boolean          @default(true) @map("is_active")
+  createdById Int?             @map("created_by_id")
+  updatedById Int?             @map("updated_by_id")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  deletedAt   DateTime?        @map("deleted_at")
+  createdBy   User?            @relation("CompanyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?            @relation("CompanyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  contacts    CompanyContact[]
+  addresses   CompanyAddress[]
+  quotations  Quotation[]
+
+  @@index([name])
+  @@index([gstin])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("companies")
+}
+
+model CompanyContact {
+  id             Int         @id @default(autoincrement())
+  companyId      Int         @map("company_id")
+  name           String      @db.VarChar(191)
+  designation    String?     @db.VarChar(191)
+  email          String?     @db.VarChar(191)
+  phone          String?     @db.VarChar(30)
+  alternatePhone String?     @map("alternate_phone") @db.VarChar(30)
+  isPrimary      Boolean     @default(false) @map("is_primary")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+  deletedAt      DateTime?   @map("deleted_at")
+  company        Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  quotations     Quotation[]
+
+  @@index([companyId])
+  @@map("company_contacts")
+}
+
+model CompanyAddress {
+  id                 Int         @id @default(autoincrement())
+  companyId          Int         @map("company_id")
+  addressType        AddressType @map("address_type")
+  addressLine1       String      @map("address_line_1") @db.VarChar(191)
+  addressLine2       String?     @map("address_line_2") @db.VarChar(191)
+  city               String      @db.VarChar(191)
+  state              String      @db.VarChar(191)
+  postalCode         String      @map("postal_code") @db.VarChar(20)
+  country            String      @default("India") @db.VarChar(191)
+  isPrimary          Boolean     @default(false) @map("is_primary")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+  deletedAt          DateTime?   @map("deleted_at")
+  company            Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  billingQuotations  Quotation[] @relation("QuotationBillingAddress")
+  shippingQuotations Quotation[] @relation("QuotationShippingAddress")
+
+  @@index([companyId])
+  @@index([addressType])
+  @@map("company_addresses")
+}
+
+model ItemCategory {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(191)
+  slug        String    @unique @db.VarChar(191)
+  description String?   @db.Text
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  items       Item[]
+
+  @@index([deletedAt])
+  @@map("item_categories")
+}
+
+model MeasurementUnit {
+  id           Int       @id @default(autoincrement())
+  name         String    @unique @db.VarChar(191)
+  symbol       String    @unique @db.VarChar(50)
+  allowDecimal Boolean   @default(true) @map("allow_decimal")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+  items        Item[]
+
+  @@map("measurement_units")
+}
+
+model Item {
+  id                  Int             @id @default(autoincrement())
+  itemCode            String          @unique @map("item_code") @db.VarChar(50)
+  categoryId          Int?            @map("category_id")
+  name                String          @db.VarChar(191)
+  shortDescription    String?         @map("short_description") @db.Text
+  detailedDescription String?         @map("detailed_description") @db.LongText
+  specifications      Json?
+  measurementUnitId   Int             @map("measurement_unit_id")
+  defaultRate         Decimal         @default(0.00) @map("default_rate") @db.Decimal(15, 2)
+  hsnCode             String?         @map("hsn_code") @db.VarChar(20)
+  gstRate             Decimal         @default(18.00) @map("gst_rate") @db.Decimal(5, 2)
+  imagePath           String?         @map("image_path") @db.VarChar(191)
+  sourceType          ItemSourceType  @default(MANUAL) @map("source_type")
+  sourceUrl           String?         @map("source_url") @db.VarChar(500)
+  sourceExternalId    String?         @map("source_external_id") @db.VarChar(191)
+  isActive            Boolean         @default(true) @map("is_active")
+  createdById         Int?            @map("created_by_id")
+  updatedById         Int?            @map("updated_by_id")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  deletedAt           DateTime?       @map("deleted_at")
+  category            ItemCategory?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  measurementUnit     MeasurementUnit @relation(fields: [measurementUnitId], references: [id], onDelete: Restrict)
+  createdBy           User?           @relation("ItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy           User?           @relation("ItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  quotationItems      QuotationItem[]
+
+  @@index([name])
+  @@index([categoryId])
+  @@index([measurementUnitId])
+  @@index([sourceType])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("items")
+}
+
+model Quotation {
+  id                      Int                      @id @default(autoincrement())
+  quotationNumber         String                   @unique @map("quotation_number") @db.VarChar(50)
+  revisionNumber          Int                      @default(0) @map("revision_number")
+  companyId               Int                      @map("company_id")
+  companyContactId        Int?                     @map("company_contact_id")
+  billingAddressId        Int?                     @map("billing_address_id")
+  shippingAddressId       Int?                     @map("shipping_address_id")
+  companyNameSnapshot     String                   @map("company_name_snapshot") @db.VarChar(191)
+  companyGstinSnapshot    String?                  @map("company_gstin_snapshot") @db.VarChar(20)
+  companyPanSnapshot      String?                  @map("company_pan_snapshot") @db.VarChar(20)
+  contactNameSnapshot     String?                  @map("contact_name_snapshot") @db.VarChar(191)
+  contactEmailSnapshot    String?                  @map("contact_email_snapshot") @db.VarChar(191)
+  contactPhoneSnapshot    String?                  @map("contact_phone_snapshot") @db.VarChar(30)
+  billingAddressSnapshot  Json?                    @map("billing_address_snapshot")
+  shippingAddressSnapshot Json?                    @map("shipping_address_snapshot")
+  quotationDate           DateTime                 @map("quotation_date")
+  validUntil              DateTime?                @map("valid_until")
+  customerReference       String?                  @map("customer_reference") @db.VarChar(191)
+  internalReference       String?                  @map("internal_reference") @db.VarChar(191)
+  status                  QuotationStatus          @default(DRAFT)
+  currency                String                   @default("INR") @db.VarChar(3)
+  taxMode                 TaxMode                  @default(CGST_SGST) @map("tax_mode")
+  subtotal                Decimal                  @default(0.00) @db.Decimal(15, 2)
+  itemDiscountAmount      Decimal                  @default(0.00) @map("item_discount_amount") @db.Decimal(15, 2)
+  quotationDiscountType   DiscountType             @default(NONE) @map("quotation_discount_type")
+  quotationDiscountValue  Decimal                  @default(0.00) @map("quotation_discount_value") @db.Decimal(15, 2)
+  quotationDiscountAmount Decimal                  @default(0.00) @map("quotation_discount_amount") @db.Decimal(15, 2)
+  taxableAmount           Decimal                  @default(0.00) @map("taxable_amount") @db.Decimal(15, 2)
+  cgstAmount              Decimal                  @default(0.00) @map("cgst_amount") @db.Decimal(15, 2)
+  sgstAmount              Decimal                  @default(0.00) @map("sgst_amount") @db.Decimal(15, 2)
+  igstAmount              Decimal                  @default(0.00) @map("igst_amount") @db.Decimal(15, 2)
+  freightAmount           Decimal                  @default(0.00) @map("freight_amount") @db.Decimal(15, 2)
+  freightIncluded         Boolean                  @default(false) @map("freight_included")
+  freightIsTaxable        Boolean                  @default(false) @map("freight_is_taxable")
+  otherCharges            Decimal                  @default(0.00) @map("other_charges") @db.Decimal(15, 2)
+  roundOffAmount          Decimal                  @default(0.00) @map("round_off_amount") @db.Decimal(15, 2)
+  grandTotal              Decimal                  @default(0.00) @map("grand_total") @db.Decimal(15, 2)
+  amountInWords           String?                  @map("amount_in_words") @db.Text
+  deliveryTerms           String?                  @map("delivery_terms") @db.Text
+  dispatchTerms           String?                  @map("dispatch_terms") @db.Text
+  paymentTerms            String?                  @map("payment_terms") @db.Text
+  taxTerms                String?                  @map("tax_terms") @db.Text
+  freightTerms            String?                  @map("freight_terms") @db.Text
+  warrantyTerms           String?                  @map("warranty_terms") @db.Text
+  remarks                 String?                  @db.Text
+  termsAndConditions      String?                  @map("terms_and_conditions") @db.LongText
+  internalNotes           String?                  @map("internal_notes") @db.LongText
+  createdById             Int                      @map("created_by_id")
+  updatedById             Int?                     @map("updated_by_id")
+  sentAt                  DateTime?                @map("sent_at")
+  acceptedAt              DateTime?                @map("accepted_at")
+  rejectedAt              DateTime?                @map("rejected_at")
+  completedAt             DateTime?                @map("completed_at")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  deletedAt               DateTime?                @map("deleted_at")
+  company                 Company                  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  companyContact          CompanyContact?          @relation(fields: [companyContactId], references: [id], onDelete: SetNull)
+  billingAddress          CompanyAddress?          @relation("QuotationBillingAddress", fields: [billingAddressId], references: [id], onDelete: SetNull)
+  shippingAddress         CompanyAddress?          @relation("QuotationShippingAddress", fields: [shippingAddressId], references: [id], onDelete: SetNull)
+  createdBy               User                     @relation("QuotationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy               User?                    @relation("QuotationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  items                   QuotationItem[]
+  statusHistory           QuotationStatusHistory[]
+  versions                QuotationVersion[]
+  attachments             QuotationAttachment[]
+  generatedDocuments      GeneratedDocument[]
+
+  @@index([quotationDate])
+  @@index([status])
+  @@index([companyId])
+  @@index([createdById])
+  @@index([deletedAt])
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id                      Int          @id @default(autoincrement())
+  quotationId             Int          @map("quotation_id")
+  itemId                  Int?         @map("item_id")
+  lineNumber              Int          @map("line_number")
+  itemCodeSnapshot        String?      @map("item_code_snapshot") @db.VarChar(50)
+  itemNameSnapshot        String       @map("item_name_snapshot") @db.VarChar(191)
+  descriptionSnapshot     String?      @map("description_snapshot") @db.LongText
+  specificationsSnapshot  Json?        @map("specifications_snapshot")
+  measurementUnitSnapshot String       @map("measurement_unit_snapshot") @db.VarChar(50)
+  quantity                Decimal      @default(1.000) @db.Decimal(15, 3)
+  unitRate                Decimal      @default(0.00) @map("unit_rate") @db.Decimal(15, 2)
+  discountType            DiscountType @default(NONE) @map("discount_type")
+  discountValue           Decimal      @default(0.00) @map("discount_value") @db.Decimal(15, 2)
+  discountAmount          Decimal      @default(0.00) @map("discount_amount") @db.Decimal(15, 2)
+  gstRate                 Decimal      @default(18.00) @map("gst_rate") @db.Decimal(5, 2)
+  baseAmount              Decimal      @default(0.00) @map("base_amount") @db.Decimal(15, 2)
+  taxableAmount           Decimal      @default(0.00) @map("taxable_amount") @db.Decimal(15, 2)
+  taxAmount               Decimal      @default(0.00) @map("tax_amount") @db.Decimal(15, 2)
+  lineTotal               Decimal      @default(0.00) @map("line_total") @db.Decimal(15, 2)
+  sortOrder               Int          @default(0) @map("sort_order")
+  createdAt               DateTime     @default(now()) @map("created_at")
+  updatedAt               DateTime     @updatedAt @map("updated_at")
+  quotation               Quotation    @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  item                    Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@unique([quotationId, lineNumber])
+  @@index([quotationId, sortOrder])
+  @@map("quotation_items")
+}
+
+model QuotationStatusHistory {
+  id          Int              @id @default(autoincrement())
+  quotationId Int              @map("quotation_id")
+  fromStatus  QuotationStatus? @map("from_status")
+  toStatus    QuotationStatus  @map("to_status")
+  comment     String?          @db.Text
+  changedById Int              @map("changed_by_id")
+  changedAt   DateTime         @default(now()) @map("changed_at")
+  quotation   Quotation        @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  changedBy   User             @relation("QuotationStatusChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([quotationId])
+  @@index([changedById])
+  @@map("quotation_status_history")
+}
+
+model QuotationVersion {
+  id            Int       @id @default(autoincrement())
+  quotationId   Int       @map("quotation_id")
+  versionNumber Int       @map("version_number")
+  snapshot      Json
+  createdById   Int       @map("created_by_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  quotation     Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  createdBy     User      @relation("QuotationVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([quotationId, versionNumber])
+  @@map("quotation_versions")
+}
+
+model QuotationAttachment {
+  id               Int       @id @default(autoincrement())
+  quotationId      Int       @map("quotation_id")
+  originalFilename String    @map("original_filename") @db.VarChar(191)
+  storedFilename   String    @map("stored_filename") @db.VarChar(191)
+  filePath         String    @map("file_path") @db.VarChar(500)
+  mimeType         String    @map("mime_type") @db.VarChar(100)
+  fileSize         BigInt    @map("file_size")
+  uploadedById     Int       @map("uploaded_by_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  deletedAt        DateTime? @map("deleted_at")
+  quotation        Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  uploadedBy       User      @relation("QuotationAttachmentUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([quotationId])
+  @@map("quotation_attachments")
+}
+
+model GeneratedDocument {
+  id            Int          @id @default(autoincrement())
+  quotationId   Int          @map("quotation_id")
+  versionNumber Int          @map("version_number")
+  documentType  DocumentType @default(QUOTATION_PDF) @map("document_type")
+  filePath      String       @map("file_path") @db.VarChar(500)
+  fileHash      String?      @map("file_hash") @db.VarChar(191)
+  generatedById Int          @map("generated_by_id")
+  generatedAt   DateTime     @default(now()) @map("generated_at")
+  quotation     Quotation    @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  generatedBy   User         @relation("GeneratedDocumentGeneratedBy", fields: [generatedById], references: [id], onDelete: Restrict)
+
+  @@index([quotationId])
+  @@map("generated_documents")
+}
+
+model TermsTemplate {
+  id        Int       @id @default(autoincrement())
+  name      String    @db.VarChar(191)
+  termType  TermType  @map("term_type")
+  content   String    @db.LongText
+  isDefault Boolean   @default(false) @map("is_default")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([termType])
+  @@map("terms_templates")
+}
+
+model ImportBatch {
+  id                Int               @id @default(autoincrement())
+  sourceType        ItemSourceType    @map("source_type")
+  sourceUrl         String?           @map("source_url") @db.VarChar(500)
+  status            ImportBatchStatus @default(PENDING)
+  totalRecords      Int               @default(0) @map("total_records")
+  successfulRecords Int               @default(0) @map("successful_records")
+  failedRecords     Int               @default(0) @map("failed_records")
+  startedById       Int               @map("started_by_id")
+  startedAt         DateTime          @default(now()) @map("started_at")
+  completedAt       DateTime?         @map("completed_at")
+  errorSummary      String?           @map("error_summary") @db.Text
+  startedBy         User              @relation("ImportBatchStartedBy", fields: [startedById], references: [id], onDelete: Restrict)
+  rows              ImportRow[]
+
+  @@index([status])
+  @@map("import_batches")
+}
+
+model ImportRow {
+  id               Int             @id @default(autoincrement())
+  importBatchId    Int             @map("import_batch_id")
+  sourceIdentifier String?         @map("source_identifier") @db.VarChar(191)
+  rawData          Json            @map("raw_data")
+  processedData    Json?           @map("processed_data")
+  status           ImportRowStatus @default(PENDING)
+  errorMessage     String?         @map("error_message") @db.Text
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  importBatch      ImportBatch     @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
+  @@index([importBatchId])
+  @@index([status])
+  @@map("import_rows")
+}
+
+model AuditLog {
+  id         Int         @id @default(autoincrement())
+  userId     Int?        @map("user_id")
+  entityType String      @map("entity_type") @db.VarChar(100)
+  entityId   String      @map("entity_id") @db.VarChar(191)
+  action     AuditAction
+  oldValues  Json?       @map("old_values")
+  newValues  Json?       @map("new_values")
+  ipAddress  String?     @map("ip_address") @db.VarChar(45)
+  userAgent  String?     @map("user_agent") @db.Text
+  createdAt  DateTime    @default(now()) @map("created_at")
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

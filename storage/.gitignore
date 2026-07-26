@@ -1,0 +1,8 @@
+*
+!.gitignore
+!logos/
+!signatures/
+!stamps/
+!logos/.gitkeep
+!signatures/.gitkeep
+!stamps/.gitkeep
