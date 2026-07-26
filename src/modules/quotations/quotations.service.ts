@@ -3,6 +3,12 @@ import { AuditAction, Prisma, QuotationStatus, type PrismaClient } from '@prisma
 import { AppError } from '../../utils/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../utils/auditLog.js';
 import { calculateQuotationTotals } from './quotation-calculation.service.js';
+import {
+  isValidUntilBeforeQuotationDate,
+  parseDateOnlyToUtcDate,
+  serialiseDateOnly,
+  VALID_UNTIL_DATE_MESSAGE,
+} from './quotation-dates.js';
 import { generateUniqueQuotationNumber } from './quotation-number.service.js';
 import {
   deriveCompanySnapshots,
@@ -57,12 +63,10 @@ export class QuotationsService {
       items: validatedItems,
     });
 
-    const quotationDate = new Date(input.quotationDate);
-    const validUntil = input.validUntil ? new Date(input.validUntil) : null;
+    const quotationDate = parseDateOnlyToUtcDate(input.quotationDate);
+    const validUntil = input.validUntil ? parseDateOnlyToUtcDate(input.validUntil) : null;
 
-    if (validUntil && validUntil < quotationDate) {
-      throw new AppError('ValidUntil date cannot be earlier than quotation date.', 400);
-    }
+    validateValidUntilDate(quotationDate, validUntil);
 
     const newQuotation = await this.db.$transaction(async (tx) => {
       const quotationNumber = await generateUniqueQuotationNumber(tx, this.db, quotationDate);
@@ -349,13 +353,15 @@ export class QuotationsService {
       items: validatedItems,
     });
 
-    const quotationDate = input.quotationDate ? new Date(input.quotationDate) : existing.quotationDate;
+    const quotationDate = input.quotationDate ? parseDateOnlyToUtcDate(input.quotationDate) : existing.quotationDate;
     const validUntil =
       input.validUntil !== undefined
         ? input.validUntil
-          ? new Date(input.validUntil)
+          ? parseDateOnlyToUtcDate(input.validUntil)
           : null
         : existing.validUntil;
+
+    validateValidUntilDate(quotationDate, validUntil);
 
     await this.db.$transaction(async (tx) => {
       await createQuotationVersion(tx, existing.id, existing, userId);
@@ -527,6 +533,18 @@ export class QuotationsService {
       entityId: String(existing.id),
       action: AuditAction.DELETE,
       oldValues: { quotationNumber: existing.quotationNumber },
+    });
+  }
+}
+
+function validateValidUntilDate(quotationDate: Date, validUntil: Date | null) {
+  if (!validUntil) return;
+
+  if (isValidUntilBeforeQuotationDate(serialiseDateOnly(validUntil), serialiseDateOnly(quotationDate))) {
+    throw new AppError(VALID_UNTIL_DATE_MESSAGE, 400, {
+      fieldErrors: {
+        validUntil: VALID_UNTIL_DATE_MESSAGE,
+      },
     });
   }
 }

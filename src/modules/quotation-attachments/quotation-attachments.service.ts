@@ -144,7 +144,7 @@ export async function createQuotationAttachmentService(
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError(error instanceof Error ? error.message : 'Failed to save attachment', 500);
+    throw new AppError('The attachment could not be saved. Please try uploading it again.', 500);
   }
 }
 

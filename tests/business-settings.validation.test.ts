@@ -36,6 +36,20 @@ describe('business settings validation', () => {
     });
   });
 
+  it('normalises empty nullable quotation terms to null for explicit clearing', () => {
+    expect(quotationSettingsUpdateSchema.parse({
+      defaultDeliveryTerms: '',
+      defaultWarrantyTerms: '  ',
+      defaultRemarks: ' Keep line breaks\nwhen provided ',
+    })).toMatchObject({
+      defaultDeliveryTerms: null,
+      defaultWarrantyTerms: null,
+      defaultRemarks: 'Keep line breaks\nwhen provided',
+    });
+
+    expect(quotationSettingsUpdateSchema.parse({})).not.toHaveProperty('defaultDeliveryTerms');
+  });
+
   it('keeps bank account numbers as strings and masks them for audit metadata', () => {
     const input = bankDetailCreateSchema.parse({
       bankName: 'HDFC Bank',
@@ -48,6 +62,32 @@ describe('business settings validation', () => {
     expect(input.accountNumber).toBe('0012 3456 7890');
     expect(input.ifscCode).toBe('HDFC0001234');
     expect(maskAccountNumber(input.accountNumber)).toBe('**********7890');
+  });
+
+  it('keeps IFSC optional but normalises and validates provided values', () => {
+    expect(bankDetailCreateSchema.parse({
+      bankName: 'HDFC Bank',
+      accountName: 'Buminex',
+      accountNumber: '001234567890',
+      ifscCode: '',
+      isDefault: false,
+    }).ifscCode).toBeUndefined();
+
+    expect(bankDetailCreateSchema.parse({
+      bankName: 'Bank of Baroda',
+      accountName: 'Buminex',
+      accountNumber: '001234567890',
+      ifscCode: ' barb0ahmeda ',
+      isDefault: false,
+    }).ifscCode).toBe('BARB0AHMEDA');
+
+    expect(() => bankDetailCreateSchema.parse({
+      bankName: 'HDFC Bank',
+      accountName: 'Buminex',
+      accountNumber: '001234567890',
+      ifscCode: 'BAD',
+      isDefault: false,
+    })).toThrow('Enter a valid 11-character IFSC code, for example BARB0AHMEDA.');
   });
 
   it('accepts JPEG, PNG and WebP uploads and rejects unsafe types or oversized files', () => {

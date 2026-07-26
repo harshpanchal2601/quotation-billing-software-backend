@@ -54,7 +54,7 @@ export function uploadQuotationAttachmentController(
         if (multerError.code === 'LIMIT_FILE_SIZE') {
           return next(new AppError('File size exceeds maximum limit of 20 MB', 413));
         }
-        return next(new AppError(multerError.message, 400));
+        return next(new AppError('The attachment could not be uploaded. Please choose a supported file and try again.', 400));
       }
       return next(multerError);
     }

@@ -91,7 +91,7 @@ export function handleMulterError(error: unknown) {
     if (error.code === 'LIMIT_FILE_SIZE') {
       return new AppError('Item image exceeds the 5 MB limit', 413);
     }
-    return new AppError(`Upload error: ${error.message}`, 400);
+    return new AppError('The image could not be uploaded. Please choose a supported image and try again.', 400);
   }
   return error;
 }

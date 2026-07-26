@@ -27,7 +27,7 @@ export const measurementUnitListQuerySchema = z.object({
 export const measurementUnitCreateSchema = z
   .object({
     name: z.string().trim().min(2).max(191),
-    symbol: z.string().trim().min(1).max(20),
+    symbol: z.string().trim().min(1).max(50),
     allowDecimal: z.boolean().default(true),
     isActive: z.boolean().default(true),
   })
@@ -36,7 +36,7 @@ export const measurementUnitCreateSchema = z
 export const measurementUnitUpdateSchema = z
   .object({
     name: z.string().trim().min(2).max(191).optional(),
-    symbol: z.string().trim().min(1).max(20).optional(),
+    symbol: z.string().trim().min(1).max(50).optional(),
     allowDecimal: z.boolean().optional(),
     isActive: z.boolean().optional(),
   })

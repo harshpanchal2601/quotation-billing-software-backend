@@ -65,7 +65,10 @@ const decimalPercentSchema = z
   .transform((value) => String(value).trim())
   .refine((value) => /^(?:100(?:\.00?)?|\d{1,2}(?:\.\d{1,2})?)$/.test(value), 'GST rate must be 0 to 100 with up to two decimals');
 
-const termSchema = z.preprocess(emptyToUndefined, z.string().trim().max(5000).optional());
+const emptyToNull = (value: unknown) =>
+  typeof value === 'string' && value.trim().length === 0 ? null : value;
+
+const termSchema = z.preprocess(emptyToNull, z.string().trim().max(5000).nullable().optional());
 
 export const quotationSettingsUpdateSchema = z
   .object({
@@ -87,7 +90,7 @@ export const quotationSettingsUpdateSchema = z
     defaultDispatchTerms: termSchema,
     defaultPaymentTerms: termSchema,
     defaultFreightTerms: termSchema,
-    defaultWarrantyTerms: z.string().trim().max(5000).optional(),
+    defaultWarrantyTerms: termSchema,
     defaultRemarks: termSchema,
     defaultTermsAndConditions: termSchema,
     showBankDetails: z.boolean().optional(),
@@ -102,6 +105,8 @@ const bankAccountSchema = z
   .max(50)
   .regex(/^[A-Za-z0-9 -]+$/, 'Invalid account number');
 
+const ifscMessage = 'Enter a valid 11-character IFSC code, for example BARB0AHMEDA.';
+
 export const bankDetailCreateSchema = z
   .object({
     bankName: z.string().trim().min(2).max(191),
@@ -110,7 +115,7 @@ export const bankDetailCreateSchema = z
     accountType: optionalTrimmedString(50),
     ifscCode: z.preprocess(
       emptyToUndefined,
-      z.string().trim().toUpperCase().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC').optional(),
+      z.string().trim().toUpperCase().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, ifscMessage).optional(),
     ),
     branchName: optionalTrimmedString(191),
     swiftCode: z.preprocess(

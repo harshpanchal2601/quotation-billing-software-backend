@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { calculateQuotationTotals } from '../src/modules/quotations/quotation-calculation.service.js';
 import { validateStatusTransition } from '../src/modules/quotations/quotation-status.service.js';
 import { QuotationsService } from '../src/modules/quotations/quotations.service.js';
+import { calculationPreviewSchema, quotationCreateSchema } from '../src/modules/quotations/quotations.validation.js';
 
 type MockPrisma = {
   quotation: {
@@ -421,6 +422,73 @@ describe('quotations service', () => {
     });
   });
 
+  it('rejects quotation creation when Valid Until is earlier than Quotation Date', () => {
+    const result = quotationCreateSchema.safeParse({
+      companyId: 1,
+      quotationDate: '2026-04-20',
+      validUntil: '2026-04-19',
+      items: [{ itemName: 'Custom Reactor', quantity: 1, unitRate: 1000 }],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.validUntil).toContain(
+        'Valid Until cannot be earlier than the Quotation Date.',
+      );
+    }
+  });
+
+  it('rejects impossible non-date-only quotation dates', () => {
+    const result = quotationCreateSchema.safeParse({
+      companyId: 1,
+      quotationDate: '2026-02-31',
+      validUntil: '2026-03-05',
+      items: [{ itemName: 'Custom Reactor', quantity: 1, unitRate: 1000 }],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.quotationDate).toContain('Valid quotation date is required');
+    }
+  });
+
+  it('rejects calculation preview payloads without a valid rate and item identity', () => {
+    const result = calculationPreviewSchema.safeParse({
+      taxMode: TaxMode.CGST_SGST,
+      items: [{ quantity: 1, unitRate: 0 }],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join('.'))).toEqual(
+        expect.arrayContaining(['items.0.unitRate', 'items.0.itemName']),
+      );
+    }
+  });
+
+  it('rejects draft updates when changing only quotation date would invalidate stored Valid Until', async () => {
+    const existingQuotation = mockDraftQuotation({
+      quotationDate: new Date('2026-04-15T00:00:00.000Z'),
+      validUntil: new Date('2026-04-20T00:00:00.000Z'),
+    });
+    db.quotation.findFirst.mockResolvedValue(existingQuotation);
+    db.company.findFirst.mockResolvedValue(mockCompany());
+
+    const service = new QuotationsService(asPrisma(db));
+
+    await expect(
+      service.updateQuotation(1, { quotationDate: '2026-04-25' }, { userId: 1 }, 1),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'Valid Until cannot be earlier than the Quotation Date.',
+      details: {
+        fieldErrors: {
+          validUntil: 'Valid Until cannot be earlier than the Quotation Date.',
+        },
+      },
+    });
+  });
+
   it('rejects soft-deleting non-draft quotation', async () => {
     const sentQuotation = {
       id: 1,
@@ -437,3 +505,75 @@ describe('quotations service', () => {
     });
   });
 });
+
+function mockDraftQuotation(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 1,
+    quotationNumber: 'BUMINEX/2026-27/000001',
+    revisionNumber: 0,
+    status: QuotationStatus.DRAFT,
+    companyId: 1,
+    companyContactId: null,
+    billingAddressId: null,
+    shippingAddressId: null,
+    companyNameSnapshot: 'Mankind Pharma',
+    companyGstinSnapshot: '24AAAAA0000A1Z5',
+    companyPanSnapshot: 'AAAAA0000A',
+    contactNameSnapshot: null,
+    contactEmailSnapshot: null,
+    contactPhoneSnapshot: null,
+    billingAddressSnapshot: null,
+    shippingAddressSnapshot: null,
+    quotationDate: now,
+    validUntil: null,
+    customerReference: null,
+    internalReference: null,
+    currency: 'INR',
+    taxMode: TaxMode.CGST_SGST,
+    subtotal: new Prisma.Decimal('1000.00'),
+    itemDiscountAmount: new Prisma.Decimal('0.00'),
+    quotationDiscountType: DiscountType.NONE,
+    quotationDiscountValue: new Prisma.Decimal('0.00'),
+    quotationDiscountAmount: new Prisma.Decimal('0.00'),
+    taxableAmount: new Prisma.Decimal('1000.00'),
+    cgstAmount: new Prisma.Decimal('90.00'),
+    sgstAmount: new Prisma.Decimal('90.00'),
+    igstAmount: new Prisma.Decimal('0.00'),
+    freightAmount: new Prisma.Decimal('0.00'),
+    otherCharges: new Prisma.Decimal('0.00'),
+    roundOffAmount: new Prisma.Decimal('0.00'),
+    grandTotal: new Prisma.Decimal('1180.00'),
+    amountInWords: 'One Thousand One Hundred Eighty Rupees Only',
+    deliveryTerms: null,
+    dispatchTerms: null,
+    paymentTerms: null,
+    taxTerms: null,
+    freightTerms: null,
+    warrantyTerms: null,
+    remarks: null,
+    termsAndConditions: null,
+    internalNotes: null,
+    createdById: 1,
+    updatedById: null,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+    items: [
+      {
+        itemId: null,
+        lineNumber: 1,
+        itemNameSnapshot: 'Custom Reactor',
+        descriptionSnapshot: null,
+        specificationsSnapshot: null,
+        measurementUnitSnapshot: 'NOS',
+        quantity: new Prisma.Decimal('1.000'),
+        unitRate: new Prisma.Decimal('1000.00'),
+        discountType: DiscountType.NONE,
+        discountValue: new Prisma.Decimal('0.00'),
+        gstRate: new Prisma.Decimal('18.00'),
+        sortOrder: 0,
+      },
+    ],
+    ...overrides,
+  };
+}

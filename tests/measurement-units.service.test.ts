@@ -2,6 +2,7 @@ import type { MeasurementUnit, PrismaClient } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MeasurementUnitsService } from '../src/modules/measurement-units/measurement-units.service.js';
+import { measurementUnitCreateSchema } from '../src/modules/measurement-units/measurement-units.validation.js';
 
 type MockPrisma = {
   measurementUnit: {
@@ -93,6 +94,24 @@ describe('measurement units service', () => {
       data: expect.objectContaining({ name: 'Square Meter', symbol: 'm²' }),
       include: expect.any(Object),
     });
+  });
+
+  it('validates measurement unit symbols against the database length contract', () => {
+    const fiftyCharacterSymbol = 'A'.repeat(50);
+
+    expect(measurementUnitCreateSchema.parse({
+      name: 'Long Symbol Unit',
+      symbol: fiftyCharacterSymbol,
+      allowDecimal: true,
+      isActive: true,
+    }).symbol).toBe(fiftyCharacterSymbol);
+
+    expect(() => measurementUnitCreateSchema.parse({
+      name: 'Too Long Symbol Unit',
+      symbol: 'A'.repeat(51),
+      allowDecimal: true,
+      isActive: true,
+    })).toThrow();
   });
 
   it('returns a 409 conflict when creating a duplicate unit name or symbol', async () => {
