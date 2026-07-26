@@ -130,4 +130,13 @@ describe('quotation PDF template and document security', () => {
     const escapedName = escapeHtml('John & Jane');
     expect(escapedName).toBe('John &amp; Jane');
   });
+
+  it('renders the saved quotation revision number separately from generated document versions', () => {
+    const html = renderQuotationHtmlTemplate({
+      ...mockViewModel,
+      revisionNumber: 2,
+    });
+
+    expect(html).toContain('Revision:</strong> #2');
+  });
 });

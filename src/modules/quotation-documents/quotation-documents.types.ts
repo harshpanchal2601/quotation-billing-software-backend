@@ -49,11 +49,54 @@ export type SendQuotationEmailInput = {
 };
 
 export type SendQuotationEmailResponse = {
+  communicationId: number;
   quotationId: number;
   generatedDocumentId: number;
+  status: 'ACCEPTED';
   recipientCount: number;
   attachmentCount: number;
   acceptedAt: string;
+  quotationStatusAfter: string;
+  statusTransitioned: boolean;
+  message: string;
+};
+
+export type QuotationCommunicationHistoryItemDto = {
+  id: number;
+  quotationId: number;
+  generatedDocumentId: number | null;
+  quotationRevisionNumber: number | null;
+  communicationType: string;
+  status: 'PENDING' | 'ACCEPTED' | 'FAILED';
+  attemptNumber: number;
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  subject: string;
+  message: string;
+  document: unknown;
+  attachments: unknown;
+  providerMessageId: string | null;
+  failureCategory: string | null;
+  failureSummary: string | null;
+  createdAt: string;
+  acceptedAt: string | null;
+  failedAt: string | null;
+  sender: {
+    id: number;
+    name: string;
+    email: string;
+  } | null;
+};
+
+export type QuotationCommunicationHistoryResponse = {
+  communications: QuotationCommunicationHistoryItemDto[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 };
 
 export type QuotationPdfViewModel = {

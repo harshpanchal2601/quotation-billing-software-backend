@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { AppError } from '../../utils/AppError.js';
 import {
   getGeneratedDocumentHistoryService,
+  getQuotationCommunicationHistoryService,
   sendQuotationEmailService,
 } from './quotation-email.service.js';
 import { validateSendQuotationEmailInput } from './quotation-email.validation.js';
@@ -58,7 +59,30 @@ export async function sendQuotationEmailController(
 
     res.status(200).json({
       success: true,
-      message: 'Quotation email sent successfully',
+      message: result.message,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getQuotationCommunicationHistoryController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const quotationId = parseId(req.params.quotationId, 'quotation ID');
+    const result = await getQuotationCommunicationHistoryService(quotationId, {
+      page: Number(req.query.page) || 1,
+      limit: Number(req.query.limit) || 20,
+      sortOrder: req.query.sortOrder === 'asc' ? 'asc' : 'desc',
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Quotation communication history retrieved successfully',
       data: result,
     });
   } catch (error) {

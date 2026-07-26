@@ -166,6 +166,12 @@ export async function generateQuotationPdfService(
 
   // Calculate SHA256 file hash
   const fileHash = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
+  const documentVersionNumber = await prisma.generatedDocument.count({
+    where: {
+      quotationId: quotation.id,
+      documentType: DocumentType.QUOTATION_PDF,
+    },
+  }) + 1;
 
   // 6. Record GeneratedDocument in database
   let generatedDoc;
@@ -173,7 +179,7 @@ export async function generateQuotationPdfService(
     generatedDoc = await prisma.generatedDocument.create({
       data: {
         quotationId: quotation.id,
-        versionNumber: quotation.revisionNumber,
+        versionNumber: documentVersionNumber,
         documentType: DocumentType.QUOTATION_PDF,
         filePath: relativeFilePath,
         fileHash,

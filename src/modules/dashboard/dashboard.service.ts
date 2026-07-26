@@ -135,6 +135,7 @@ export async function getDashboardOverviewService(
     prisma.quotation.findMany({
       where: {
         deletedAt: null,
+        isLatestRevision: true,
         quotationDate: {
           gte: startBound,
           lte: endBound,
@@ -177,6 +178,7 @@ export async function getDashboardOverviewService(
       return prisma.quotation.findMany({
         where: {
           deletedAt: null,
+          isLatestRevision: true,
           status: { in: OPEN_STATUSES },
           validUntil: {
             gte: startToday,

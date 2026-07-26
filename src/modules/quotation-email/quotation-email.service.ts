@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { AuditAction } from '@prisma/client';
+import { AuditAction, CommunicationStatus, CommunicationType, Prisma, QuotationStatus } from '@prisma/client';
 
 import { prisma } from '../../config/database.js';
 import { env } from '../../config/env.js';
@@ -10,9 +10,12 @@ import { ATTACHMENT_STORAGE_DIR, STORAGE_ROOT as ATTACHMENT_STORAGE_ROOT } from 
 import type {
   GeneratedDocumentHistoryItemDto,
   GeneratedDocumentHistoryResponse,
+  QuotationCommunicationHistoryItemDto,
+  QuotationCommunicationHistoryResponse,
   SendQuotationEmailInput,
   SendQuotationEmailResponse,
 } from '../quotation-documents/quotation-documents.types.js';
+import { getStatusTimestampUpdate, validateStatusTransition } from '../quotations/quotation-status.service.js';
 import { getMailTransporter } from './mail-transport.service.js';
 import { buildQuotationEmailContent } from './quotation-email-template.js';
 
@@ -22,6 +25,96 @@ const MAX_TOTAL_ATTACHMENT_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 
 function sanitiseFilename(filename: string): string {
   return filename.replace(/["\r\n/\\]/g, '_');
+}
+
+function normaliseRecipientBuckets(input: SendQuotationEmailInput) {
+  const seen = new Set<string>();
+
+  const uniqueForBucket = (values: string[] | undefined) => {
+    const result: string[] = [];
+    for (const value of values ?? []) {
+      const normalised = value.trim().toLowerCase();
+      if (!normalised || seen.has(normalised)) continue;
+      seen.add(normalised);
+      result.push(normalised);
+    }
+    return result;
+  };
+
+  return {
+    to: uniqueForBucket(input.to),
+    cc: uniqueForBucket(input.cc),
+    bcc: uniqueForBucket(input.bcc),
+  };
+}
+
+function safeFailureSummary(error: unknown): { category: string; summary: string } {
+  if (error instanceof AppError) {
+    return { category: `HTTP_${error.statusCode}`, summary: error.message };
+  }
+
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: unknown }).code)
+    : 'SMTP_ERROR';
+
+  return {
+    category: code.slice(0, 100),
+    summary: 'Email server did not accept the message. Please check SMTP settings or recipient addresses.',
+  };
+}
+
+function getProviderMessageId(info: unknown): string | null {
+  if (typeof info === 'object' && info !== null && 'messageId' in info) {
+    const messageId = (info as { messageId?: unknown }).messageId;
+    if (typeof messageId === 'string' && messageId.trim()) {
+      return messageId.slice(0, 191);
+    }
+  }
+  return null;
+}
+
+function serialiseCommunication(
+  communication: Prisma.QuotationCommunicationGetPayload<{
+    include: {
+      sender: { select: { id: true; name: true; email: true } };
+      generatedDocument: { select: { id: true; versionNumber: true; generatedAt: true } };
+    };
+  }>,
+): QuotationCommunicationHistoryItemDto {
+  return {
+    id: communication.id,
+    quotationId: communication.quotationId,
+    generatedDocumentId: communication.generatedDocumentId,
+    quotationRevisionNumber:
+      typeof communication.documentSnapshot === 'object' &&
+      communication.documentSnapshot !== null &&
+      'quotationRevisionNumber' in communication.documentSnapshot
+        ? Number((communication.documentSnapshot as { quotationRevisionNumber?: unknown }).quotationRevisionNumber)
+        : null,
+    communicationType: communication.communicationType,
+    status: communication.status,
+    attemptNumber: communication.attemptNumber,
+    to: Array.isArray(communication.toRecipients) ? communication.toRecipients.map(String) : [],
+    cc: Array.isArray(communication.ccRecipients) ? communication.ccRecipients.map(String) : [],
+    bcc: Array.isArray(communication.bccRecipients) ? communication.bccRecipients.map(String) : [],
+    subject: communication.subjectSnapshot,
+    message: communication.messageSnapshot,
+    document: communication.documentSnapshot,
+    attachments: communication.attachmentSnapshots,
+    providerMessageId: communication.providerMessageId,
+    failureCategory: communication.failureCategory,
+    failureSummary: communication.failureSummary,
+    createdAt: communication.createdAt.toISOString(),
+    acceptedAt: communication.acceptedAt?.toISOString() ?? null,
+    failedAt: communication.failedAt?.toISOString() ?? null,
+    sender: communication.sender
+      ? {
+          id: communication.sender.id,
+          name: communication.sender.name,
+          email: communication.sender.email,
+        }
+      : null,
+  };
 }
 
 export async function getGeneratedDocumentHistoryService(
@@ -99,6 +192,49 @@ export async function getGeneratedDocumentHistoryService(
   };
 }
 
+export async function getQuotationCommunicationHistoryService(
+  quotationId: number,
+  query: { page?: number; limit?: number; sortOrder?: 'asc' | 'desc' },
+): Promise<QuotationCommunicationHistoryResponse> {
+  const quotation = await prisma.quotation.findFirst({
+    where: { id: quotationId, deletedAt: null },
+    select: { id: true },
+  });
+
+  if (!quotation) {
+    throw new AppError('Quotation not found', 404);
+  }
+
+  const page = Math.max(1, Number(query.page) || 1);
+  const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+  const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
+  const skip = (page - 1) * limit;
+
+  const [total, communications] = await Promise.all([
+    prisma.quotationCommunication.count({ where: { quotationId } }),
+    prisma.quotationCommunication.findMany({
+      where: { quotationId },
+      orderBy: { createdAt: sortOrder },
+      skip,
+      take: limit,
+      include: {
+        sender: { select: { id: true, name: true, email: true } },
+        generatedDocument: { select: { id: true, versionNumber: true, generatedAt: true } },
+      },
+    }),
+  ]);
+
+  return {
+    communications: communications.map(serialiseCommunication),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+  };
+}
+
 export async function sendQuotationEmailService(
   quotationId: number,
   input: SendQuotationEmailInput,
@@ -107,16 +243,30 @@ export async function sendQuotationEmailService(
 ): Promise<SendQuotationEmailResponse> {
   const quotation = await prisma.quotation.findFirst({
     where: { id: quotationId, deletedAt: null },
-    select: { id: true, quotationNumber: true, status: true },
+    select: { id: true, quotationNumber: true, revisionNumber: true, status: true, isLatestRevision: true },
   });
 
   if (!quotation) {
     throw new AppError('Quotation not found', 404);
   }
 
+  if (
+    !quotation.isLatestRevision &&
+    (quotation.status === QuotationStatus.DRAFT || quotation.status === QuotationStatus.PENDING)
+  ) {
+    throw new AppError('Only the latest draft or pending quotation revision can be emailed.', 409);
+  }
+
+  const recipients = normaliseRecipientBuckets(input);
+
+  if (recipients.to.length === 0) {
+    throw new AppError('At least one primary recipient (To) email address is required', 400);
+  }
+
   // 1. Fetch & validate Generated Document
   const document = await prisma.generatedDocument.findFirst({
     where: { id: input.generatedDocumentId, quotationId, documentType: 'QUOTATION_PDF' },
+    include: { generatedBy: { select: { id: true, name: true } } },
   });
 
   if (!document) {
@@ -136,10 +286,21 @@ export async function sendQuotationEmailService(
   }
 
   let totalSizeBytes = pdfStat.size;
+  const safePdfName = `Quotation-${quotation.quotationNumber.replace(/[/\\\\]/g, '-')}.pdf`;
+  const documentSnapshot = {
+    id: document.id,
+    versionNumber: document.versionNumber,
+    documentType: document.documentType,
+    displayFilename: safePdfName,
+    generatedAt: document.generatedAt.toISOString(),
+    quotationRevisionNumber: quotation.revisionNumber,
+    generatedBy: document.generatedBy ? { id: document.generatedBy.id, name: document.generatedBy.name } : null,
+  };
 
   // 2. Fetch & validate selected quotation attachments
   const attachmentIds = input.attachmentIds || [];
   const selectedAttachments: Array<{ id: number; fullPath: string; originalFilename: string; mimeType: string; size: number }> = [];
+  const selectedAttachmentSnapshots: Array<{ id: number; originalFilename: string; mimeType: string; fileSize: number }> = [];
 
   if (attachmentIds.length > 0) {
     const fetchedAttachments = await prisma.quotationAttachment.findMany({
@@ -169,6 +330,12 @@ export async function sendQuotationEmailService(
           mimeType: att.mimeType,
           size: attStat.size,
         });
+        selectedAttachmentSnapshots.push({
+          id: att.id,
+          originalFilename: att.originalFilename,
+          mimeType: att.mimeType,
+          fileSize: attStat.size,
+        });
       } catch {
         throw new AppError(`Attachment file "${att.originalFilename}" is missing from storage`, 404);
       }
@@ -197,8 +364,6 @@ export async function sendQuotationEmailService(
     messageText: input.message,
   });
 
-  const safePdfName = `Quotation-${quotation.quotationNumber.replace(/[/\\\\]/g, '-')}.pdf`;
-
   const emailAttachments = [
     {
       filename: safePdfName,
@@ -212,12 +377,32 @@ export async function sendQuotationEmailService(
     })),
   ];
 
+  const attemptNumber = await prisma.quotationCommunication.count({ where: { quotationId } }) + 1;
+  const attempt = await prisma.quotationCommunication.create({
+    data: {
+      quotationId,
+      generatedDocumentId: document.id,
+      senderUserId: userId,
+      communicationType: CommunicationType.QUOTATION_EMAIL,
+      status: CommunicationStatus.PENDING,
+      attemptNumber,
+      toRecipients: recipients.to as Prisma.InputJsonValue,
+      ccRecipients: recipients.cc as Prisma.InputJsonValue,
+      bccRecipients: recipients.bcc as Prisma.InputJsonValue,
+      subjectSnapshot: input.subject,
+      messageSnapshot: input.message,
+      documentSnapshot: documentSnapshot as Prisma.InputJsonValue,
+      attachmentSnapshots: selectedAttachmentSnapshots as Prisma.InputJsonValue,
+    },
+  });
+
+  let sendInfo: unknown;
   try {
-    await transporter.sendMail({
+    sendInfo = await transporter.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
-      to: input.to.join(', '),
-      cc: input.cc && input.cc.length > 0 ? input.cc.join(', ') : undefined,
-      bcc: input.bcc && input.bcc.length > 0 ? input.bcc.join(', ') : undefined,
+      to: recipients.to.join(', '),
+      cc: recipients.cc.length > 0 ? recipients.cc.join(', ') : undefined,
+      bcc: recipients.bcc.length > 0 ? recipients.bcc.join(', ') : undefined,
       subject: input.subject,
       text,
       html,
@@ -225,33 +410,94 @@ export async function sendQuotationEmailService(
     });
   } catch (err: unknown) {
     console.error('SMTP Send Error:', err instanceof Error ? err.message : 'Unknown SMTP error');
+    const failure = safeFailureSummary(err);
+    await prisma.quotationCommunication.update({
+      where: { id: attempt.id },
+      data: {
+        status: CommunicationStatus.FAILED,
+        failedAt: new Date(),
+        failureCategory: failure.category,
+        failureSummary: failure.summary,
+      },
+    });
     throw new AppError('Failed to send quotation email. Please check SMTP settings or recipient addresses.', 502);
   }
 
-  // 6. Write success Audit Log
-  const acceptedAt = new Date().toISOString();
-  await createAuditLog(prisma, {
-    metadata: { ...metadata, userId },
-    entityType: 'Quotation',
-    entityId: String(quotationId),
-    action: AuditAction.CREATE,
-    newValues: {
-      event: 'QUOTATION_EMAIL_SENT',
-      quotationNumber: quotation.quotationNumber,
-      generatedDocumentId: input.generatedDocumentId,
-      recipientCount: input.to.length,
-      ccCount: input.cc?.length || 0,
-      bccCount: input.bcc?.length || 0,
-      attachmentCount: selectedAttachments.length,
-      acceptedAt,
-    },
+  const acceptedAt = new Date();
+  const providerMessageId = getProviderMessageId(sendInfo);
+  const shouldTransitionToSent =
+    quotation.isLatestRevision &&
+    (quotation.status === QuotationStatus.DRAFT || quotation.status === QuotationStatus.PENDING);
+
+  let quotationStatusAfter = quotation.status;
+  let statusTransitioned = false;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.quotationCommunication.update({
+      where: { id: attempt.id },
+      data: {
+        status: CommunicationStatus.ACCEPTED,
+        acceptedAt,
+        providerMessageId,
+      },
+    });
+
+    if (shouldTransitionToSent) {
+      validateStatusTransition(quotation.status, QuotationStatus.SENT);
+      await tx.quotation.update({
+        where: { id: quotation.id },
+        data: {
+          status: QuotationStatus.SENT,
+          updatedById: userId,
+          ...getStatusTimestampUpdate(QuotationStatus.SENT),
+        },
+      });
+      await tx.quotationStatusHistory.create({
+        data: {
+          quotationId,
+          fromStatus: quotation.status,
+          toStatus: QuotationStatus.SENT,
+          changedById: userId,
+          comment: `Quotation emailed. Communication attempt #${attempt.id}.`,
+        },
+      });
+      quotationStatusAfter = QuotationStatus.SENT;
+      statusTransitioned = true;
+    }
+
+    await createAuditLog(tx, {
+      metadata: { ...metadata, userId },
+      entityType: 'QuotationCommunication',
+      entityId: String(attempt.id),
+      action: AuditAction.CREATE,
+      newValues: {
+        event: 'QUOTATION_EMAIL_ACCEPTED',
+        quotationId,
+        quotationNumber: quotation.quotationNumber,
+        revisionNumber: quotation.revisionNumber,
+        generatedDocumentId: input.generatedDocumentId,
+        recipientCount: recipients.to.length,
+        ccCount: recipients.cc.length,
+        bccCount: recipients.bcc.length,
+        attachmentCount: selectedAttachments.length,
+        acceptedAt: acceptedAt.toISOString(),
+        statusTransitioned,
+      },
+    });
   });
 
   return {
+    communicationId: attempt.id,
     quotationId,
     generatedDocumentId: input.generatedDocumentId,
-    recipientCount: input.to.length,
+    status: CommunicationStatus.ACCEPTED,
+    recipientCount: recipients.to.length,
     attachmentCount: selectedAttachments.length + 1, // PDF + supporting
-    acceptedAt,
+    acceptedAt: acceptedAt.toISOString(),
+    quotationStatusAfter,
+    statusTransitioned,
+    message: statusTransitioned
+      ? 'Email accepted by email server and quotation status moved to Sent.'
+      : 'Email accepted by email server.',
   };
 }

@@ -2,6 +2,7 @@ import type {
   Company,
   Quotation,
   QuotationItem,
+  QuotationStatus,
   QuotationStatusHistory,
   User,
 } from '@prisma/client';
@@ -67,6 +68,32 @@ export function serialiseQuotationItem(item: QuotationItem) {
   };
 }
 
+export function serialiseQuotationRevisionSummary(
+  quotation: Pick<
+    Quotation,
+    'id' | 'quotationNumber' | 'revisionNumber' | 'status' | 'isLatestRevision' | 'createdAt'
+  > | null | undefined,
+) {
+  if (!quotation) return null;
+
+  return {
+    id: quotation.id,
+    quotationNumber: quotation.quotationNumber,
+    revisionNumber: quotation.revisionNumber,
+    status: quotation.status,
+    isLatestRevision: quotation.isLatestRevision,
+    createdAt: quotation.createdAt.toISOString(),
+  };
+}
+
+function canEditQuotation(status: QuotationStatus, isLatestRevision: boolean) {
+  return status === 'DRAFT' && isLatestRevision;
+}
+
+function canCreateQuotationRevision(status: QuotationStatus, isLatestRevision: boolean) {
+  return status !== 'DRAFT' && isLatestRevision;
+}
+
 export function serialiseQuotationListItem(
   quotation: Quotation & {
     company?: Company;
@@ -78,6 +105,11 @@ export function serialiseQuotationListItem(
     id: quotation.id,
     quotationNumber: quotation.quotationNumber,
     revisionNumber: quotation.revisionNumber,
+    rootQuotationId: quotation.rootQuotationId,
+    previousRevisionId: quotation.previousRevisionId,
+    isLatestRevision: quotation.isLatestRevision,
+    canEdit: canEditQuotation(quotation.status, quotation.isLatestRevision),
+    canCreateRevision: canCreateQuotationRevision(quotation.status, quotation.isLatestRevision),
     companyId: quotation.companyId,
     company: quotation.company ? serialiseCompanySummary(quotation.company) : {
       id: quotation.companyId,
@@ -121,12 +153,23 @@ export function serialiseQuotationDetail(
     updatedBy?: User | null;
     items?: QuotationItem[];
     statusHistory?: (QuotationStatusHistory & { changedBy?: User | null })[];
+    previousRevision?: Quotation | null;
+    nextRevision?: Quotation | null;
+    latestRevision?: Quotation | null;
   },
 ) {
   return {
     id: quotation.id,
     quotationNumber: quotation.quotationNumber,
     revisionNumber: quotation.revisionNumber,
+    rootQuotationId: quotation.rootQuotationId,
+    previousRevisionId: quotation.previousRevisionId,
+    isLatestRevision: quotation.isLatestRevision,
+    canEdit: canEditQuotation(quotation.status, quotation.isLatestRevision),
+    canCreateRevision: canCreateQuotationRevision(quotation.status, quotation.isLatestRevision),
+    previousRevision: serialiseQuotationRevisionSummary(quotation.previousRevision),
+    nextRevision: serialiseQuotationRevisionSummary(quotation.nextRevision),
+    latestRevision: serialiseQuotationRevisionSummary(quotation.latestRevision),
     companyId: quotation.companyId,
     companyContactId: quotation.companyContactId,
     billingAddressId: quotation.billingAddressId,

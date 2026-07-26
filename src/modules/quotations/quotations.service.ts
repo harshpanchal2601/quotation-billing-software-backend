@@ -75,6 +75,7 @@ export class QuotationsService {
         data: {
           quotationNumber,
           revisionNumber: 0,
+          isLatestRevision: true,
           companyId: input.companyId,
           companyContactId: input.companyContactId ?? null,
           billingAddressId: input.billingAddressId ?? null,
@@ -159,7 +160,10 @@ export class QuotationsService {
 
       await createQuotationVersion(tx, created.id, { created, items: itemCreateData }, userId);
 
-      return created;
+      return tx.quotation.update({
+        where: { id: created.id },
+        data: { rootQuotationId: created.id },
+      });
     });
 
     await createAuditLog(this.db, {
@@ -191,6 +195,8 @@ export class QuotationsService {
           include: { changedBy: true },
           orderBy: { changedAt: 'asc' },
         },
+        previousRevision: true,
+        nextRevision: true,
       },
     });
 
@@ -198,7 +204,18 @@ export class QuotationsService {
       throw new AppError('Quotation not found.', 404);
     }
 
-    return serialiseQuotationDetail(quotation);
+    const familyRootId = quotation.rootQuotationId ?? quotation.id;
+    const latestRevision = quotation.isLatestRevision === false
+      ? await this.db.quotation.findFirst({
+          where: { rootQuotationId: familyRootId, deletedAt: null },
+          orderBy: { revisionNumber: 'desc' },
+        })
+      : quotation;
+
+    return serialiseQuotationDetail({
+      ...quotation,
+      latestRevision,
+    });
   }
 
   async listQuotations(query: QuotationListQuery) {
@@ -224,6 +241,7 @@ export class QuotationsService {
 
     const where: Prisma.QuotationWhereInput = {
       deletedAt: null,
+      isLatestRevision: true,
     };
 
     if (companyId) {
@@ -314,6 +332,10 @@ export class QuotationsService {
 
     if (existing.status !== QuotationStatus.DRAFT) {
       throw new AppError('This quotation can no longer be edited.', 409);
+    }
+
+    if (!existing.isLatestRevision) {
+      throw new AppError('This quotation revision can no longer be edited. Edit the latest draft revision instead.', 409);
     }
 
     const companyId = input.companyId ?? existing.companyId;
@@ -459,6 +481,185 @@ export class QuotationsService {
     return this.getQuotation(existing.id);
   }
 
+  async createQuotationRevision(id: number, metadata: RequestMetadata, userId: number) {
+    const source = await this.db.quotation.findFirst({
+      where: { id, deletedAt: null },
+      include: { items: { orderBy: [{ sortOrder: 'asc' }, { lineNumber: 'asc' }] } },
+    });
+
+    if (!source) {
+      throw new AppError('Quotation not found.', 404);
+    }
+
+    if (!source.isLatestRevision) {
+      throw new AppError('Only the latest quotation revision can be revised.', 409);
+    }
+
+    if (source.status === QuotationStatus.DRAFT) {
+      throw new AppError('The latest draft revision is already editable.', 409);
+    }
+
+    const familyRootId = source.rootQuotationId ?? source.id;
+
+    try {
+      const newRevision = await this.db.$transaction(async (tx) => {
+        const latest = await tx.quotation.findFirst({
+          where: { rootQuotationId: familyRootId, deletedAt: null },
+          include: { items: { orderBy: [{ sortOrder: 'asc' }, { lineNumber: 'asc' }] } },
+          orderBy: { revisionNumber: 'desc' },
+        });
+
+        if (!latest) {
+          throw new AppError('Quotation revision family not found.', 404);
+        }
+
+        if (latest.id !== source.id) {
+          throw new AppError('Only the latest quotation revision can be revised.', 409);
+        }
+
+        if (latest.status === QuotationStatus.DRAFT) {
+          throw new AppError('The latest draft revision is already editable.', 409);
+        }
+
+        const nextRevisionNumber = latest.revisionNumber + 1;
+
+        await tx.quotation.updateMany({
+          where: {
+            rootQuotationId: familyRootId,
+            isLatestRevision: true,
+          },
+          data: { isLatestRevision: false },
+        });
+
+        const created = await tx.quotation.create({
+          data: {
+            quotationNumber: latest.quotationNumber,
+            revisionNumber: nextRevisionNumber,
+            rootQuotationId: familyRootId,
+            previousRevisionId: latest.id,
+            isLatestRevision: true,
+            companyId: latest.companyId,
+            companyContactId: latest.companyContactId,
+            billingAddressId: latest.billingAddressId,
+            shippingAddressId: latest.shippingAddressId,
+            companyNameSnapshot: latest.companyNameSnapshot,
+            companyGstinSnapshot: latest.companyGstinSnapshot,
+            companyPanSnapshot: latest.companyPanSnapshot,
+            contactNameSnapshot: latest.contactNameSnapshot,
+            contactEmailSnapshot: latest.contactEmailSnapshot,
+            contactPhoneSnapshot: latest.contactPhoneSnapshot,
+            billingAddressSnapshot: latest.billingAddressSnapshot as Prisma.InputJsonValue,
+            shippingAddressSnapshot: latest.shippingAddressSnapshot as Prisma.InputJsonValue,
+            quotationDate: latest.quotationDate,
+            validUntil: latest.validUntil,
+            customerReference: latest.customerReference,
+            internalReference: latest.internalReference,
+            status: QuotationStatus.DRAFT,
+            currency: latest.currency,
+            taxMode: latest.taxMode,
+            subtotal: latest.subtotal,
+            itemDiscountAmount: latest.itemDiscountAmount,
+            quotationDiscountType: latest.quotationDiscountType,
+            quotationDiscountValue: latest.quotationDiscountValue,
+            quotationDiscountAmount: latest.quotationDiscountAmount,
+            taxableAmount: latest.taxableAmount,
+            cgstAmount: latest.cgstAmount,
+            sgstAmount: latest.sgstAmount,
+            igstAmount: latest.igstAmount,
+            freightAmount: latest.freightAmount,
+            freightIncluded: latest.freightIncluded,
+            freightIsTaxable: latest.freightIsTaxable,
+            otherCharges: latest.otherCharges,
+            roundOffAmount: latest.roundOffAmount,
+            grandTotal: latest.grandTotal,
+            amountInWords: latest.amountInWords,
+            deliveryTerms: latest.deliveryTerms,
+            dispatchTerms: latest.dispatchTerms,
+            paymentTerms: latest.paymentTerms,
+            taxTerms: latest.taxTerms,
+            freightTerms: latest.freightTerms,
+            warrantyTerms: latest.warrantyTerms,
+            remarks: latest.remarks,
+            termsAndConditions: latest.termsAndConditions,
+            internalNotes: latest.internalNotes,
+            createdById: userId,
+          },
+        });
+
+        const itemCreateData = latest.items.map((item) => ({
+          quotationId: created.id,
+          itemId: item.itemId,
+          lineNumber: item.lineNumber,
+          itemCodeSnapshot: item.itemCodeSnapshot,
+          itemNameSnapshot: item.itemNameSnapshot,
+          descriptionSnapshot: item.descriptionSnapshot,
+          specificationsSnapshot: item.specificationsSnapshot as Prisma.InputJsonValue,
+          measurementUnitSnapshot: item.measurementUnitSnapshot,
+          quantity: item.quantity,
+          unitRate: item.unitRate,
+          discountType: item.discountType,
+          discountValue: item.discountValue,
+          discountAmount: item.discountAmount,
+          gstRate: item.gstRate,
+          baseAmount: item.baseAmount,
+          taxableAmount: item.taxableAmount,
+          taxAmount: item.taxAmount,
+          lineTotal: item.lineTotal,
+          sortOrder: item.sortOrder,
+        }));
+
+        if (itemCreateData.length > 0) {
+          await tx.quotationItem.createMany({ data: itemCreateData });
+        }
+
+        await tx.quotationStatusHistory.create({
+          data: {
+            quotationId: created.id,
+            fromStatus: null,
+            toStatus: QuotationStatus.DRAFT,
+            changedById: userId,
+            comment: `Revision ${nextRevisionNumber} created from Revision ${latest.revisionNumber}.`,
+          },
+        });
+
+        await createQuotationVersion(
+          tx,
+          created.id,
+          {
+            created,
+            items: itemCreateData,
+            sourceQuotationId: latest.id,
+            sourceRevisionNumber: latest.revisionNumber,
+          },
+          userId,
+        );
+
+        return created;
+      });
+
+      await createAuditLog(this.db, {
+        metadata,
+        entityType: 'Quotation',
+        entityId: String(newRevision.id),
+        action: AuditAction.CREATE,
+        newValues: {
+          quotationNumber: newRevision.quotationNumber,
+          revisionNumber: newRevision.revisionNumber,
+          sourceQuotationId: source.id,
+          sourceRevisionNumber: source.revisionNumber,
+        },
+      });
+
+      return this.getQuotation(newRevision.id);
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new AppError('A newer revision already exists. Refresh the quotation and try again.', 409);
+      }
+      throw error;
+    }
+  }
+
   async updateQuotationStatus(
     id: number,
     input: QuotationStatusUpdateInput,
@@ -471,6 +672,10 @@ export class QuotationsService {
 
     if (!existing) {
       throw new AppError('Quotation not found.', 404);
+    }
+
+    if (!existing.isLatestRevision) {
+      throw new AppError('Only the latest quotation revision can change status.', 409);
     }
 
     validateStatusTransition(existing.status, input.status);
@@ -520,11 +725,25 @@ export class QuotationsService {
       throw new AppError('Only draft quotations can be deleted.', 409);
     }
 
-    await this.db.quotation.update({
-      where: { id: existing.id },
-      data: {
-        deletedAt: new Date(),
-      },
+    if (!existing.isLatestRevision) {
+      throw new AppError('Only the latest draft quotation revision can be deleted.', 409);
+    }
+
+    await this.db.$transaction(async (tx) => {
+      await tx.quotation.update({
+        where: { id: existing.id },
+        data: {
+          deletedAt: new Date(),
+          isLatestRevision: false,
+        },
+      });
+
+      if (existing.previousRevisionId) {
+        await tx.quotation.update({
+          where: { id: existing.previousRevisionId },
+          data: { isLatestRevision: true },
+        });
+      }
     });
 
     await createAuditLog(this.db, {

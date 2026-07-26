@@ -244,6 +244,7 @@ export class CompaniesService {
     const where: Prisma.QuotationWhereInput = {
       companyId: id,
       deletedAt: null,
+      isLatestRevision: true,
       ...(query.status === undefined ? {} : { status: query.status }),
       ...(query.dateFrom === undefined && query.dateTo === undefined
         ? {}
@@ -312,7 +313,7 @@ export class CompaniesService {
   private async getQuotationSummary(companyId: number) {
     const grouped = await this.db.quotation.groupBy({
       by: ['status'],
-      where: { companyId, deletedAt: null },
+      where: { companyId, deletedAt: null, isLatestRevision: true },
       _count: { _all: true },
     });
 

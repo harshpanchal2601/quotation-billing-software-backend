@@ -73,6 +73,16 @@ enum DocumentType {
   QUOTATION_PDF
 }
 
+enum CommunicationType {
+  QUOTATION_EMAIL
+}
+
+enum CommunicationStatus {
+  PENDING
+  ACCEPTED
+  FAILED
+}
+
 enum ImportBatchStatus {
   PENDING
   PROCESSING
@@ -126,6 +136,7 @@ model User {
   quotationVersions QuotationVersion[]       @relation("QuotationVersionCreatedBy")
   attachments       QuotationAttachment[]    @relation("QuotationAttachmentUploadedBy")
   documents         GeneratedDocument[]      @relation("GeneratedDocumentGeneratedBy")
+  communications    QuotationCommunication[] @relation("QuotationCommunicationSender")
   importBatches     ImportBatch[]            @relation("ImportBatchStartedBy")
   auditLogs         AuditLog[]
 
@@ -368,8 +379,11 @@ model Item {
 
 model Quotation {
   id                      Int                      @id @default(autoincrement())
-  quotationNumber         String                   @unique @map("quotation_number") @db.VarChar(50)
+  quotationNumber         String                   @map("quotation_number") @db.VarChar(50)
   revisionNumber          Int                      @default(0) @map("revision_number")
+  rootQuotationId         Int?                     @map("root_quotation_id")
+  previousRevisionId      Int?                     @unique @map("previous_revision_id")
+  isLatestRevision        Boolean                  @default(true) @map("is_latest_revision")
   companyId               Int                      @map("company_id")
   companyContactId        Int?                     @map("company_contact_id")
   billingAddressId        Int?                     @map("billing_address_id")
@@ -429,17 +443,26 @@ model Quotation {
   shippingAddress         CompanyAddress?          @relation("QuotationShippingAddress", fields: [shippingAddressId], references: [id], onDelete: SetNull)
   createdBy               User                     @relation("QuotationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy               User?                    @relation("QuotationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  rootQuotation           Quotation?               @relation("QuotationRoot", fields: [rootQuotationId], references: [id], onDelete: Restrict)
+  revisionFamily          Quotation[]              @relation("QuotationRoot")
+  previousRevision        Quotation?               @relation("QuotationPrevious", fields: [previousRevisionId], references: [id], onDelete: Restrict)
+  nextRevision            Quotation?               @relation("QuotationPrevious")
   items                   QuotationItem[]
   statusHistory           QuotationStatusHistory[]
   versions                QuotationVersion[]
   attachments             QuotationAttachment[]
   generatedDocuments      GeneratedDocument[]
+  communications          QuotationCommunication[]
 
+  @@unique([quotationNumber, revisionNumber])
+  @@unique([rootQuotationId, revisionNumber])
   @@index([quotationDate])
   @@index([status])
   @@index([companyId])
   @@index([createdById])
   @@index([deletedAt])
+  @@index([rootQuotationId])
+  @@index([isLatestRevision])
   @@map("quotations")
 }
 
@@ -523,19 +546,56 @@ model QuotationAttachment {
 }
 
 model GeneratedDocument {
-  id            Int          @id @default(autoincrement())
-  quotationId   Int          @map("quotation_id")
-  versionNumber Int          @map("version_number")
-  documentType  DocumentType @default(QUOTATION_PDF) @map("document_type")
-  filePath      String       @map("file_path") @db.VarChar(500)
-  fileHash      String?      @map("file_hash") @db.VarChar(191)
-  generatedById Int          @map("generated_by_id")
-  generatedAt   DateTime     @default(now()) @map("generated_at")
-  quotation     Quotation    @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  generatedBy   User         @relation("GeneratedDocumentGeneratedBy", fields: [generatedById], references: [id], onDelete: Restrict)
+  id             Int                      @id @default(autoincrement())
+  quotationId    Int                      @map("quotation_id")
+  versionNumber  Int                      @map("version_number")
+  documentType   DocumentType             @default(QUOTATION_PDF) @map("document_type")
+  filePath       String                   @map("file_path") @db.VarChar(500)
+  fileHash       String?                  @map("file_hash") @db.VarChar(191)
+  generatedById  Int                      @map("generated_by_id")
+  generatedAt    DateTime                 @default(now()) @map("generated_at")
+  quotation      Quotation                @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  generatedBy    User                     @relation("GeneratedDocumentGeneratedBy", fields: [generatedById], references: [id], onDelete: Restrict)
+  communications QuotationCommunication[]
 
   @@index([quotationId])
   @@map("generated_documents")
+}
+
+model QuotationCommunication {
+  id                  Int                      @id @default(autoincrement())
+  quotationId         Int                      @map("quotation_id")
+  generatedDocumentId Int?                     @map("generated_document_id")
+  senderUserId        Int?                     @map("sender_user_id")
+  communicationType   CommunicationType        @default(QUOTATION_EMAIL) @map("communication_type")
+  status              CommunicationStatus      @default(PENDING)
+  attemptNumber       Int                      @default(1) @map("attempt_number")
+  previousAttemptId   Int?                     @unique @map("previous_attempt_id")
+  toRecipients        Json                     @map("to_recipients")
+  ccRecipients        Json                     @map("cc_recipients")
+  bccRecipients       Json                     @map("bcc_recipients")
+  subjectSnapshot     String                   @map("subject_snapshot") @db.VarChar(200)
+  messageSnapshot     String                   @map("message_snapshot") @db.LongText
+  documentSnapshot    Json?                    @map("document_snapshot")
+  attachmentSnapshots Json?                    @map("attachment_snapshots")
+  providerMessageId   String?                  @map("provider_message_id") @db.VarChar(191)
+  failureCategory     String?                  @map("failure_category") @db.VarChar(100)
+  failureSummary      String?                  @map("failure_summary") @db.VarChar(500)
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  acceptedAt          DateTime?                @map("accepted_at")
+  failedAt            DateTime?                @map("failed_at")
+  quotation           Quotation                @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  generatedDocument   GeneratedDocument?       @relation(fields: [generatedDocumentId], references: [id], onDelete: SetNull)
+  sender              User?                    @relation("QuotationCommunicationSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  previousAttempt     QuotationCommunication?  @relation("QuotationCommunicationRetry", fields: [previousAttemptId], references: [id], onDelete: SetNull)
+  retryAttempts       QuotationCommunication[] @relation("QuotationCommunicationRetry")
+
+  @@index([quotationId])
+  @@index([generatedDocumentId])
+  @@index([senderUserId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("quotation_communications")
 }
 
 model TermsTemplate {

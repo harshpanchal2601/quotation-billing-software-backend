@@ -40,6 +40,14 @@ export const createQuotation = asyncHandler(async (req: Request, res: Response) 
   return sendSuccess(res, 201, 'Quotation created successfully', { quotation: result });
 });
 
+export const createQuotationRevision = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = idParamSchema.parse(req.params);
+  const userId = req.user?.id;
+  if (!userId) throw new AppError('User authentication required', 401);
+  const result = await quotationsService.createQuotationRevision(id, getMetadata(req), userId);
+  return sendSuccess(res, 201, 'Quotation revision created successfully', { quotation: result });
+});
+
 export const getQuotation = asyncHandler(async (req: Request, res: Response) => {
   const { id } = idParamSchema.parse(req.params);
   const result = await quotationsService.getQuotation(id);

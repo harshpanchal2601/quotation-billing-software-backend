@@ -13,6 +13,7 @@ type MockPrisma = {
     count: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    updateMany: ReturnType<typeof vi.fn>;
   };
   quotationItem: {
     createMany: ReturnType<typeof vi.fn>;
@@ -64,6 +65,7 @@ function createMockPrisma(): MockPrisma {
       count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     quotationItem: {
       createMany: vi.fn(),
@@ -288,6 +290,7 @@ describe('quotations service', () => {
 
     db.quotation.findFirst.mockResolvedValueOnce(null); // generateUniqueQuotationNumber check
     db.quotation.create.mockResolvedValue(createdQuotation);
+    db.quotation.update.mockResolvedValue(createdQuotation);
     db.quotation.findFirst.mockResolvedValueOnce(createdQuotation); // getQuotation after create
 
     const service = new QuotationsService(asPrisma(db));
@@ -361,6 +364,9 @@ describe('quotations service', () => {
       id: 1,
       quotationNumber: 'BUMINEX/2026-27/000001',
       revisionNumber: 0,
+      rootQuotationId: 1,
+      previousRevisionId: null,
+      isLatestRevision: true,
       status: QuotationStatus.DRAFT,
       companyId: 1,
       companyNameSnapshot: 'Mankind Pharma',
@@ -504,6 +510,200 @@ describe('quotations service', () => {
       message: 'Only draft quotations can be deleted.',
     });
   });
+
+  it('creates a draft revision from the latest sent quotation without mutating the source', async () => {
+    const sentRevision = mockDraftQuotation({
+      status: QuotationStatus.SENT,
+      sentAt: now,
+      items: [
+        {
+          id: 1,
+          quotationId: 1,
+          itemId: 10,
+          lineNumber: 1,
+          itemCodeSnapshot: 'ITEM-10',
+          itemNameSnapshot: 'Reactor Tank',
+          descriptionSnapshot: 'SS 316',
+          specificationsSnapshot: { grade: 'SS316' },
+          measurementUnitSnapshot: 'PCS',
+          quantity: new Prisma.Decimal('2.000'),
+          unitRate: new Prisma.Decimal('1000.00'),
+          discountType: DiscountType.NONE,
+          discountValue: new Prisma.Decimal('0.00'),
+          discountAmount: new Prisma.Decimal('0.00'),
+          gstRate: new Prisma.Decimal('18.00'),
+          baseAmount: new Prisma.Decimal('2000.00'),
+          taxableAmount: new Prisma.Decimal('2000.00'),
+          taxAmount: new Prisma.Decimal('360.00'),
+          lineTotal: new Prisma.Decimal('2360.00'),
+          sortOrder: 0,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+    });
+    const createdRevision = {
+      ...sentRevision,
+      id: 2,
+      revisionNumber: 1,
+      previousRevisionId: 1,
+      status: QuotationStatus.DRAFT,
+      sentAt: null,
+      createdAt: new Date('2026-01-02T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+    };
+
+    db.quotation.findFirst
+      .mockResolvedValueOnce(sentRevision)
+      .mockResolvedValueOnce(sentRevision)
+      .mockResolvedValueOnce(createdRevision);
+    db.quotation.create.mockResolvedValue(createdRevision);
+
+    const service = new QuotationsService(asPrisma(db));
+    const result = await service.createQuotationRevision(1, { userId: 1 }, 1);
+
+    expect(result.id).toBe(2);
+    expect(result.quotationNumber).toBe(sentRevision.quotationNumber);
+    expect(result.revisionNumber).toBe(1);
+    expect(result.status).toBe(QuotationStatus.DRAFT);
+    expect(db.quotation.updateMany).toHaveBeenCalledWith({
+      where: { rootQuotationId: 1, isLatestRevision: true },
+      data: { isLatestRevision: false },
+    });
+    expect(db.quotation.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        quotationNumber: sentRevision.quotationNumber,
+        revisionNumber: 1,
+        rootQuotationId: 1,
+        previousRevisionId: 1,
+        status: QuotationStatus.DRAFT,
+      }),
+    });
+    expect(db.quotationItem.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          quotationId: 2,
+          itemId: 10,
+          itemNameSnapshot: 'Reactor Tank',
+          lineTotal: new Prisma.Decimal('2360.00'),
+        }),
+      ],
+    });
+  });
+
+  it('rejects revision creation from a historical quotation revision', async () => {
+    db.quotation.findFirst.mockResolvedValue(mockDraftQuotation({
+      status: QuotationStatus.SENT,
+      isLatestRevision: false,
+      revisionNumber: 0,
+    }));
+
+    const service = new QuotationsService(asPrisma(db));
+
+    await expect(service.createQuotationRevision(1, { userId: 1 }, 1)).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'Only the latest quotation revision can be revised.',
+    });
+    expect(db.quotation.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects revision creation when the latest revision is already a draft', async () => {
+    db.quotation.findFirst.mockResolvedValue(mockDraftQuotation({ status: QuotationStatus.DRAFT }));
+
+    const service = new QuotationsService(asPrisma(db));
+
+    await expect(service.createQuotationRevision(1, { userId: 1 }, 1)).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'The latest draft revision is already editable.',
+    });
+  });
+
+  it('maps concurrent duplicate revision creation to a conflict response', async () => {
+    const sentRevision = mockDraftQuotation({ status: QuotationStatus.SENT });
+    db.quotation.findFirst.mockResolvedValueOnce(sentRevision).mockResolvedValueOnce(sentRevision);
+    db.quotation.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    );
+
+    const service = new QuotationsService(asPrisma(db));
+
+    await expect(service.createQuotationRevision(1, { userId: 1 }, 1)).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'A newer revision already exists. Refresh the quotation and try again.',
+    });
+  });
+
+  it('rejects editing a stale draft revision', async () => {
+    db.quotation.findFirst.mockResolvedValue(mockDraftQuotation({ isLatestRevision: false }));
+
+    const service = new QuotationsService(asPrisma(db));
+
+    await expect(service.updateQuotation(1, { remarks: 'Updated' }, { userId: 1 }, 1)).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'This quotation revision can no longer be edited. Edit the latest draft revision instead.',
+    });
+  });
+
+  it('rejects status changes on historical revisions', async () => {
+    db.quotation.findFirst.mockResolvedValue(mockDraftQuotation({ isLatestRevision: false }));
+
+    const service = new QuotationsService(asPrisma(db));
+
+    await expect(
+      service.updateQuotationStatus(1, { status: QuotationStatus.SENT }, { userId: 1 }, 1),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'Only the latest quotation revision can change status.',
+    });
+  });
+
+  it('deleting the latest draft revision restores the previous revision as latest', async () => {
+    const draftRevision = mockDraftQuotation({
+      id: 2,
+      revisionNumber: 1,
+      previousRevisionId: 1,
+      status: QuotationStatus.DRAFT,
+    });
+    db.quotation.findFirst.mockResolvedValue(draftRevision);
+
+    const service = new QuotationsService(asPrisma(db));
+    await service.deleteQuotation(2, { userId: 1 });
+
+    expect(db.quotation.update).toHaveBeenNthCalledWith(1, {
+      where: { id: 2 },
+      data: expect.objectContaining({
+        deletedAt: expect.any(Date),
+        isLatestRevision: false,
+      }),
+    });
+    expect(db.quotation.update).toHaveBeenNthCalledWith(2, {
+      where: { id: 1 },
+      data: { isLatestRevision: true },
+    });
+  });
+
+  it('lists latest quotation revisions by default', async () => {
+    db.quotation.count.mockResolvedValue(0);
+    db.quotation.findMany.mockResolvedValue([]);
+
+    const service = new QuotationsService(asPrisma(db));
+    await service.listQuotations({
+      page: 1,
+      limit: 20,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    });
+
+    expect(db.quotation.count).toHaveBeenCalledWith({
+      where: { deletedAt: null, isLatestRevision: true },
+    });
+    expect(db.quotation.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { deletedAt: null, isLatestRevision: true },
+    }));
+  });
 });
 
 function mockDraftQuotation(overrides: Record<string, unknown> = {}) {
@@ -511,6 +711,9 @@ function mockDraftQuotation(overrides: Record<string, unknown> = {}) {
     id: 1,
     quotationNumber: 'BUMINEX/2026-27/000001',
     revisionNumber: 0,
+    rootQuotationId: 1,
+    previousRevisionId: null,
+    isLatestRevision: true,
     status: QuotationStatus.DRAFT,
     companyId: 1,
     companyContactId: null,
@@ -540,6 +743,8 @@ function mockDraftQuotation(overrides: Record<string, unknown> = {}) {
     sgstAmount: new Prisma.Decimal('90.00'),
     igstAmount: new Prisma.Decimal('0.00'),
     freightAmount: new Prisma.Decimal('0.00'),
+    freightIncluded: false,
+    freightIsTaxable: false,
     otherCharges: new Prisma.Decimal('0.00'),
     roundOffAmount: new Prisma.Decimal('0.00'),
     grandTotal: new Prisma.Decimal('1180.00'),
@@ -560,6 +765,8 @@ function mockDraftQuotation(overrides: Record<string, unknown> = {}) {
     deletedAt: null,
     items: [
       {
+        id: 1,
+        quotationId: 1,
         itemId: null,
         lineNumber: 1,
         itemNameSnapshot: 'Custom Reactor',
@@ -571,7 +778,14 @@ function mockDraftQuotation(overrides: Record<string, unknown> = {}) {
         discountType: DiscountType.NONE,
         discountValue: new Prisma.Decimal('0.00'),
         gstRate: new Prisma.Decimal('18.00'),
+        discountAmount: new Prisma.Decimal('0.00'),
+        baseAmount: new Prisma.Decimal('1000.00'),
+        taxableAmount: new Prisma.Decimal('1000.00'),
+        taxAmount: new Prisma.Decimal('180.00'),
+        lineTotal: new Prisma.Decimal('1180.00'),
         sortOrder: 0,
+        createdAt: now,
+        updatedAt: now,
       },
     ],
     ...overrides,

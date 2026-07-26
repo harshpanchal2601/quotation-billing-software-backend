@@ -3,6 +3,7 @@ import { requireAuthentication, requireRole } from '../../middleware/authenticat
 import {
   calculatePreview,
   createQuotation,
+  createQuotationRevision,
   deleteQuotation,
   getQuotation,
   listQuotations,
@@ -19,6 +20,7 @@ quotationsRouter.get('/', listQuotations);
 quotationsRouter.post('/calculate', calculatePreview);
 quotationsRouter.post('/', createQuotation);
 quotationsRouter.get('/:id', getQuotation);
+quotationsRouter.post('/:id/revisions', createQuotationRevision);
 quotationsRouter.put('/:id', updateQuotation);
 quotationsRouter.patch('/:id/status', updateQuotationStatus);
 quotationsRouter.delete('/:id', deleteQuotation);
