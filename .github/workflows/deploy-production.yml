@@ -102,7 +102,7 @@ jobs:
 
           APP_NAME="erp-system-backend"
           APP_PATH="/var/www/erp-system-backend"
-          SERVER_FILE="$APP_PATH/dist/bootstrap/server.js"
+          SERVER_FILE="$APP_PATH/dist/src/bootstrap/server.js"
 
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
@@ -123,6 +123,8 @@ jobs:
 
           if [ ! -f "$SERVER_FILE" ]; then
             echo "Backend build failed: $SERVER_FILE not found."
+            echo "Available backend build files:"
+            find "$APP_PATH/dist" -maxdepth 5 -type f | sort | sed -n '1,80p'
             exit 1
           fi
 
