@@ -78,7 +78,8 @@ Prisma usage is concentrated in:
 - `src/modules/auth/*`: auth workflow, sessions, password change, audit logging
 - `src/modules/business-settings/*`: profile, quotation settings, bank details, branding uploads
 - `src/modules/categories/*`: category CRUD and audit
-- `src/modules/companies/*`: companies, contacts, addresses, quotation history, code generation
+- `src/modules/companies/companies.repository.ts`, `company-contacts.repository.ts`, `company-addresses.repository.ts`: companies, contacts, addresses, quotation history read queries, transactional company code reservation
+- `src/modules/companies/code/company-code.ts`: pure company code formatting and parsing (no Prisma)
 - `src/modules/items/*`: item CRUD, code generation, image storage coupling, audit
 - `src/modules/measurement-units/*`: measurement-unit CRUD and audit
 - `src/modules/dashboard/*`: dashboard aggregation queries
@@ -91,9 +92,9 @@ There are also direct `$transaction` calls in many of those module services.
 
 ## Controller And Service Findings
 
-Controllers still exist throughout business settings, companies, items, quotations, quotation attachments, quotation documents, and quotation email. They mainly parse input and bridge to services, but the layer is not consistently useful everywhere.
+Controllers still exist throughout business settings, items, quotations, quotation attachments, quotation documents, and quotation email. They mainly parse input and bridge to services, but the layer is not consistently useful everywhere.
 
-Services currently carry the bulk of the business workflow and Prisma work in the remaining unmigrated domains. Auth, categories, dashboard, and measurement units have been moved to route + repository shape in BE-03 and the obsolete controller/service layers were removed in BE-03A.
+Services currently carry the bulk of the business workflow and Prisma work in the remaining unmigrated domains. Auth, categories, dashboard, measurement units, and companies use route + repository shape; obsolete controller/service layers for completed phases were removed in BE-03A and BE-04.
 
 ## Schema And Validation Findings
 
@@ -176,7 +177,7 @@ Categories: route + repository; old controller/service layers removed in BE-03A.
 
 Measurement units: route + repository; old controller/service layers removed in BE-03A.
 
-Companies: keep temporarily; split contacts and addresses by capability in the target structure.
+Companies: migrated in BE-04 to route + repository; contacts and addresses use dedicated repositories at module root (no separate route subfolders).
 
 Items: keep temporarily; image handling and code generation need careful migration.
 

@@ -4,7 +4,7 @@
 
 - Test framework: Vitest
 - Test location: `tests/`
-- Coverage style: route/repository tests for migrated BE-03 modules, plus unit-style tests for remaining service-heavy domains and small route/integration-style checks for health and auth middleware
+- Coverage style: route/repository tests for migrated BE-03 and BE-04 modules, plus unit-style tests for remaining service-heavy domains and small route/integration-style checks for health and auth middleware
 - Prisma mocking: common in service tests
 - Mail/PDF/storage mocking: present in quotation email and PDF-related tests
 
@@ -12,7 +12,7 @@
 
 - Auth: middleware, route, validation, cookie helpers
 - Core health and env: health, env
-- Catalog-style domains: categories, measurement units, items, companies
+- Catalog-style domains: categories and measurement units (routes + repositories); companies (repositories + schema + `code/company-code` helpers); items (services, pending BE-05)
 - Settings: business settings service and validation
 - Quotation workflow: quotations service, attachments, documents, email
 - Seed: initial data behavior

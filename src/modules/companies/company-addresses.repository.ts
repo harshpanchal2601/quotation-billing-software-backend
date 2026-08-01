@@ -3,12 +3,13 @@ import { AuditAction } from '@prisma/client';
 
 import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
+import { prisma } from '../../core/database/prisma.js';
 import { serialiseAddress } from './companies.serializer.js';
 import type { TransactionClient } from './companies.types.js';
 import type {
   CompanyAddressCreateInput,
   CompanyAddressUpdateInput,
-} from './companies.validation.js';
+} from './companies.schema.js';
 
 const addressAuditFields = [
   'addressType',
@@ -21,7 +22,7 @@ const addressAuditFields = [
   'isPrimary',
 ] as const;
 
-export class CompanyAddressesService {
+export class CompanyAddressesRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async createAddress(companyId: number, input: CompanyAddressCreateInput, metadata: RequestMetadata) {
@@ -241,3 +242,5 @@ function toAddressUpdateData(input: CompanyAddressUpdateInput) {
     ...(input.isPrimary === undefined ? {} : { isPrimary: input.isPrimary }),
   };
 }
+
+export const companyAddressesRepository = new CompanyAddressesRepository(prisma);

@@ -3,11 +3,12 @@ import { AuditAction } from '@prisma/client';
 
 import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
+import { prisma } from '../../core/database/prisma.js';
 import { serialiseContact } from './companies.serializer.js';
 import type {
   CompanyContactCreateInput,
   CompanyContactUpdateInput,
-} from './companies.validation.js';
+} from './companies.schema.js';
 
 const contactAuditFields = [
   'name',
@@ -18,7 +19,7 @@ const contactAuditFields = [
   'isPrimary',
 ] as const;
 
-export class CompanyContactsService {
+export class CompanyContactsRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async createContact(companyId: number, input: CompanyContactCreateInput, metadata: RequestMetadata) {
@@ -187,3 +188,5 @@ export class CompanyContactsService {
     });
   }
 }
+
+export const companyContactsRepository = new CompanyContactsRepository(prisma);

@@ -120,3 +120,15 @@ Modules own:
 - templates
 
 Controllers and services are not mandatory. A module can be a route, repository, and schema set if that is enough.
+
+## Implemented Module Example — Companies (BE-04)
+
+`src/modules/companies/`
+
+- `companies.routes.ts` — all company, contact, address, and quotation-history HTTP endpoints
+- `companies.repository.ts` — company persistence, quotation-history read queries, nested create, soft delete/restore
+- `company-contacts.repository.ts` — contact CRUD and primary-contact rules
+- `company-addresses.repository.ts` — address CRUD and per-type primary rules
+- `companies.schema.ts` — Zod validation for company/contact/address inputs and list/history queries
+- `code/company-code.ts` — `COMP-` prefix, six-digit padding, sequence parsing
+- `index.ts` — exports `companiesRouter` only

@@ -4,7 +4,7 @@ import { healthRouter } from '../routes/health.routes.js';
 import { authRouter } from '../modules/auth/index.js';
 import { businessSettingsRouter } from '../modules/business-settings/business-settings.routes.js';
 import { categoriesRouter } from '../modules/categories/index.js';
-import { companiesRouter } from '../modules/companies/companies.routes.js';
+import { companiesRouter } from '../modules/companies/index.js';
 import { dashboardRouter } from '../modules/dashboard/index.js';
 import { itemsRouter } from '../modules/items/items.routes.js';
 import { measurementUnitsRouter } from '../modules/measurement-units/index.js';

@@ -2,9 +2,9 @@ import { AddressType, AuditAction, Prisma } from '@prisma/client';
 import type { Company, CompanyAddress, CompanyContact, PrismaClient, Quotation } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CompanyAddressesService } from '../src/modules/companies/company-addresses.service.js';
-import { CompanyContactsService } from '../src/modules/companies/company-contacts.service.js';
-import { CompaniesService } from '../src/modules/companies/companies.service.js';
+import { CompanyAddressesRepository } from '../src/modules/companies/company-addresses.repository.js';
+import { CompanyContactsRepository } from '../src/modules/companies/company-contacts.repository.js';
+import { CompaniesRepository } from '../src/modules/companies/companies.repository.js';
 
 type MockPrisma = {
   company: {
@@ -207,7 +207,7 @@ function quotation(overrides: Partial<Quotation> = {}): Quotation {
   };
 }
 
-describe('company services', () => {
+describe('company repositories', () => {
   let db: MockPrisma;
 
   beforeEach(() => {
@@ -223,7 +223,7 @@ describe('company services', () => {
     db.companyAddress.create.mockResolvedValueOnce(address());
     db.quotation.groupBy.mockResolvedValueOnce([]);
 
-    const service = new CompaniesService(asPrisma(db));
+    const service = new CompaniesRepository(asPrisma(db));
     const result = await service.createCompany(
       {
         name: 'Acme Pharma',
@@ -245,7 +245,7 @@ describe('company services', () => {
     db.company.findMany.mockResolvedValueOnce([companyDetail()]);
     db.company.count.mockResolvedValueOnce(1);
 
-    const service = new CompaniesService(asPrisma(db));
+    const service = new CompaniesRepository(asPrisma(db));
     const result = await service.listCompanies({
       page: 1,
       limit: 20,
@@ -269,7 +269,7 @@ describe('company services', () => {
     db.companyContact.findFirst.mockResolvedValueOnce(contact({ id: 2, isPrimary: false }));
     db.companyContact.update.mockResolvedValueOnce(contact({ id: 2, isPrimary: true }));
 
-    const service = new CompanyContactsService(asPrisma(db));
+    const service = new CompanyContactsRepository(asPrisma(db));
     await service.setPrimaryContact(1, 2, { userId: 1 });
 
     expect(db.companyContact.updateMany).toHaveBeenCalledWith({
@@ -285,7 +285,7 @@ describe('company services', () => {
       .mockResolvedValueOnce(contact({ id: 2, isPrimary: false }));
     db.companyContact.update.mockResolvedValue(contact());
 
-    const service = new CompanyContactsService(asPrisma(db));
+    const service = new CompanyContactsRepository(asPrisma(db));
     await service.deleteContact(1, 1, { userId: 1 });
 
     expect(db.companyContact.update).toHaveBeenCalledWith({
@@ -299,7 +299,7 @@ describe('company services', () => {
     db.companyAddress.findFirst.mockResolvedValueOnce(address({ id: 2, isPrimary: false }));
     db.companyAddress.update.mockResolvedValueOnce(address({ id: 2, isPrimary: true }));
 
-    const service = new CompanyAddressesService(asPrisma(db));
+    const service = new CompanyAddressesRepository(asPrisma(db));
     await service.setPrimaryAddress(1, 2, { userId: 1 });
 
     expect(db.companyAddress.updateMany).toHaveBeenCalledWith({
@@ -318,7 +318,7 @@ describe('company services', () => {
     db.company.findFirst.mockResolvedValueOnce(company());
     db.quotation.count.mockResolvedValueOnce(1);
 
-    const service = new CompaniesService(asPrisma(db));
+    const service = new CompaniesRepository(asPrisma(db));
     await expect(service.deleteCompany(1, { userId: 1 })).rejects.toMatchObject({
       statusCode: 409,
       message: 'Company cannot be deleted because quotations are linked to it.',
@@ -330,7 +330,7 @@ describe('company services', () => {
     db.quotation.count.mockResolvedValueOnce(0);
     db.company.update.mockResolvedValueOnce(company({ deletedAt: now, isActive: false }));
 
-    const service = new CompaniesService(asPrisma(db));
+    const service = new CompaniesRepository(asPrisma(db));
     await service.deleteCompany(1, { userId: 1 });
 
     expect(db.company.update).toHaveBeenCalledWith({
@@ -346,7 +346,7 @@ describe('company services', () => {
     db.company.update.mockResolvedValueOnce(company());
     db.quotation.groupBy.mockResolvedValueOnce([]);
 
-    const service = new CompaniesService(asPrisma(db));
+    const service = new CompaniesRepository(asPrisma(db));
     await service.restoreCompany(1, { userId: 1 });
 
     expect(db.company.update).toHaveBeenCalledWith({
@@ -363,7 +363,7 @@ describe('company services', () => {
     db.quotation.findMany.mockResolvedValueOnce([quotation()]);
     db.quotation.count.mockResolvedValueOnce(1);
 
-    const service = new CompaniesService(asPrisma(db));
+    const service = new CompaniesRepository(asPrisma(db));
     const result = await service.listCompanyQuotations(1, {
       page: 1,
       limit: 10,

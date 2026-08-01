@@ -4,7 +4,7 @@ import {
   companyCreateSchema,
   companyListQuerySchema,
   quotationHistoryQuerySchema,
-} from '../src/modules/companies/companies.validation.js';
+} from '../src/modules/companies/companies.schema.js';
 
 describe('company validation', () => {
   it('normalises company input and rejects invalid GSTIN or PAN', () => {

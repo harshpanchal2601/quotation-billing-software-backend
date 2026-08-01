@@ -21,7 +21,9 @@ Modules own:
 
 ## Current Module Observations
 
-- Auth, categories, dashboard, and measurement units already have explicit public index files.
-- Auth uses route + repository + helpers; categories, dashboard, and measurement units use route + repository + schema.
-- Companies, items, business settings, quotations, quotation email, quotation documents, and quotation attachments still rely on direct file imports.
+- Auth, categories, dashboard, measurement units, and companies have explicit public index files exporting routers only.
+- Auth uses route + repository + helpers; categories, dashboard, measurement units, and companies use route + repository + schema.
+- Companies organisation: core company workflow in `companies.routes.ts` + `companies.repository.ts`; contacts and addresses in dedicated repositories at module root; company code formatting in `code/company-code.ts`; database code sequencing in the companies repository transaction.
+- Company quotation history is an intentional Companies-owned read model querying quotation tables directly until BE-07.
+- Items, business settings, quotations, quotation email, quotation documents, and quotation attachments still rely on direct file imports and controller/service layers.
 - Quotation is the only domain that is clearly complex enough to justify a dedicated capability tree in later phases.

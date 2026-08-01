@@ -18,3 +18,14 @@
 - Validation: lint, typecheck, tests, and build all passed after cleanup.
 - Behaviour preservation: no API, token, cookie, status, or dashboard/category/unit behavior changed.
 - Next phase: BE-04 — Companies Domain.
+
+## BE-04 — Companies Domain Route + Repository Migration
+
+- Scope: companies CRUD, contacts, addresses, company code generation, company quotation history, audit preservation.
+- Main structural changes: removed controller and three service layers; added `companies.repository.ts`, `company-contacts.repository.ts`, `company-addresses.repository.ts`, renamed validation to `companies.schema.ts`, added `code/company-code.ts` and `index.ts`; consolidated HTTP handlers in `companies.routes.ts`.
+- Transaction decisions: unchanged — company create with nested records and code generation in one transaction; contact/address primary changes and soft-delete promotion in repository transactions; audit after commit via shared audit helper.
+- Cleanup: deleted obsolete controller, services, validation file, and `.gitkeep`; renamed `companies.service.test.ts` to `companies.repository.test.ts`; added `company-code.test.ts`.
+- Behaviour preservation: API paths, payloads, pagination, search/filter/sort, primary contact and per-type primary address rules, quotation delete guard, soft delete/restore, code format and retry unchanged.
+- Validation: baseline and final lint, typecheck, test (149), build passed.
+- Deferred work: optional route-level conflict/not-found refactor for Companies repositories; Quotations cross-module read boundary in BE-07.
+- Next phase: BE-05 — Catalog and Items Domain.

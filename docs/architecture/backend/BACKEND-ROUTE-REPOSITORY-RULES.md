@@ -55,3 +55,6 @@ Repositories must not:
 - Categories routes own duplicate-name checks, restore conflict checks, and response shaping while `categories.repository.ts` owns list queries, item-count checks, and audit-coupled persistence.
 - Measurement units routes own duplicate-name/symbol checks, restore conflict checks, and response shaping while `measurement-units.repository.ts` owns list queries, item-count checks, and audit-coupled persistence.
 - Dashboard routes own query parsing and response creation while `dashboard.repository.ts` owns the aggregate query and result shaping.
+- Companies routes own validated extraction and HTTP responses while `companies.repository.ts` owns list/search filters, CRUD transactions, nested create on company create, quotation-history queries, and transactional company code generation with retry on unique conflict.
+- `company-contacts.repository.ts` owns primary-contact clearing and promotion inside transactions; routes delegate contact workflow without Prisma.
+- `company-addresses.repository.ts` owns per-`addressType` primary replacement and promotion on delete/type change; routes delegate address workflow without Prisma.

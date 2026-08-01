@@ -22,6 +22,17 @@
 - `src/modules/dashboard/dashboard.service.ts` removed in BE-03A.
 - `src/modules/measurement-units/measurement-units.controller.ts` removed in BE-03A.
 - `src/modules/measurement-units/measurement-units.service.ts` removed in BE-03A.
+- `src/modules/companies/companies.controller.ts` removed in BE-04.
+- `src/modules/companies/companies.service.ts` removed in BE-04.
+- `src/modules/companies/company-contacts.service.ts` removed in BE-04.
+- `src/modules/companies/company-addresses.service.ts` removed in BE-04.
+- `src/modules/companies/company-code.service.ts` removed in BE-04.
+
+## Companies Public API (BE-04)
+
+- Export: `companiesRouter` from `src/modules/companies/index.ts`.
+- Consumer: `src/bootstrap/registerRoutes.ts` mounts `/api/v1/companies`.
+- No cross-module Companies repository imports today; Quotations does not import Companies internals for persistence.
 
 ## Boundary Notes
 
