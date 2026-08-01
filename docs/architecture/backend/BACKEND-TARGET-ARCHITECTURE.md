@@ -16,6 +16,7 @@
 12. Preserve every public API contract during migration.
 13. Prisma schema remains unchanged unless separately approved.
 14. Frontend repository remains untouched by backend phases.
+15. Rejected top-level placeholder layers such as `src/controllers`, `src/services`, `src/templates`, and `src/validators` are removed once their completed-phase leftovers are cleaned up.
 
 ## Proposed Top-Level Structure
 

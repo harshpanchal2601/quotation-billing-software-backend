@@ -1,14 +1,14 @@
 import type { MeasurementUnit, Prisma, PrismaClient } from '@prisma/client';
 import { AuditAction } from '@prisma/client';
 
-import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
+import { prisma } from '../../core/database/prisma.js';
+import { createPaginationMetadata } from './measurement-units.types.js';
 import {
   serialiseMeasurementUnit,
   serialiseMeasurementUnitOption,
   type MeasurementUnitWithItemCount,
 } from './measurement-units.serializer.js';
-import { createPaginationMetadata } from './measurement-units.types.js';
 import type {
   MeasurementUnitCreateInput,
   MeasurementUnitListQuery,
@@ -25,7 +25,7 @@ const unitDetailInclude = {
   },
 } satisfies Prisma.MeasurementUnitInclude;
 
-export class MeasurementUnitsService {
+export class MeasurementUnitsRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async listMeasurementUnits(query: MeasurementUnitListQuery) {
@@ -67,17 +67,48 @@ export class MeasurementUnitsService {
     };
   }
 
-  async createMeasurementUnit(input: MeasurementUnitCreateInput, metadata: RequestMetadata) {
-    const existing = await this.db.measurementUnit.findFirst({
+  async findDuplicateMeasurementUnit(name: string, symbol: string, excludeId?: number) {
+    return this.db.measurementUnit.findFirst({
       where: {
-        OR: [{ name: input.name }, { symbol: input.symbol }],
+        OR: [{ name }, { symbol }],
+        ...(excludeId === undefined ? {} : { NOT: { id: excludeId } }),
       },
     });
+  }
 
-    if (existing !== null) {
-      throw new AppError('Measurement unit name or symbol already exists', 409);
-    }
+  async findMeasurementUnitById(id: number): Promise<MeasurementUnitWithItemCount | null> {
+    return this.db.measurementUnit.findFirst({
+      where: { id, deletedAt: null },
+      include: unitDetailInclude,
+    });
+  }
 
+  async findDeletedMeasurementUnitById(id: number) {
+    return this.db.measurementUnit.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+  }
+
+  async findRestoreConflict(id: number, name: string, symbol: string) {
+    return this.db.measurementUnit.findFirst({
+      where: {
+        OR: [{ name }, { symbol }],
+        deletedAt: null,
+        NOT: { id },
+      },
+    });
+  }
+
+  async countLinkedItems(id: number) {
+    return this.db.item.count({
+      where: { measurementUnitId: id, deletedAt: null },
+    });
+  }
+
+  async createMeasurementUnit(
+    input: MeasurementUnitCreateInput,
+    metadata: RequestMetadata,
+  ) {
     const unit = await this.db.measurementUnit.create({
       data: {
         name: input.name,
@@ -92,38 +123,12 @@ export class MeasurementUnitsService {
     return serialiseMeasurementUnit(unit);
   }
 
-  async getMeasurementUnit(id: number) {
-    const unit = await this.getExistingUnitRecord(id);
-    return serialiseMeasurementUnit(unit);
-  }
-
   async updateMeasurementUnit(
     id: number,
     input: MeasurementUnitUpdateInput,
     metadata: RequestMetadata,
+    previous: MeasurementUnit,
   ) {
-    const existing = await this.getExistingUnitRecord(id);
-
-    const conditions: Prisma.MeasurementUnitWhereInput[] = [];
-    if (input.name !== undefined && input.name !== existing.name) {
-      conditions.push({ name: input.name });
-    }
-    if (input.symbol !== undefined && input.symbol !== existing.symbol) {
-      conditions.push({ symbol: input.symbol });
-    }
-
-    if (conditions.length > 0) {
-      const duplicate = await this.db.measurementUnit.findFirst({
-        where: {
-          OR: conditions,
-          NOT: { id },
-        },
-      });
-      if (duplicate !== null) {
-        throw new AppError('Measurement unit name or symbol already exists', 409);
-      }
-    }
-
     const updateData: Prisma.MeasurementUnitUpdateInput = {
       ...(input.name === undefined ? {} : { name: input.name }),
       ...(input.symbol === undefined ? {} : { symbol: input.symbol }),
@@ -131,48 +136,33 @@ export class MeasurementUnitsService {
       ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
     };
 
-    if (Object.keys(updateData).length === 0 || !hasUnitChanges(existing, updateData)) {
-      return serialiseMeasurementUnit(existing);
-    }
-
     const updated = await this.db.measurementUnit.update({
       where: { id },
       data: updateData,
       include: unitDetailInclude,
     });
 
-    await this.auditUnit(AuditAction.UPDATE, updated, metadata, existing);
+    await this.auditUnit(AuditAction.UPDATE, updated, metadata, previous);
     return serialiseMeasurementUnit(updated);
   }
 
-  async updateMeasurementUnitStatus(id: number, isActive: boolean, metadata: RequestMetadata) {
-    const existing = await this.getExistingUnitRecord(id);
-
-    if (existing.isActive === isActive) {
-      return serialiseMeasurementUnit(existing);
-    }
-
+  async updateMeasurementUnitStatus(
+    id: number,
+    isActive: boolean,
+    metadata: RequestMetadata,
+    previous: MeasurementUnit,
+  ) {
     const updated = await this.db.measurementUnit.update({
       where: { id },
       data: { isActive },
       include: unitDetailInclude,
     });
 
-    await this.auditUnit(AuditAction.STATUS_CHANGE, updated, metadata, existing);
+    await this.auditUnit(AuditAction.STATUS_CHANGE, updated, metadata, previous);
     return serialiseMeasurementUnit(updated);
   }
 
-  async deleteMeasurementUnit(id: number, metadata: RequestMetadata) {
-    const existing = await this.getExistingUnitRecord(id);
-
-    const linkedItemsCount = await this.db.item.count({
-      where: { measurementUnitId: id, deletedAt: null },
-    });
-
-    if (linkedItemsCount > 0) {
-      throw new AppError('Measurement unit cannot be deleted because items are linked to it.', 409);
-    }
-
+  async deleteMeasurementUnit(id: number, metadata: RequestMetadata, previous: MeasurementUnit) {
     await this.db.measurementUnit.update({
       where: { id },
       data: {
@@ -181,30 +171,10 @@ export class MeasurementUnitsService {
       },
     });
 
-    await this.auditUnit(AuditAction.DELETE, existing, metadata);
+    await this.auditUnit(AuditAction.DELETE, previous, metadata);
   }
 
-  async restoreMeasurementUnit(id: number, metadata: RequestMetadata) {
-    const existing = await this.db.measurementUnit.findFirst({
-      where: { id, deletedAt: { not: null } },
-    });
-
-    if (existing === null) {
-      throw new AppError('Measurement unit not found', 404);
-    }
-
-    const conflict = await this.db.measurementUnit.findFirst({
-      where: {
-        OR: [{ name: existing.name }, { symbol: existing.symbol }],
-        deletedAt: null,
-        NOT: { id },
-      },
-    });
-
-    if (conflict !== null) {
-      throw new AppError('Cannot restore measurement unit because its name or symbol conflicts with an existing unit.', 409);
-    }
-
+  async restoreMeasurementUnit(id: number, metadata: RequestMetadata, previous: MeasurementUnit) {
     const restored = await this.db.measurementUnit.update({
       where: { id },
       data: {
@@ -214,21 +184,8 @@ export class MeasurementUnitsService {
       include: unitDetailInclude,
     });
 
-    await this.auditUnit(AuditAction.RESTORE, restored, metadata, existing);
+    await this.auditUnit(AuditAction.RESTORE, restored, metadata, previous);
     return serialiseMeasurementUnit(restored);
-  }
-
-  private async getExistingUnitRecord(id: number): Promise<MeasurementUnitWithItemCount> {
-    const unit = await this.db.measurementUnit.findFirst({
-      where: { id, deletedAt: null },
-      include: unitDetailInclude,
-    });
-
-    if (unit === null) {
-      throw new AppError('Measurement unit not found', 404);
-    }
-
-    return unit;
   }
 
   private async auditUnit(
@@ -261,12 +218,10 @@ export class MeasurementUnitsService {
   }
 }
 
+export const measurementUnitsRepository = new MeasurementUnitsRepository(prisma);
+
 function createMeasurementUnitSearchFilter(search: string): Prisma.MeasurementUnitWhereInput {
   return {
     OR: [{ name: { contains: search } }, { symbol: { contains: search } }],
   };
-}
-
-function hasUnitChanges(existing: MeasurementUnit, data: Prisma.MeasurementUnitUpdateInput) {
-  return Object.entries(data).some(([key, value]) => existing[key as keyof MeasurementUnit] !== value);
 }

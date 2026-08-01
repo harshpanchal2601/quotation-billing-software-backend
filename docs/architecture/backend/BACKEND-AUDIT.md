@@ -3,10 +3,10 @@
 ## Safety Checkpoint
 
 - Git branch: `feat/code-migration`
-- Current commit: `7bacdcaf02587ac4731149858d12ae12d7268abc`
-- Working tree: clean
+- Current commit: `308cd35`
+- Working tree: dirty during BE-03A cleanup
 - Merge conflicts: none detected from the working tree state
-- Uncommitted files: none
+- Uncommitted files: BE-03A cleanup changes in progress
 
 ## Baseline Validation
 
@@ -21,18 +21,18 @@ Current source folders:
 
 - `src/bootstrap`: app creation, route registration, server startup
 - `src/config`: environment parsing
-- `src/core`: auth middleware, Prisma client, HTTP helpers, errors, audit, mail transport, public asset serving
+- `src/core`: Prisma client, HTTP helpers, errors, audit, database health
+- `src/integrations`: mail, PDF, storage provider mechanics
 - `src/modules`: business domains and feature helpers
 - `src/routes`: standalone route modules such as health
-- `src/controllers`, `src/services`, `src/templates`, `src/validators`: mostly empty placeholders in this snapshot
 - `tests`: service, validation, auth, health, storage, PDF, email, quotations, and seed tests
 - `storage`: runtime asset and generated-file root
 
 Current source-tree reality:
 
-- Actual feature work lives in `src/modules/*`, not in the placeholder top-level `controllers`, `services`, or `validators` folders.
+- Actual feature work lives in `src/modules/*` and the top-level placeholder `controllers`, `services`, `templates`, and `validators` folders were removed in BE-03A.
 - The backend already has a route registry in `src/bootstrap/registerRoutes.ts`.
-- Runtime storage is tracked under `storage/` with `.gitkeep` sentinels and a few committed sample files.
+- Runtime storage is tracked under `storage/` with committed sample files and `.gitignore` rules for generated artifacts.
 
 ## Current Entry Points
 
@@ -91,9 +91,9 @@ There are also direct `$transaction` calls in many of those module services.
 
 ## Controller And Service Findings
 
-Controllers still exist throughout auth, business settings, categories, companies, dashboard, items, measurement units, quotations, quotation attachments, quotation documents, and quotation email. They mainly parse input and bridge to services, but the layer is not consistently useful everywhere.
+Controllers still exist throughout business settings, companies, items, quotations, quotation attachments, quotation documents, and quotation email. They mainly parse input and bridge to services, but the layer is not consistently useful everywhere.
 
-Services currently carry the bulk of the business workflow and Prisma work. In the target model, many of these become repositories or feature helpers, while some orchestration can move into routes.
+Services currently carry the bulk of the business workflow and Prisma work in the remaining unmigrated domains. Auth, categories, dashboard, and measurement units have been moved to route + repository shape in BE-03 and the obsolete controller/service layers were removed in BE-03A.
 
 ## Schema And Validation Findings
 
@@ -123,16 +123,17 @@ Confirmed violation:
 
 - `src/core/auth/authentication.middleware.ts` imported auth-module constants and token verification from `src/modules/auth/*`.
 
-This was the clearest current core-to-module dependency and was addressed in the foundation phase by moving the middleware into `src/modules/auth/auth.middleware.ts`.
+This was the clearest current core-to-module dependency and was addressed in the foundation phase by moving the middleware into `src/modules/auth/auth.middleware.ts`, then removing the old Core file in BE-02 cleanup.
 
 ## Auth Findings
 
 - Login, refresh, logout, current user, and password change are implemented in `src/modules/auth`.
+- Auth now uses `src/modules/auth/auth.routes.ts` plus `src/modules/auth/auth.repository.ts` and focused security helpers.
 - Token creation/verification lives in `src/modules/auth/security/auth.tokens.ts`.
 - Cookie behavior lives in `src/modules/auth/security/auth.cookies.ts`.
 - Rate limiting for login lives in `src/modules/auth/security/auth.rate-limit.ts`.
 - Auth currently owns session persistence, refresh rotation, password hashing, and audit logging.
-- Core authentication middleware currently depends on auth-module constants and token helpers.
+- Core authentication middleware no longer depends on auth-module internals for this flow.
 
 ## Mail Findings
 
@@ -161,19 +162,19 @@ This was the clearest current core-to-module dependency and was addressed in the
 
 ## Public Boundary Findings
 
-- Only a few modules expose public `index.ts` files: auth, categories, dashboard, measurement-units.
+- Auth, categories, dashboard, and measurement-units expose narrow public `index.ts` files.
 - The rest of the module tree is consumed via direct relative imports.
 - There is no sign of self-importing module indexes in the current tree.
 
 ## Module-Level Classification
 
-Auth: keep temporarily, then move toward module-owned repository and thin route orchestration.
+Auth: route + repository + security helpers; old controller/service layers removed in BE-03A.
 
-Dashboard: keep temporarily; likely route + repository with a focused query repository if the dashboard stays simple.
+Dashboard: route + repository; old controller/service layers removed in BE-03A.
 
-Categories: move toward route + repository; moderate complexity and good candidate for early simplification.
+Categories: route + repository; old controller/service layers removed in BE-03A.
 
-Measurement units: move toward route + repository; similar shape to categories.
+Measurement units: route + repository; old controller/service layers removed in BE-03A.
 
 Companies: keep temporarily; split contacts and addresses by capability in the target structure.
 

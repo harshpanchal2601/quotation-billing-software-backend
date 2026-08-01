@@ -10,6 +10,7 @@
 - Replace
 - Review
 - Remove later
+- Removed
 - Not applicable
 
 ## Current-To-Target Map
@@ -28,11 +29,11 @@
 | `src/core/storage/public-assets.ts` | Public static storage serving | `src/integrations/storage/*` plus bootstrap wiring | Storage serving mechanics | Move | config | High | BE-02 | public-assets tests | Move |
 | `src/routes/health.routes.ts` | Health endpoints | `src/routes/health.routes.ts` or `modules/health` if needed | Health and database check | Review | core/database | Low | BE-02 | health tests | Keep |
 | `src/modules/auth/auth.routes.ts` | Auth HTTP routes | `src/modules/auth/auth.routes.ts` | Auth workflow orchestration | Keep | auth schema, core auth, auth service/repository | High | BE-03 | auth tests | Keep |
-| `src/modules/auth/auth.controller.ts` | Auth HTTP/controller bridge | `src/modules/auth/auth.routes.ts` | Route orchestration | Merge | auth service, schemas | High | BE-03 | auth tests | Merge |
-| `src/modules/auth/auth.service.ts` | Login/session/password workflow, Prisma, audit | `src/modules/auth/auth.repository.ts` plus route orchestration | Auth repository and workflow split | Split | core auth, config, audit | High | BE-03 | auth service tests | Split |
-| `src/modules/categories/*` | Category CRUD, validation, audit | `src/modules/categories/categories.routes.ts`, `categories.repository.ts`, `categories.schema.ts` | Route + repository + schema | Split | core, audit | Medium | BE-03 | categories tests | Split |
-| `src/modules/measurement-units/*` | Measurement-unit CRUD, validation, audit | `src/modules/measurement-units/*` | Route + repository + schema | Split | core, audit | Medium | BE-03 | measurement-unit tests | Split |
-| `src/modules/dashboard/*` | Dashboard aggregation | `src/modules/dashboard/dashboard.routes.ts` + repository/helper | Route + repository | Review | Prisma, core | Medium | BE-03 | dashboard tests | Review |
+| `src/modules/auth/auth.controller.ts` | Auth HTTP/controller bridge | removed in BE-03A | Obsolete bridge layer | Removed | auth routes, auth repository, security helpers | Medium | BE-03A | auth routes tests | Removed |
+| `src/modules/auth/auth.service.ts` | Login/session/password workflow, Prisma, audit | removed in BE-03A | Obsolete workflow layer | Removed | auth routes, auth repository, security helpers | High | BE-03A | auth routes tests | Removed |
+| `src/modules/categories/*` | Category CRUD, validation, audit | `src/modules/categories/categories.routes.ts`, `categories.repository.ts`, `categories.schema.ts` | Route + repository + schema | Split | core, audit | Medium | BE-03 | categories tests | Removed obsolete controller/service |
+| `src/modules/measurement-units/*` | Measurement-unit CRUD, validation, audit | `src/modules/measurement-units/*` | Route + repository + schema | Split | core, audit | Medium | BE-03 | measurement-unit tests | Removed obsolete controller/service |
+| `src/modules/dashboard/*` | Dashboard aggregation | `src/modules/dashboard/dashboard.routes.ts` + repository/helper | Route + repository | Review | Prisma, core | Medium | BE-03 | dashboard tests | Removed obsolete controller/service |
 | `src/modules/companies/*` | Companies, contacts, addresses, quotation history | `src/modules/companies/*` plus subfolders for contacts/addresses/code | Route + repository + capability split | Split | audit, core, quotations summaries | High | BE-04 | companies tests | Split |
 | `src/modules/items/*` | Items, code, image policy, validation, audit | `src/modules/items/*` plus `images/` and `code/` capability folders | Route + repository + feature helpers | Split | integrations/storage, audit, categories, units | High | BE-05 | items tests | Split |
 | `src/modules/business-settings/*` | Business profile, quotation settings, bank details, branding | `src/modules/settings/*` | Settings domain split by capability | Split | storage integration, audit, quotations defaults | High | BE-06 | business-settings tests | Split |
@@ -74,6 +75,16 @@
 - Required tests: auth and domain behavior tests
 - Rollback point: pre-domain migration commit
 - Acceptance: routes orchestrate, repositories own Prisma
+
+### BE-03A — Completed-Phase Obsolete File and Folder Cleanup
+
+- Scope: remove dead controller/service layers and empty placeholder folders from completed phases
+- Exclusions: all future-phase business migrations
+- Dependencies: BE-03
+- Risk: medium
+- Required tests: full backend validation after cleanup
+- Rollback point: pre-cleanup commit
+- Acceptance: obsolete files are gone and no behavior changes occurred
 
 ### BE-04 — Companies Domain
 

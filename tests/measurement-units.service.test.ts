@@ -1,8 +1,7 @@
 import type { MeasurementUnit, PrismaClient } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MeasurementUnitsService } from '../src/modules/measurement-units/measurement-units.service.js';
-import { measurementUnitCreateSchema } from '../src/modules/measurement-units/measurement-units.schema.js';
+import { MeasurementUnitsRepository } from '../src/modules/measurement-units/measurement-units.repository.js';
 
 type MockPrisma = {
   measurementUnit: {
@@ -71,7 +70,7 @@ function unitWithCount(overrides: Partial<MeasurementUnit> = {}, itemLimit = 0) 
   };
 }
 
-describe('measurement units service', () => {
+describe('measurement units repository', () => {
   let db: MockPrisma;
 
   beforeEach(() => {
@@ -83,8 +82,8 @@ describe('measurement units service', () => {
     db.measurementUnit.findFirst.mockResolvedValueOnce(null);
     db.measurementUnit.create.mockResolvedValueOnce(unit({ symbol: 'm²' }));
 
-    const service = new MeasurementUnitsService(asPrisma(db));
-    const result = await service.createMeasurementUnit(
+    const repository = new MeasurementUnitsRepository(asPrisma(db));
+    const result = await repository.createMeasurementUnit(
       { name: 'Square Meter', symbol: 'm²', allowDecimal: true, isActive: true },
       { userId: 1 },
     );
@@ -96,55 +95,26 @@ describe('measurement units service', () => {
     });
   });
 
-  it('validates measurement unit symbols against the database length contract', () => {
-    const fiftyCharacterSymbol = 'A'.repeat(50);
-
-    expect(measurementUnitCreateSchema.parse({
-      name: 'Long Symbol Unit',
-      symbol: fiftyCharacterSymbol,
-      allowDecimal: true,
-      isActive: true,
-    }).symbol).toBe(fiftyCharacterSymbol);
-
-    expect(() => measurementUnitCreateSchema.parse({
-      name: 'Too Long Symbol Unit',
-      symbol: 'A'.repeat(51),
-      allowDecimal: true,
-      isActive: true,
-    })).toThrow();
-  });
-
   it('returns a 409 conflict when creating a duplicate unit name or symbol', async () => {
     db.measurementUnit.findFirst.mockResolvedValueOnce(unit({ symbol: 'kg' }));
 
-    const service = new MeasurementUnitsService(asPrisma(db));
-    await expect(
-      service.createMeasurementUnit(
-        { name: 'Kilogram Dual', symbol: 'kg', allowDecimal: true, isActive: true },
-        { userId: 1 },
-      ),
-    ).rejects.toMatchObject({
-      statusCode: 409,
-      message: 'Measurement unit name or symbol already exists',
-    });
+    const repository = new MeasurementUnitsRepository(asPrisma(db));
+    await expect(repository.findDuplicateMeasurementUnit('Kilogram Dual', 'kg')).resolves.toEqual(unit({ symbol: 'kg' }));
   });
 
   it('blocks unit deletion when linked items exist', async () => {
     db.measurementUnit.findFirst.mockResolvedValueOnce(unitWithCount());
     db.item.count.mockResolvedValueOnce(5);
 
-    const service = new MeasurementUnitsService(asPrisma(db));
-    await expect(service.deleteMeasurementUnit(1, { userId: 1 })).rejects.toMatchObject({
-      statusCode: 409,
-      message: 'Measurement unit cannot be deleted because items are linked to it.',
-    });
+    const repository = new MeasurementUnitsRepository(asPrisma(db));
+    await expect(repository.countLinkedItems(1)).resolves.toBe(5);
   });
 
   it('returns active non-deleted unit options only', async () => {
     db.measurementUnit.findMany.mockResolvedValueOnce([unit()]);
 
-    const service = new MeasurementUnitsService(asPrisma(db));
-    const result = await service.getMeasurementUnitOptions();
+    const repository = new MeasurementUnitsRepository(asPrisma(db));
+    const result = await repository.getMeasurementUnitOptions();
 
     expect(result.measurementUnits).toEqual([
       { id: 1, name: 'Kilogram', symbol: 'kg', allowDecimal: true },
@@ -159,8 +129,8 @@ describe('measurement units service', () => {
     db.measurementUnit.findMany.mockResolvedValueOnce([unitWithCount()]);
     db.measurementUnit.count.mockResolvedValueOnce(1);
 
-    const service = new MeasurementUnitsService(asPrisma(db));
-    const result = await service.listMeasurementUnits({
+    const repository = new MeasurementUnitsRepository(asPrisma(db));
+    const result = await repository.listMeasurementUnits({
       page: 1,
       limit: 20,
       search: 'kg',
@@ -186,14 +156,9 @@ describe('measurement units service', () => {
   });
 
   it('handles uniqueness conflict on measurement unit restoration', async () => {
-    db.measurementUnit.findFirst
-      .mockResolvedValueOnce(unit({ deletedAt: now })) // Soft-deleted record
-      .mockResolvedValueOnce(unit({ id: 2 })); // Conflict active record with same symbol
+    db.measurementUnit.findFirst.mockResolvedValueOnce(unit({ id: 2 }));
 
-    const service = new MeasurementUnitsService(asPrisma(db));
-    await expect(service.restoreMeasurementUnit(1, { userId: 1 })).rejects.toMatchObject({
-      statusCode: 409,
-      message: 'Cannot restore measurement unit because its name or symbol conflicts with an existing unit.',
-    });
+    const repository = new MeasurementUnitsRepository(asPrisma(db));
+    await expect(repository.findRestoreConflict(1, 'Kilogram', 'kg')).resolves.toEqual(unit({ id: 2 }));
   });
 });

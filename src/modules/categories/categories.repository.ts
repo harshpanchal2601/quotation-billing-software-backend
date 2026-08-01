@@ -1,21 +1,19 @@
 import type { ItemCategory, Prisma, PrismaClient } from '@prisma/client';
 import { AuditAction } from '@prisma/client';
 
-import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
+import { prisma } from '../../core/database/prisma.js';
+import { createPaginationMetadata } from './categories.types.js';
 import {
   serialiseCategory,
   serialiseCategoryOption,
   type CategoryWithItemCount,
 } from './categories.serializer.js';
-import { createPaginationMetadata } from './categories.types.js';
 import type {
   CategoryCreateInput,
   CategoryListQuery,
   CategoryUpdateInput,
 } from './categories.schema.js';
-
-const UNCATEGORISED_SLUG = 'uncategorised';
 
 const categoryAuditFields = ['name', 'description', 'isActive'] as const;
 
@@ -38,7 +36,7 @@ export function generateBaseSlug(name: string): string {
   return slug.length > 0 ? slug : 'category';
 }
 
-export class CategoriesService {
+export class CategoriesRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async listCategories(query: CategoryListQuery) {
@@ -79,167 +77,42 @@ export class CategoriesService {
     };
   }
 
-  async createCategory(input: CategoryCreateInput, metadata: RequestMetadata) {
-    const existingName = await this.db.itemCategory.findFirst({
-      where: { name: input.name },
+  async findCategoryByName(name: string) {
+    return this.db.itemCategory.findFirst({
+      where: { name },
     });
+  }
 
-    if (existingName !== null) {
-      throw new AppError('Category with this name already exists', 409);
-    }
-
-    const slug = await this.generateUniqueSlug(input.name);
-
-    const category = await this.db.itemCategory.create({
-      data: {
-        name: input.name,
-        slug,
-        description: input.description ?? null,
-        isActive: input.isActive,
-      },
+  async findCategoryById(id: number): Promise<CategoryWithItemCount | null> {
+    return this.db.itemCategory.findFirst({
+      where: { id, deletedAt: null },
       include: categoryDetailInclude,
     });
-
-    await this.auditCategory(AuditAction.CREATE, category, metadata);
-    return serialiseCategory(category);
   }
 
-  async getCategory(id: number) {
-    const category = await this.getExistingCategoryRecord(id);
-    return serialiseCategory(category);
-  }
-
-  async updateCategory(id: number, input: CategoryUpdateInput, metadata: RequestMetadata) {
-    const existing = await this.getExistingCategoryRecord(id);
-
-    if (existing.slug === UNCATEGORISED_SLUG && input.isActive === false) {
-      throw new AppError('The default Uncategorised category cannot be deactivated or deleted.', 409);
-    }
-
-    if (input.name !== undefined && input.name !== existing.name) {
-      const duplicate = await this.db.itemCategory.findFirst({
-        where: { name: input.name, NOT: { id } },
-      });
-      if (duplicate !== null) {
-        throw new AppError('Category with this name already exists', 409);
-      }
-    }
-
-    const updateData: Prisma.ItemCategoryUpdateInput = {
-      ...(input.name === undefined ? {} : { name: input.name }),
-      ...(input.description === undefined ? {} : { description: input.description ?? null }),
-      ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
-    };
-
-    if (Object.keys(updateData).length === 0 || !hasCategoryChanges(existing, updateData)) {
-      return serialiseCategory(existing);
-    }
-
-    const updated = await this.db.itemCategory.update({
-      where: { id },
-      data: updateData,
-      include: categoryDetailInclude,
-    });
-
-    await this.auditCategory(AuditAction.UPDATE, updated, metadata, existing);
-    return serialiseCategory(updated);
-  }
-
-  async updateCategoryStatus(id: number, isActive: boolean, metadata: RequestMetadata) {
-    const existing = await this.getExistingCategoryRecord(id);
-
-    if (existing.slug === UNCATEGORISED_SLUG && isActive === false) {
-      throw new AppError('The default Uncategorised category cannot be deactivated or deleted.', 409);
-    }
-
-    if (existing.isActive === isActive) {
-      return serialiseCategory(existing);
-    }
-
-    const updated = await this.db.itemCategory.update({
-      where: { id },
-      data: { isActive },
-      include: categoryDetailInclude,
-    });
-
-    await this.auditCategory(AuditAction.STATUS_CHANGE, updated, metadata, existing);
-    return serialiseCategory(updated);
-  }
-
-  async deleteCategory(id: number, metadata: RequestMetadata) {
-    const existing = await this.getExistingCategoryRecord(id);
-
-    if (existing.slug === UNCATEGORISED_SLUG) {
-      throw new AppError('The default Uncategorised category cannot be deactivated or deleted.', 409);
-    }
-
-    const linkedItemsCount = await this.db.item.count({
-      where: { categoryId: id, deletedAt: null },
-    });
-
-    if (linkedItemsCount > 0) {
-      throw new AppError('Category cannot be deleted because items are linked to it.', 409);
-    }
-
-    await this.db.itemCategory.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        isActive: false,
-      },
-    });
-
-    await this.auditCategory(AuditAction.DELETE, existing, metadata);
-  }
-
-  async restoreCategory(id: number, metadata: RequestMetadata) {
-    const existing = await this.db.itemCategory.findFirst({
+  async findDeletedCategoryById(id: number) {
+    return this.db.itemCategory.findFirst({
       where: { id, deletedAt: { not: null } },
     });
+  }
 
-    if (existing === null) {
-      throw new AppError('Category not found', 404);
-    }
-
-    const conflict = await this.db.itemCategory.findFirst({
+  async findRestoreConflict(id: number, name: string, slug: string) {
+    return this.db.itemCategory.findFirst({
       where: {
-        OR: [{ name: existing.name }, { slug: existing.slug }],
+        OR: [{ name }, { slug }],
         deletedAt: null,
         NOT: { id },
       },
     });
-
-    if (conflict !== null) {
-      throw new AppError('Cannot restore category because its name or slug conflicts with an existing category.', 409);
-    }
-
-    const restored = await this.db.itemCategory.update({
-      where: { id },
-      data: {
-        deletedAt: null,
-        isActive: true,
-      },
-      include: categoryDetailInclude,
-    });
-
-    await this.auditCategory(AuditAction.RESTORE, restored, metadata, existing);
-    return serialiseCategory(restored);
   }
 
-  private async getExistingCategoryRecord(id: number): Promise<CategoryWithItemCount> {
-    const category = await this.db.itemCategory.findFirst({
-      where: { id, deletedAt: null },
-      include: categoryDetailInclude,
+  async countLinkedItems(id: number) {
+    return this.db.item.count({
+      where: { categoryId: id, deletedAt: null },
     });
-
-    if (category === null) {
-      throw new AppError('Category not found', 404);
-    }
-
-    return category;
   }
 
-  private async generateUniqueSlug(name: string): Promise<string> {
+  async generateUniqueSlug(name: string): Promise<string> {
     const baseSlug = generateBaseSlug(name);
     let candidate = baseSlug;
     let suffix = 2;
@@ -259,6 +132,92 @@ export class CategoriesService {
     }
 
     return `${baseSlug}-${Date.now()}`;
+  }
+
+  async createCategory(
+    input: CategoryCreateInput & { slug: string },
+    metadata: RequestMetadata,
+  ) {
+    const category = await this.db.itemCategory.create({
+      data: {
+        name: input.name,
+        slug: input.slug,
+        description: input.description ?? null,
+        isActive: input.isActive,
+      },
+      include: categoryDetailInclude,
+    });
+
+    await this.auditCategory(AuditAction.CREATE, category, metadata);
+    return serialiseCategory(category);
+  }
+
+  async updateCategory(
+    id: number,
+    input: CategoryUpdateInput,
+    metadata: RequestMetadata,
+    previous: ItemCategory,
+  ) {
+    const updateData: Prisma.ItemCategoryUpdateInput = {
+      ...(input.name === undefined ? {} : { name: input.name }),
+      ...(input.description === undefined ? {} : { description: input.description ?? null }),
+      ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+    };
+
+    const updated = await this.db.itemCategory.update({
+      where: { id },
+      data: updateData,
+      include: categoryDetailInclude,
+    });
+
+    await this.auditCategory(AuditAction.UPDATE, updated, metadata, previous);
+    return serialiseCategory(updated);
+  }
+
+  async updateCategoryStatus(
+    id: number,
+    isActive: boolean,
+    metadata: RequestMetadata,
+    previous: ItemCategory,
+  ) {
+    const updated = await this.db.itemCategory.update({
+      where: { id },
+      data: { isActive },
+      include: categoryDetailInclude,
+    });
+
+    await this.auditCategory(AuditAction.STATUS_CHANGE, updated, metadata, previous);
+    return serialiseCategory(updated);
+  }
+
+  async deleteCategory(id: number, metadata: RequestMetadata, previous: ItemCategory) {
+    await this.db.itemCategory.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        isActive: false,
+      },
+    });
+
+    await this.auditCategory(AuditAction.DELETE, previous, metadata);
+  }
+
+  async restoreCategory(
+    id: number,
+    metadata: RequestMetadata,
+    previous: ItemCategory,
+  ) {
+    const restored = await this.db.itemCategory.update({
+      where: { id },
+      data: {
+        deletedAt: null,
+        isActive: true,
+      },
+      include: categoryDetailInclude,
+    });
+
+    await this.auditCategory(AuditAction.RESTORE, restored, metadata, previous);
+    return serialiseCategory(restored);
   }
 
   private async auditCategory(
@@ -290,6 +249,8 @@ export class CategoriesService {
   }
 }
 
+export const categoriesRepository = new CategoriesRepository(prisma);
+
 function createCategorySearchFilter(search: string): Prisma.ItemCategoryWhereInput {
   return {
     OR: [
@@ -298,8 +259,4 @@ function createCategorySearchFilter(search: string): Prisma.ItemCategoryWhereInp
       { description: { contains: search } },
     ],
   };
-}
-
-function hasCategoryChanges(existing: ItemCategory, data: Prisma.ItemCategoryUpdateInput) {
-  return Object.entries(data).some(([key, value]) => existing[key as keyof ItemCategory] !== value);
 }

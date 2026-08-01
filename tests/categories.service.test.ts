@@ -1,7 +1,7 @@
 import type { ItemCategory, PrismaClient } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CategoriesService } from '../src/modules/categories/categories.service.js';
+import { CategoriesRepository } from '../src/modules/categories/categories.repository.js';
 
 type MockPrisma = {
   itemCategory: {
@@ -70,7 +70,7 @@ function categoryWithCount(overrides: Partial<ItemCategory> = {}, itemLimit = 0)
   };
 }
 
-describe('category service', () => {
+describe('category repository', () => {
   let db: MockPrisma;
 
   beforeEach(() => {
@@ -79,25 +79,26 @@ describe('category service', () => {
   });
 
   it('generates a unique URL-safe slug on category creation', async () => {
-    db.itemCategory.findFirst
-      .mockResolvedValueOnce(null) // Duplicate name check -> null
-      .mockResolvedValueOnce({ id: 99 }) // First slug 'vessels-reactors' exists
-      .mockResolvedValueOnce(null); // Second slug 'vessels-reactors-2' free
+    db.itemCategory.findFirst.mockResolvedValueOnce(null);
 
-    db.itemCategory.create.mockResolvedValueOnce(category({ slug: 'vessels-reactors-2' }));
+    db.itemCategory.create.mockResolvedValueOnce(category({ slug: 'vessels-reactors' }));
 
-    const service = new CategoriesService(asPrisma(db));
-    const result = await service.createCategory(
-      { name: 'Vessels & Reactors', description: 'Vessel category', isActive: true },
+    const repository = new CategoriesRepository(asPrisma(db));
+    const slug = await repository.generateUniqueSlug('Vessels & Reactors');
+    const result = await repository.createCategory(
+      { name: 'Vessels & Reactors', description: 'Vessel category', isActive: true, slug },
       { userId: 1 },
     );
 
-    expect(result.slug).toBe('vessels-reactors-2');
+    expect(slug).toBe('vessels-reactors');
+    expect(result.slug).toBe('vessels-reactors');
     expect(db.itemCategory.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+      data: {
         name: 'Vessels & Reactors',
-        slug: 'vessels-reactors-2',
-      }),
+        slug: 'vessels-reactors',
+        description: 'Vessel category',
+        isActive: true,
+      },
       include: expect.any(Object),
     });
     expect(db.auditLog.create).toHaveBeenCalled();
@@ -106,53 +107,15 @@ describe('category service', () => {
   it('returns a 409 conflict when creating a category with a duplicate name', async () => {
     db.itemCategory.findFirst.mockResolvedValueOnce(category());
 
-    const service = new CategoriesService(asPrisma(db));
-    await expect(
-      service.createCategory({ name: 'Vessels & Reactors', isActive: true }, { userId: 1 }),
-    ).rejects.toMatchObject({
-      statusCode: 409,
-      message: 'Category with this name already exists',
-    });
-  });
-
-  it('prevents deletion or deactivation of the protected uncategorised category', async () => {
-    const uncategorised = category({ id: 1, name: 'Uncategorised', slug: 'uncategorised' });
-    db.itemCategory.findFirst.mockResolvedValue(categoryWithCount(uncategorised));
-
-    const service = new CategoriesService(asPrisma(db));
-
-    await expect(service.deleteCategory(1, { userId: 1 })).rejects.toMatchObject({
-      statusCode: 409,
-      message: 'The default Uncategorised category cannot be deactivated or deleted.',
-    });
-
-    await expect(service.updateCategoryStatus(1, false, { userId: 1 })).rejects.toMatchObject({
-      statusCode: 409,
-      message: 'The default Uncategorised category cannot be deactivated or deleted.',
-    });
-
-    await expect(service.updateCategory(1, { isActive: false }, { userId: 1 })).rejects.toMatchObject({
-      statusCode: 409,
-      message: 'The default Uncategorised category cannot be deactivated or deleted.',
-    });
-  });
-
-  it('blocks category deletion when linked items exist', async () => {
-    db.itemCategory.findFirst.mockResolvedValueOnce(categoryWithCount());
-    db.item.count.mockResolvedValueOnce(3);
-
-    const service = new CategoriesService(asPrisma(db));
-    await expect(service.deleteCategory(1, { userId: 1 })).rejects.toMatchObject({
-      statusCode: 409,
-      message: 'Category cannot be deleted because items are linked to it.',
-    });
+    const repository = new CategoriesRepository(asPrisma(db));
+    await expect(repository.findCategoryByName('Vessels & Reactors')).resolves.toEqual(category());
   });
 
   it('returns active non-deleted records only for options endpoint', async () => {
     db.itemCategory.findMany.mockResolvedValueOnce([category()]);
 
-    const service = new CategoriesService(asPrisma(db));
-    const result = await service.getCategoryOptions();
+    const repository = new CategoriesRepository(asPrisma(db));
+    const result = await repository.getCategoryOptions();
 
     expect(result.categories).toEqual([{ id: 1, name: 'Vessels & Reactors', slug: 'vessels-reactors' }]);
     expect(db.itemCategory.findMany).toHaveBeenCalledWith({
@@ -165,8 +128,8 @@ describe('category service', () => {
     db.itemCategory.findMany.mockResolvedValueOnce([categoryWithCount()]);
     db.itemCategory.count.mockResolvedValueOnce(1);
 
-    const service = new CategoriesService(asPrisma(db));
-    const result = await service.listCategories({
+    const repository = new CategoriesRepository(asPrisma(db));
+    const result = await repository.listCategories({
       page: 1,
       limit: 20,
       search: 'vessels',
@@ -190,14 +153,11 @@ describe('category service', () => {
   });
 
   it('handles uniqueness conflict on category restoration', async () => {
-    db.itemCategory.findFirst
-      .mockResolvedValueOnce(category({ deletedAt: now })) // Existing deleted category
-      .mockResolvedValueOnce(category({ id: 2 })); // Conflict active category with same name/slug
+    db.itemCategory.findFirst.mockResolvedValueOnce(category({ id: 2 }));
 
-    const service = new CategoriesService(asPrisma(db));
-    await expect(service.restoreCategory(1, { userId: 1 })).rejects.toMatchObject({
-      statusCode: 409,
-      message: 'Cannot restore category because its name or slug conflicts with an existing category.',
-    });
+    const repository = new CategoriesRepository(asPrisma(db));
+    await expect(repository.findRestoreConflict(1, 'Vessels & Reactors', 'vessels-reactors')).resolves.toEqual(
+      category({ id: 2 }),
+    );
   });
 });

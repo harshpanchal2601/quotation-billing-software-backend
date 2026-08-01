@@ -1,9 +1,10 @@
 import type { UserRole } from '@prisma/client';
 import type { RequestHandler } from 'express';
 
-import { prisma } from '../../core/database/prisma.js';
 import { AppError } from '../../core/errors/AppError.js';
 import { ACCESS_TOKEN_COOKIE_NAME, AUTHENTICATION_REQUIRED_MESSAGE } from './auth.constants.js';
+import { assertActiveUser } from './auth.helpers.js';
+import { authRepository } from './auth.repository.js';
 import { verifyAccessToken } from './security/auth.tokens.js';
 
 export const requireAuthentication: RequestHandler = async (req, _res, next) => {
@@ -15,13 +16,13 @@ export const requireAuthentication: RequestHandler = async (req, _res, next) => 
     }
 
     const payload = verifyAccessToken(token);
-    const user = await prisma.user.findUnique({
-      where: { id: Number(payload.sub) },
-    });
+    const user = await authRepository.findUserById(Number(payload.sub));
 
-    if (user === null || user.deletedAt !== null || user.status !== 'ACTIVE') {
+    if (user === null) {
       throw new AppError(AUTHENTICATION_REQUIRED_MESSAGE, 401);
     }
+
+    assertActiveUser(user);
 
     if (user.passwordChangedAt !== null && payload.iat * 1000 < user.passwordChangedAt.getTime()) {
       throw new AppError(AUTHENTICATION_REQUIRED_MESSAGE, 401);

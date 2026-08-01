@@ -48,3 +48,10 @@ Repositories must not:
 - Large modules should split by business capability rather than forcing controllers, use cases, or port abstractions.
 - A repository may expose one meaningful transactional method if the workflow genuinely needs it.
 - Avoid one-method repositories that only rename a single Prisma call unless consistency justifies them.
+
+## Completed Examples
+
+- Auth routes own login, refresh, logout, me, and change-password workflow while `auth.repository.ts` owns the user/session writes.
+- Categories routes own duplicate-name checks, restore conflict checks, and response shaping while `categories.repository.ts` owns list queries, item-count checks, and audit-coupled persistence.
+- Measurement units routes own duplicate-name/symbol checks, restore conflict checks, and response shaping while `measurement-units.repository.ts` owns list queries, item-count checks, and audit-coupled persistence.
+- Dashboard routes own query parsing and response creation while `dashboard.repository.ts` owns the aggregate query and result shaping.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveDashboardDateRange } from '../src/modules/dashboard/dashboard.service.js';
+import { resolveDashboardDateRange } from '../src/modules/dashboard/dashboard.repository.js';
 import { dashboardOverviewQuerySchema } from '../src/modules/dashboard/dashboard.schema.js';
 
 describe('Dashboard Service & Validation', () => {

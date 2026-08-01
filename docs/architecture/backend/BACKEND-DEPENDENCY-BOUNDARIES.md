@@ -11,6 +11,18 @@
 
 - `src/modules/auth/auth.middleware.ts` owns authentication middleware and token verification boundary usage; Core no longer imports auth-module internals for this flow.
 
+## Removed Compatibility Paths
+
+- `src/core/auth/authentication.middleware.ts` removed after BE-02 cleanup.
+- `src/modules/auth/auth.controller.ts` removed in BE-03A.
+- `src/modules/auth/auth.service.ts` removed in BE-03A.
+- `src/modules/categories/categories.controller.ts` removed in BE-03A.
+- `src/modules/categories/categories.service.ts` removed in BE-03A.
+- `src/modules/dashboard/dashboard.controller.ts` removed in BE-03A.
+- `src/modules/dashboard/dashboard.service.ts` removed in BE-03A.
+- `src/modules/measurement-units/measurement-units.controller.ts` removed in BE-03A.
+- `src/modules/measurement-units/measurement-units.service.ts` removed in BE-03A.
+
 ## Boundary Notes
 
 - Config must not import modules.

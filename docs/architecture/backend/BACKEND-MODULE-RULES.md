@@ -22,5 +22,6 @@ Modules own:
 ## Current Module Observations
 
 - Auth, categories, dashboard, and measurement units already have explicit public index files.
+- Auth uses route + repository + helpers; categories, dashboard, and measurement units use route + repository + schema.
 - Companies, items, business settings, quotations, quotation email, quotation documents, and quotation attachments still rely on direct file imports.
 - Quotation is the only domain that is clearly complex enough to justify a dedicated capability tree in later phases.
