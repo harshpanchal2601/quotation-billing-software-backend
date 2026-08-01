@@ -27,3 +27,13 @@
 - No physical file migration performed
 - Items adopted storage integration for directory ensure and file delete
 - Remaining direct filesystem consumers: business-settings branding, quotation attachments, quotation documents
+
+## BE-08 Storage Inventory
+
+- Item images: owner `items`; physical `storage/items`; database path `items/{filename}`; public URL `/storage/items/{filename}`; delete policy on replacement/delete/compensation.
+- Branding logo/signature/stamp: owner `settings`; physical `storage/logos`, `storage/signatures`, `storage/stamps`; database paths `{directory}/{filename}`; public URL `/storage/{path}`.
+- Quotation PDFs: owner `quotations/documents`; physical `storage/quotation-documents`; database path `quotation-documents/{uuid}.pdf`; protected preview/download endpoints under `/api/v1/quotations/:id/pdf/:documentId/*`.
+- Quotation attachments: owner `quotations/attachments`; physical `storage/quotation-attachments`; database path `quotation-attachments/{uuid}.{ext}`; protected preview/download endpoints under `/api/v1/quotations/:quotationId/attachments/:attachmentId/*`.
+- Runtime placeholders retained: `storage/attachments/.gitkeep`, `storage/items/.gitkeep`, `storage/logos/.gitkeep`, `storage/quotations/.gitkeep`, `storage/signatures/.gitkeep`, `storage/stamps/.gitkeep`.
+- Physical storage files were not moved, renamed, rewritten, or deleted in BE-08.
+- Public asset directories remain `items`, `logos`, `signatures`, and `stamps`; quotation documents and attachments remain protected.

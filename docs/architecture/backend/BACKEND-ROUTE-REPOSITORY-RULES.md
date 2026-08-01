@@ -46,6 +46,15 @@ Repositories must not:
 ## Practical Guidance
 
 - Large modules should split by business capability rather than forcing controllers, use cases, or port abstractions.
+
+## BE-08 Final Route/Repository Rules
+
+- Routes may orchestrate business workflows, validation, auth/role checks, integration calls, audit decisions, and HTTP responses.
+- Routes must not import the Prisma client or perform raw database operations.
+- Repositories own Prisma calls, transactions, selections/includes, pagination, persistence conflicts, and transactionally coupled audit writes.
+- Repositories must not import Express as a module or create HTTP responses.
+- Current documented repository type exception: upload-capable repositories may accept `Express.Multer.File` values produced by route-level Multer middleware until a shared file-input type is introduced.
+- Architecture enforcement: `tests/architecture/dependency-boundaries.test.ts`.
 - A repository may expose one meaningful transactional method if the workflow genuinely needs it.
 - Avoid one-method repositories that only rename a single Prisma call unless consistency justifies them.
 

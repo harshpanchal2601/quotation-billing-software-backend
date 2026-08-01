@@ -2,7 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import { AuditAction } from '@prisma/client';
 
 import { prisma } from '../../../core/database/prisma.js';
-import { businessProfileRepository } from '../business-profile/business-profile.repository.js';
+import { BusinessProfileRepository } from '../business-profile/business-profile.repository.js';
 import { createSettingsAuditLog, type RequestMetadata } from '../settings.audit.js';
 import { serialiseBusinessProfile, toAssetUrl } from '../settings.serializers.js';
 import {
@@ -16,7 +16,7 @@ export class BrandingRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async replaceAsset(assetType: BrandingAssetType, file: Express.Multer.File, metadata: RequestMetadata) {
-    const profile = await businessProfileRepository.getOrCreateBusinessProfile();
+    const profile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
     const config = brandingAssetConfig[assetType];
     const relativePath = toBrandingRelativePath(assetType, file.filename);
     const previousPath = profile[config.profileField];
@@ -45,7 +45,7 @@ export class BrandingRepository {
   }
 
   async deleteAsset(assetType: BrandingAssetType, metadata: RequestMetadata) {
-    const profile = await businessProfileRepository.getOrCreateBusinessProfile();
+    const profile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
     const config = brandingAssetConfig[assetType];
     const previousPath = profile[config.profileField];
 
@@ -69,6 +69,10 @@ export class BrandingRepository {
     });
 
     return serialiseBusinessProfile(updated);
+  }
+
+  private getBusinessProfileRepository() {
+    return new BusinessProfileRepository(this.db);
   }
 }
 

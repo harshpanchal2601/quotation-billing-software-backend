@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveDashboardDateRange } from '../src/modules/dashboard/dashboard.repository.js';
 import { dashboardOverviewQuerySchema } from '../src/modules/dashboard/dashboard.schema.js';
 
-describe('Dashboard Service & Validation', () => {
+describe('dashboard repository helpers and validation', () => {
   it('resolves CURRENT_FINANCIAL_YEAR correctly based on Indian financial year (April 1 to March 31)', () => {
     // Test date in July 2026 -> FY 2026-27 (2026-04-01 to 2027-03-31)
     const julyDate = new Date('2026-07-26T10:00:00.000Z');

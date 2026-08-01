@@ -51,3 +51,26 @@
 - Core must not import feature modules.
 - Modules should not import another module’s internal repository directly unless it is an intentional public boundary.
 - Shared functionality should stay business-neutral in core; feature wording and workflow should stay in modules.
+
+## BE-08 Enforced Boundaries
+
+Enforcement lives in `tests/architecture/dependency-boundaries.test.ts`.
+
+Rules enforced:
+
+- Core, Config, and Integrations must not import business modules.
+- Route files must not import the Prisma client or contain raw database access markers.
+- Repository files must not import Express.
+- Schema files must not import repositories, Prisma client ownership, or integrations.
+- `process.env` reads must stay in `src/config/env.ts`.
+- Nodemailer must stay under `src/integrations/mail`.
+- Puppeteer must stay under `src/integrations/pdf`.
+- Top-level module indexes must not use `export *`.
+- Rejected architecture folders must remain absent.
+
+Intentional exceptions:
+
+- `src/bootstrap/server.ts`: imports Prisma only to disconnect cleanly on shutdown; infrastructure-owned and permanent.
+- `src/core/database/database-health.ts`: performs `SELECT 1` health query; core database health and permanent.
+- Upload-capable repositories use `Express.Multer.File` namespace types without importing Express; temporary until a shared upload file type is useful.
+- Quotation modules import Settings through narrow public helpers for quotation numbering, PDF branding, and email business profile reads; permanent narrow read boundary.

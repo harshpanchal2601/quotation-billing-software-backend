@@ -149,3 +149,36 @@ No Catalog parent module was created. Categories remain at `src/modules/categori
 - `images/item-image.policy.ts` — Multer wiring, MIME/size/extension policy, relative path mapping; uses storage integration for directory ensure and file delete
 - `images/index.ts` — narrow image policy exports
 - `index.ts` — exports `itemsRouter` only
+
+## Implemented Module Example — Settings (BE-06/BE-08)
+
+`src/modules/settings/`
+
+- `settings.routes.ts` — business profile, branding, quotation settings, and bank details HTTP endpoints
+- `business-profile/business-profile.repository.ts` — singleton profile persistence
+- `quotation-settings/quotation-settings.repository.ts` — quotation settings persistence and narrow read helper
+- `bank-details/bank-details.repository.ts` — bank CRUD/default persistence
+- `branding/branding.repository.ts` — branding metadata persistence and compensation
+- `branding/branding.policy.ts` — branding upload policy and storage path mapping
+- `settings.quotation-reads.ts` — narrow raw-record reads for quotation PDF/email consumers
+- `index.ts` — router plus narrow Settings read/policy/default exports
+
+## Implemented Module Example — Quotations (BE-07/BE-08)
+
+`src/modules/quotations/`
+
+- `quotations.routes.ts` — quotation CRUD, calculation preview, status, and revision endpoints
+- `quotations.repository.ts` — quotation persistence, transactions, audit, snapshots, revisions, listing, and status updates
+- `calculations/quotation-calculations.ts` — quotation calculation rules
+- `numbering/quotation-number.ts` — quotation number formatting and reservation
+- `attachments/*` — attachment policy, routes, repository, and types
+- `documents/*` — PDF document routes, repository, template, and types
+- `communications/quotation-communications.repository.ts` — communication history and quotation email workflow persistence
+- `email/*` — email validation and business template
+- `index.ts` — exports `quotationsRouter` only
+
+## BE-08 Enforcement
+
+- `tests/architecture/dependency-boundaries.test.ts` enforces stable import boundaries with existing Vitest tooling.
+- Rejected placeholder folders are absent from source.
+- Runtime storage folders remain physically unchanged.

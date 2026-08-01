@@ -2,7 +2,7 @@ import { Prisma, AuditAction } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
 
 import { prisma } from '../../../core/database/prisma.js';
-import { businessProfileRepository } from '../business-profile/business-profile.repository.js';
+import { BusinessProfileRepository } from '../business-profile/business-profile.repository.js';
 import { defaultQuotationSettingsData } from '../settings.defaults.js';
 import { createSettingsAuditLog, pickChangedFields, type RequestMetadata } from '../settings.audit.js';
 import { serialiseQuotationSettings } from '../settings.serializers.js';
@@ -31,7 +31,7 @@ export class QuotationSettingsRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async getOrCreateQuotationSettings() {
-    const businessProfile = await businessProfileRepository.getOrCreateBusinessProfile();
+    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
     const existing = await this.db.quotationSetting.findUnique({
       where: { businessProfileId: businessProfile.id },
     });
@@ -95,10 +95,14 @@ export class QuotationSettingsRepository {
 
     return serialiseQuotationSettings(updated);
   }
+
+  private getBusinessProfileRepository() {
+    return new BusinessProfileRepository(this.db);
+  }
 }
 
 export const quotationSettingsRepository = new QuotationSettingsRepository(prisma);
 
-export async function getOrCreateQuotationSettings() {
-  return quotationSettingsRepository.getOrCreateQuotationSettings();
+export async function getOrCreateQuotationSettings(db: PrismaClient = prisma) {
+  return new QuotationSettingsRepository(db).getOrCreateQuotationSettings();
 }

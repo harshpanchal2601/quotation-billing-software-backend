@@ -62,3 +62,11 @@ Items module retains:
 - `item-{uuid}.{ext}` filename policy
 - `items/{basename}` relative path stored in database
 - `/storage/{relativePath}` public URL via serializer
+
+## BE-08 Integration Boundary Result
+
+- Mail: Nodemailer and transport creation are only in `src/integrations/mail`.
+- PDF: Puppeteer launch, page lifecycle, PDF generation, and browser cleanup are only in `src/integrations/pdf`.
+- Storage: safe path resolution, directory creation, read/write/delete/existence, and public static middleware are in `src/integrations/storage`.
+- Modules retain domain policy: item-image policy, branding policy, quotation attachment policy, quotation PDF assembly, email recipient/status decisions, and communication history.
+- No integration imports a business module.

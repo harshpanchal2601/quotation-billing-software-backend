@@ -43,3 +43,22 @@
 - Validation: baseline and final lint, typecheck, test (157), build passed.
 - Deferred work: optional route-level conflict refactor; Quotations cross-module read boundary in BE-07.
 - Next phase: BE-06 — Settings Domain.
+
+## BE-07 — Unified Quotation Domain Route + Repository Migration
+
+- Scope: consolidate quotation CRUD, calculations, numbering, revisions, status, PDF, attachments, email, communication history, and audit into `src/modules/quotations/`.
+- Cleanup: removed top-level quotation documents, attachments, email, controller, service, validation, and helper files after responsibilities moved.
+- Boundary result: routes use repositories/integrations; repositories own Prisma; Settings exposes narrow quotation read helpers.
+- Validation: typecheck, tests, and build passed after migration.
+- Next phase: BE-08 — Tests, Storage, Cleanup, and Dependency-Boundary Enforcement.
+
+## BE-08 — Tests, Storage, Cleanup, and Dependency-Boundary Enforcement
+
+- Scope: final backend architecture hardening after BE-07; no API or business behaviour changes.
+- Cleanup: removed rejected source/test placeholder `.gitkeep` files and empty rejected folders; runtime storage placeholders retained.
+- Test organization: renamed legacy service-named tests to repository, policy, template, and communication ownership names.
+- Storage result: no physical storage files changed; item/branding public paths and quotation PDF/attachment protected paths preserved.
+- Boundary enforcement: added Vitest architecture tests for Core/Config/Integration independence, route Prisma prohibition, repository/schema boundaries, provider ownership, environment ownership, narrow barrels, and rejected folders.
+- Validation: lint, typecheck, tests, architecture test, and build passed.
+- Retained exceptions: bootstrap Prisma disconnect, core database health query, upload file namespace types, and narrow Settings read helpers for Quotations.
+- Next phase: BE-09 final acceptance audit.

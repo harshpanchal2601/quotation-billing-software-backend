@@ -1,5 +1,26 @@
 # Backend Project Status
 
+## BE-08 Status
+
+Completed as tests, storage, cleanup, and dependency-boundary enforcement.
+
+- Starting branch: `feat/code-migration`
+- Starting commit: `a0c10362cea30ccc7b26abf0b8c96f0c920c3e56`
+- Baseline validation after isolation fix: lint passed, typecheck passed, tests passed (`26` files / `157` tests), build passed.
+- Cleanup: removed rejected source/test `.gitkeep` placeholders and empty rejected architecture folders.
+- Test organization: renamed legacy service-named tests to repository/policy/template/current-owner names.
+- Boundary enforcement: added `tests/architecture/dependency-boundaries.test.ts`.
+- Storage audit: runtime storage placeholders and committed artifacts preserved; public/protected paths unchanged.
+- Final validation: lint, typecheck, tests, architecture test, and build passed.
+- Final test count: `27` files / `162` tests.
+- Readiness: backend ready for BE-09 final acceptance audit.
+
+## BE-07 Status
+
+Completed as a Unified Quotation Domain route + repository migration.
+
+Quotation CRUD, calculations, numbering, snapshots, status transitions, revisions, generated PDFs, attachments, quotation email, and communication history are consolidated under `src/modules/quotations/`. Top-level `quotation-documents`, `quotation-attachments`, and `quotation-email` modules were removed. Settings read helpers provide narrow public boundaries for quotation PDF/email/numbering consumers.
+
 ## BE-06 Status
 
 Completed as a Settings domain route + repository migration.
@@ -45,7 +66,7 @@ The backend now has typed config modules for mail, PDF, and storage; integration
 - Typecheck: passed
 - Tests: passed, 26 files / 157 tests
 - Focused Settings: `settings.repository.test.ts` (8), `settings.validation.test.ts` (8)
-- Focused PDF consumer: `quotation-documents.service.test.ts` (16)
+- Focused PDF consumer: `quotation-documents.template.test.ts` (16)
 - Build: passed
 
 ## Settings Structure (After BE-06)
@@ -75,8 +96,8 @@ The backend now has typed config modules for mail, PDF, and storage; integration
 ## Public Settings Boundary (BE-06)
 
 - `settingsRouter` — mounted at `/api/v1/settings`
-- `getOrCreateQuotationSettings()` — used by `quotation-number.service.ts`
-- `brandingAssetConfig`, `resolveBrandingPath`, `BrandingAssetType` — used by `quotation-documents.service.ts`
+- `getOrCreateQuotationSettings()` — used by `quotations/numbering/quotation-number.ts`
+- `brandingAssetConfig`, `resolveBrandingPath`, `BrandingAssetType` — used by `quotations/documents/quotation-documents.repository.ts`
 - `defaultBusinessProfileData`, `defaultQuotationSettingsData` — used by seed
 
 ## Controllers/Services Removed (BE-06)
@@ -98,12 +119,12 @@ All `/api/v1/settings` routes, contracts, messages, and status codes preserved.
 ## Deferred Work
 
 - Move remaining `AppError` throws from Settings repositories into routes where practical (optional refactor).
-- Quotation PDF/email still query business profile and bank details via direct Prisma in quotation-documents service (revisit in BE-07).
-- Narrow cross-module settings read helpers for PDF/email when Quotations migrates (BE-07).
+- Quotation PDF/email reads use narrow Settings helpers after BE-07.
+- Settings repositories now construct dependent Settings repositories with the same injected Prisma client to preserve test isolation.
 
 ## Current Architecture Summary
 
-Auth, categories, dashboard, measurement units, companies, items, and settings use route + repository shape. Quotations, quotation documents, quotation email, and quotation attachments still use controller/service layers.
+Auth, categories, dashboard, measurement units, companies, items, settings, and quotations use route + repository shape. Quotation documents, email, communications, and attachments are internal quotation capabilities.
 
 ## Target Architecture Summary
 

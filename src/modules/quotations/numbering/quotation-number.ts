@@ -5,10 +5,10 @@ import { getOrCreateQuotationSettings } from '../../settings/index.js';
 
 export async function generateUniqueQuotationNumber(
   tx: Prisma.TransactionClient,
-  _dbForSetting: PrismaClient,
+  dbForSetting: PrismaClient,
   quotationDate: Date = new Date(),
 ): Promise<string> {
-  const settings = await getOrCreateQuotationSettings();
+  const settings = await getOrCreateQuotationSettings(dbForSetting);
 
   const prefix = settings.quotationPrefix || 'BUMINEX';
   const fyFormat = settings.financialYearFormat || 'YYYY-YY';

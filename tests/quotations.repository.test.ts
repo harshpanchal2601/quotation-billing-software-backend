@@ -234,7 +234,7 @@ describe('quotation calculation engine', () => {
   });
 });
 
-describe('quotations service', () => {
+describe('quotations repository', () => {
   let db: MockPrisma;
 
   beforeEach(() => {

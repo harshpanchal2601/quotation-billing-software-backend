@@ -3,7 +3,7 @@ import { AuditAction } from '@prisma/client';
 
 import { AppError } from '../../../core/errors/AppError.js';
 import { prisma } from '../../../core/database/prisma.js';
-import { businessProfileRepository } from '../business-profile/business-profile.repository.js';
+import { BusinessProfileRepository } from '../business-profile/business-profile.repository.js';
 import { createSettingsAuditLog, type RequestMetadata } from '../settings.audit.js';
 import { maskAccountNumber, serialiseBankDetail } from '../settings.serializers.js';
 import type { BankDetailCreateInput, BankDetailUpdateInput } from './bank-details.schema.js';
@@ -12,7 +12,7 @@ export class BankDetailsRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async listBankDetails() {
-    const businessProfile = await businessProfileRepository.getOrCreateBusinessProfile();
+    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
     const bankDetails = await this.db.bankDetail.findMany({
       where: { businessProfileId: businessProfile.id, deletedAt: null },
       orderBy: [{ isDefault: 'desc' }, { bankName: 'asc' }, { createdAt: 'asc' }],
@@ -21,7 +21,7 @@ export class BankDetailsRepository {
   }
 
   async createBankDetail(input: BankDetailCreateInput, metadata: RequestMetadata) {
-    const businessProfile = await businessProfileRepository.getOrCreateBusinessProfile();
+    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
 
     const created = await this.db.$transaction(async (tx) => {
       if (input.isDefault) {
@@ -104,7 +104,7 @@ export class BankDetailsRepository {
   }
 
   async getDefaultBankDetailRecord() {
-    const businessProfile = await businessProfileRepository.getOrCreateBusinessProfile();
+    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
     const defaultBank = await this.db.bankDetail.findFirst({
       where: { businessProfileId: businessProfile.id, deletedAt: null, isDefault: true },
     });
@@ -142,7 +142,7 @@ export class BankDetailsRepository {
   }
 
   private async getExistingBankDetail(id: number) {
-    const businessProfile = await businessProfileRepository.getOrCreateBusinessProfile();
+    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
     const bankDetail = await this.db.bankDetail.findFirst({
       where: { id, businessProfileId: businessProfile.id, deletedAt: null },
     });
@@ -180,6 +180,10 @@ export class BankDetailsRepository {
         ...extra,
       },
     });
+  }
+
+  private getBusinessProfileRepository() {
+    return new BusinessProfileRepository(this.db);
   }
 }
 

@@ -28,4 +28,15 @@ Modules own:
 - Items organisation: core item workflow in `items.routes.ts` + `items.repository.ts`; item code formatting in `code/item-code.ts`; database code sequencing and retry in `items.repository.ts`; image MIME/size/extension policy and Multer wiring in `images/item-image.policy.ts`; generic filesystem operations via storage integration.
 - Category and measurement unit boundaries: Items repository queries `itemCategory` and `measurementUnit` Prisma models directly for existence/active checks (no cross-module repository imports).
 - Business settings, quotations, quotation email, quotation documents, and quotation attachments still rely on direct file imports and controller/service layers.
+
+## BE-08 Final Module Rules
+
+- Business modules use route + repository by default.
+- Schemas own validation and coercion only.
+- Capability folders are allowed inside large domains when they keep ownership clear, as in `src/modules/quotations/{attachments,documents,email,communications}`.
+- Public `index.ts` files must stay explicit and narrow.
+- Internal module files should use relative imports inside their own module.
+- Cross-module imports must use narrow public boundaries unless the module owns a direct Prisma relationship check.
+- Controllers and services are not part of the current backend architecture unless a future phase explicitly justifies one.
+- Rejected `.gitkeep`-only source folders must not return.
 - Quotation is the only domain that is clearly complex enough to justify a dedicated capability tree in later phases.

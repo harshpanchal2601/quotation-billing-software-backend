@@ -145,3 +145,15 @@
 - Required tests: full backend baseline plus targeted regressions
 - Rollback point: last pre-release commit
 - Acceptance: final architecture matches target and contracts remain intact
+
+## BE-08 Cleanup And Enforcement Result
+
+| Area | Result | Notes |
+| --- | --- | --- |
+| BE-02 through BE-07 migrations | Complete | Auth, dashboard, categories, measurement units, companies, items, settings, and quotations use route + repository architecture. |
+| Controllers/services | Removed | No production `*.controller.ts` or `*.service.ts` files remain. |
+| Historical modules | Removed | `business-settings`, top-level quotation capability modules, and `.gitkeep`-only rejected folders are gone. |
+| Test naming | Updated | Legacy `*.service.test.ts` files were renamed to repository/policy/template/current-owner names. |
+| Architecture enforcement | Added | `tests/architecture/dependency-boundaries.test.ts`. |
+| Storage | Preserved | Runtime directories and committed artifacts unchanged. |
+| Documentation | Updated | BE-08 status appended to backend architecture docs. |
