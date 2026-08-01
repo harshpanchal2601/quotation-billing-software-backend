@@ -9,3 +9,5 @@ export {
   defaultBusinessProfileData,
   defaultQuotationSettingsData,
 } from './settings.defaults.js';
+export { getBusinessProfileRecordForQuotation } from './settings.quotation-reads.js';
+export { getDefaultBankDetailRecordForQuotation } from './settings.quotation-reads.js';

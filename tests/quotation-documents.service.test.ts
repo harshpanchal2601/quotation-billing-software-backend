@@ -3,13 +3,13 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { storageConfig } from '../src/config/storage.config';
-import { getBrandingFileDataUrl } from '../src/modules/quotation-documents/quotation-documents.service';
+import { getBrandingFileDataUrl } from '../src/modules/quotations/documents/quotation-documents.repository';
 import {
   escapeHtml,
   formatCurrencyPdf,
   renderQuotationHtmlTemplate,
-} from '../src/modules/quotation-documents/quotation-pdf-template';
-import type { QuotationPdfViewModel } from '../src/modules/quotation-documents/quotation-documents.types';
+} from '../src/modules/quotations/documents/quotation-document.template';
+import type { QuotationPdfViewModel } from '../src/modules/quotations/documents/quotation-documents.types';
 
 describe('quotation PDF template and document security', () => {
   const mockViewModel: QuotationPdfViewModel = {

@@ -103,6 +103,18 @@ export class BankDetailsRepository {
     await this.auditBankDetail(AuditAction.DELETE, existing, metadata);
   }
 
+  async getDefaultBankDetailRecord() {
+    const businessProfile = await businessProfileRepository.getOrCreateBusinessProfile();
+    const defaultBank = await this.db.bankDetail.findFirst({
+      where: { businessProfileId: businessProfile.id, deletedAt: null, isDefault: true },
+    });
+    if (defaultBank) return defaultBank;
+    return this.db.bankDetail.findFirst({
+      where: { businessProfileId: businessProfile.id, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   async setDefaultBankDetail(id: number, metadata: RequestMetadata) {
     const existing = await this.getExistingBankDetail(id);
 

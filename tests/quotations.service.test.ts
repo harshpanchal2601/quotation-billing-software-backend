@@ -1,10 +1,10 @@
 import { DiscountType, Prisma, QuotationStatus, TaxMode, type Company, type Item, type PrismaClient } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { calculateQuotationTotals } from '../src/modules/quotations/quotation-calculation.service.js';
-import { validateStatusTransition } from '../src/modules/quotations/quotation-status.service.js';
-import { QuotationsService } from '../src/modules/quotations/quotations.service.js';
-import { calculationPreviewSchema, quotationCreateSchema } from '../src/modules/quotations/quotations.validation.js';
+import { calculateQuotationTotals } from '../src/modules/quotations/calculations/quotation-calculations.js';
+import { validateStatusTransition } from '../src/modules/quotations/quotation-status.js';
+import { QuotationsRepository } from '../src/modules/quotations/quotations.repository.js';
+import { calculationPreviewSchema, quotationCreateSchema } from '../src/modules/quotations/quotations.schema.js';
 
 type MockPrisma = {
   quotation: {
@@ -293,7 +293,7 @@ describe('quotations service', () => {
     db.quotation.update.mockResolvedValue(createdQuotation);
     db.quotation.findFirst.mockResolvedValueOnce(createdQuotation); // getQuotation after create
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
     const result = await service.createQuotation(
       {
         companyId: 1,
@@ -316,7 +316,7 @@ describe('quotations service', () => {
     db.company.findFirst.mockResolvedValue(mockCompany());
     db.item.findFirst.mockResolvedValue(wholeUnitItem);
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
     await expect(
       service.createQuotation(
         {
@@ -336,7 +336,7 @@ describe('quotations service', () => {
   it('rejects quotation creation for inactive company', async () => {
     db.company.findFirst.mockResolvedValue(mockCompany({ isActive: false }));
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
     await expect(
       service.createQuotation(
         {
@@ -396,7 +396,7 @@ describe('quotations service', () => {
     db.quotation.update.mockResolvedValue({ ...draftQuotation, status: QuotationStatus.SENT });
     db.quotation.findFirst.mockResolvedValueOnce({ ...draftQuotation, status: QuotationStatus.SENT }); // getQuotation after status update
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
     await service.updateQuotationStatus(1, { status: QuotationStatus.SENT, comment: 'Sent to client' }, { userId: 1 }, 1);
 
     expect(db.quotationStatusHistory.create).toHaveBeenCalledWith({
@@ -419,7 +419,7 @@ describe('quotations service', () => {
     };
     db.quotation.findFirst.mockResolvedValue(sentQuotation);
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
     await expect(
       service.updateQuotation(1, { remarks: 'Updated' }, { userId: 1 }, 1),
     ).rejects.toMatchObject({
@@ -480,7 +480,7 @@ describe('quotations service', () => {
     db.quotation.findFirst.mockResolvedValue(existingQuotation);
     db.company.findFirst.mockResolvedValue(mockCompany());
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
 
     await expect(
       service.updateQuotation(1, { quotationDate: '2026-04-25' }, { userId: 1 }, 1),
@@ -504,7 +504,7 @@ describe('quotations service', () => {
     };
     db.quotation.findFirst.mockResolvedValue(sentQuotation);
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
     await expect(service.deleteQuotation(1, { userId: 1 }, 1)).rejects.toMatchObject({
       statusCode: 409,
       message: 'Only draft quotations can be deleted.',
@@ -559,7 +559,7 @@ describe('quotations service', () => {
       .mockResolvedValueOnce(createdRevision);
     db.quotation.create.mockResolvedValue(createdRevision);
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
     const result = await service.createQuotationRevision(1, { userId: 1 }, 1);
 
     expect(result.id).toBe(2);
@@ -598,7 +598,7 @@ describe('quotations service', () => {
       revisionNumber: 0,
     }));
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
 
     await expect(service.createQuotationRevision(1, { userId: 1 }, 1)).rejects.toMatchObject({
       statusCode: 409,
@@ -610,7 +610,7 @@ describe('quotations service', () => {
   it('rejects revision creation when the latest revision is already a draft', async () => {
     db.quotation.findFirst.mockResolvedValue(mockDraftQuotation({ status: QuotationStatus.DRAFT }));
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
 
     await expect(service.createQuotationRevision(1, { userId: 1 }, 1)).rejects.toMatchObject({
       statusCode: 409,
@@ -628,7 +628,7 @@ describe('quotations service', () => {
       }),
     );
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
 
     await expect(service.createQuotationRevision(1, { userId: 1 }, 1)).rejects.toMatchObject({
       statusCode: 409,
@@ -639,7 +639,7 @@ describe('quotations service', () => {
   it('rejects editing a stale draft revision', async () => {
     db.quotation.findFirst.mockResolvedValue(mockDraftQuotation({ isLatestRevision: false }));
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
 
     await expect(service.updateQuotation(1, { remarks: 'Updated' }, { userId: 1 }, 1)).rejects.toMatchObject({
       statusCode: 409,
@@ -650,7 +650,7 @@ describe('quotations service', () => {
   it('rejects status changes on historical revisions', async () => {
     db.quotation.findFirst.mockResolvedValue(mockDraftQuotation({ isLatestRevision: false }));
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
 
     await expect(
       service.updateQuotationStatus(1, { status: QuotationStatus.SENT }, { userId: 1 }, 1),
@@ -669,7 +669,7 @@ describe('quotations service', () => {
     });
     db.quotation.findFirst.mockResolvedValue(draftRevision);
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
     await service.deleteQuotation(2, { userId: 1 });
 
     expect(db.quotation.update).toHaveBeenNthCalledWith(1, {
@@ -689,7 +689,7 @@ describe('quotations service', () => {
     db.quotation.count.mockResolvedValue(0);
     db.quotation.findMany.mockResolvedValue([]);
 
-    const service = new QuotationsService(asPrisma(db));
+    const service = new QuotationsRepository(asPrisma(db));
     await service.listQuotations({
       page: 1,
       limit: 20,

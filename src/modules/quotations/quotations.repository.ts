@@ -2,24 +2,25 @@ import { AuditAction, Prisma, QuotationStatus, type PrismaClient } from '@prisma
 
 import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
-import { calculateQuotationTotals } from './quotation-calculation.service.js';
+import { prisma } from '../../core/database/prisma.js';
+import { calculateQuotationTotals } from './calculations/quotation-calculations.js';
 import {
   isValidUntilBeforeQuotationDate,
   parseDateOnlyToUtcDate,
   serialiseDateOnly,
   VALID_UNTIL_DATE_MESSAGE,
 } from './quotation-dates.js';
-import { generateUniqueQuotationNumber } from './quotation-number.service.js';
+import { generateUniqueQuotationNumber } from './numbering/quotation-number.js';
 import {
   deriveCompanySnapshots,
   validateAndSnapshotQuotationItems,
-} from './quotation-snapshot.service.js';
+} from './quotation-snapshot.js';
 import {
   getStatusTimestampUpdate,
   recordStatusHistory,
   validateStatusTransition,
-} from './quotation-status.service.js';
-import { createQuotationVersion } from './quotation-version.service.js';
+} from './quotation-status.js';
+import { createQuotationVersion } from './revisions/quotation-revisions.js';
 import {
   serialiseQuotationDetail,
   serialiseQuotationListItem,
@@ -32,7 +33,7 @@ import type {
   QuotationUpdateInput,
 } from './quotations.types.js';
 
-export class QuotationsService {
+export class QuotationsRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async calculatePreview(input: CalculationPreviewInput) {
@@ -755,6 +756,8 @@ export class QuotationsService {
     });
   }
 }
+
+export const quotationsRepository = new QuotationsRepository(prisma);
 
 function validateValidUntilDate(quotationDate: Date, validUntil: Date | null) {
   if (!validUntil) return;

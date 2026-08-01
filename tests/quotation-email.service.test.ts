@@ -1,7 +1,7 @@
 import { CommunicationStatus, CommunicationType, QuotationStatus } from '@prisma/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildQuotationEmailContent, escapeHtml } from '../src/modules/quotation-email/quotation-email-template';
-import { validateSendQuotationEmailInput } from '../src/modules/quotation-email/quotation-email.validation';
+import { buildQuotationEmailContent, escapeHtml } from '../src/modules/quotations/email/quotation-email.template';
+import { validateSendQuotationEmailInput } from '../src/modules/quotations/communications/quotation-communications.repository';
 
 process.env.SMTP_HOST = 'smtp.example.com';
 
@@ -39,6 +39,17 @@ vi.mock('../src/integrations/mail/index.js', () => ({
   },
 }));
 
+vi.mock('../src/modules/settings/index.js', () => ({
+  getBusinessProfileRecordForQuotation: vi.fn().mockResolvedValue({
+    displayName: 'Buminex Pharmtech',
+    primaryEmail: 'sales@buminex.test',
+  }),
+  getDefaultBankDetailRecordForQuotation: vi.fn(),
+  getOrCreateQuotationSettings: vi.fn(),
+  brandingAssetConfig: {},
+  resolveBrandingPath: vi.fn(),
+}));
+
 vi.mock('node:fs/promises', () => ({
   default: {
     stat: mocks.stat,
@@ -47,9 +58,8 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 import {
-  getQuotationCommunicationHistoryService,
-  sendQuotationEmailService,
-} from '../src/modules/quotation-email/quotation-email.service';
+  quotationCommunicationsRepository,
+} from '../src/modules/quotations/communications/quotation-communications.repository';
 
 describe('Quotation Email Validation and Security Rules', () => {
   it('validates correct email payload', () => {
@@ -152,10 +162,6 @@ describe('quotation email communication lifecycle', () => {
       generatedBy: { id: 1, name: 'Admin User' },
     });
     mocks.prisma.quotationAttachment.findMany.mockResolvedValue([]);
-    mocks.prisma.businessProfile.findFirst.mockResolvedValue({
-      displayName: 'Buminex Pharmtech',
-      primaryEmail: 'sales@buminex.test',
-    });
     mocks.prisma.quotationCommunication.count.mockResolvedValue(0);
     mocks.prisma.quotationCommunication.create.mockResolvedValue({ id: 100 });
     mocks.prisma.quotationCommunication.update.mockResolvedValue({ id: 100 });
@@ -172,7 +178,7 @@ describe('quotation email communication lifecycle', () => {
   });
 
   it('records an accepted communication and transitions latest Draft quotation to Sent after SMTP acceptance', async () => {
-    const result = await sendQuotationEmailService(
+    const result = await quotationCommunicationsRepository.sendQuotationEmail(
       1,
       {
         generatedDocumentId: 10,
@@ -240,7 +246,7 @@ describe('quotation email communication lifecycle', () => {
     mocks.sendMail.mockRejectedValueOnce(Object.assign(new Error('Auth failed'), { code: 'EAUTH' }));
 
     await expect(
-      sendQuotationEmailService(
+      quotationCommunicationsRepository.sendQuotationEmail(
         1,
         {
           generatedDocumentId: 10,
@@ -296,7 +302,7 @@ describe('quotation email communication lifecycle', () => {
       },
     ]);
 
-    const result = await getQuotationCommunicationHistoryService(1, {});
+    const result = await quotationCommunicationsRepository.getCommunicationHistory(1, {});
 
     expect(result.communications).toEqual([
       expect.objectContaining({

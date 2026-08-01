@@ -1,11 +1,12 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import multer from 'multer';
 
-import { AppError } from '../../core/errors/AppError.js';
+import { storageConfig } from '../../../config/storage.config.js';
+import { AppError } from '../../../core/errors/AppError.js';
+import { storageService } from '../../../integrations/storage/index.js';
 
-export const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
+export const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 export const MAX_ATTACHMENTS_PER_QUOTATION = 20;
 
 export const ALLOWED_MIME_EXTENSIONS: Record<string, string> = {
@@ -28,8 +29,9 @@ export const PREVIEWABLE_MIME_TYPES = new Set([
   'text/plain',
 ]);
 
-export const STORAGE_ROOT = path.resolve(process.cwd(), 'storage');
-export const ATTACHMENT_STORAGE_DIR = path.resolve(STORAGE_ROOT, 'quotation-attachments');
+export function getAttachmentStorageDirectory() {
+  return storageService.resolveStoragePath(storageConfig.quotationAttachmentDirectory);
+}
 
 export function getFileCategory(mimeType: string): string {
   if (mimeType === 'application/pdf') return 'PDF';
@@ -51,8 +53,10 @@ export function validateAttachmentFile(file: Express.Multer.File): AppError | nu
     return new AppError('Unsupported file type. Executable, script, HTML, and SVG files are not allowed.', 415);
   }
 
-  // Handle jpeg/jpg variant mapping
-  const matchesExt = ext === expectedExt || (expectedExt === '.jpg' && ext === '.jpeg') || (expectedExt === '.jpeg' && ext === '.jpg');
+  const matchesExt =
+    ext === expectedExt ||
+    (expectedExt === '.jpg' && ext === '.jpeg') ||
+    (expectedExt === '.jpeg' && ext === '.jpg');
   if (!matchesExt) {
     return new AppError('File extension does not match MIME type.', 415);
   }
@@ -64,8 +68,8 @@ export const uploadQuotationAttachment = multer({
   storage: multer.diskStorage({
     destination: async (_req, _file, callback) => {
       try {
-        await fs.mkdir(ATTACHMENT_STORAGE_DIR, { recursive: true });
-        callback(null, ATTACHMENT_STORAGE_DIR);
+        await storageService.ensureStorageDirectory(storageConfig.quotationAttachmentDirectory);
+        callback(null, getAttachmentStorageDirectory());
       } catch (error) {
         callback(error as Error, '');
       }
@@ -90,3 +94,21 @@ export const uploadQuotationAttachment = multer({
     }
   },
 });
+
+export function resolveAttachmentRelativePath(storedFilename: string) {
+  return `storage/${storageConfig.quotationAttachmentDirectory}/${storedFilename}`;
+}
+
+export function resolveAttachmentAbsolutePath(relativePath: string) {
+  const normalised = relativePath.replace(/^\/?storage\//, '');
+  const absolutePath = storageService.resolveStoragePath(normalised);
+  const attachmentRoot = getAttachmentStorageDirectory();
+  if (!absolutePath.startsWith(attachmentRoot)) {
+    throw new AppError('Invalid attachment path', 403);
+  }
+  return absolutePath;
+}
+
+export function sanitiseAttachmentFilename(filename: string): string {
+  return filename.replace(/["\r\n/\\]/g, '_');
+}

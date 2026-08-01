@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AppError } from '../../core/errors/AppError.js';
+import { AppError } from '../../../core/errors/AppError.js';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

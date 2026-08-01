@@ -1,15 +1,15 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { storageConfig } from '../src/config/storage.config';
 import {
-  ATTACHMENT_STORAGE_DIR,
+  getAttachmentStorageDirectory,
   getFileCategory,
   MAX_ATTACHMENTS_PER_QUOTATION,
   MAX_FILE_SIZE_BYTES,
   PREVIEWABLE_MIME_TYPES,
-  STORAGE_ROOT,
   validateAttachmentFile,
-} from '../src/modules/quotation-attachments/quotation-attachments.storage';
+} from '../src/modules/quotations/attachments/quotation-attachment.policy';
 
 describe('Quotation Attachment Security and Storage Validation', () => {
   it('allows valid document and image types', () => {
@@ -65,12 +65,13 @@ describe('Quotation Attachment Security and Storage Validation', () => {
   });
 
   it('confines attachment storage paths to approved directory', () => {
+    const attachmentStorageDir = getAttachmentStorageDirectory();
     const validRelative = 'storage/quotation-attachments/5db19d45-3a55-48d2-a683-86f62c1a37b1.pdf';
-    const fullPath = path.resolve(STORAGE_ROOT, validRelative.replace(/^\/?storage\//, ''));
-    expect(fullPath.startsWith(ATTACHMENT_STORAGE_DIR)).toBe(true);
+    const fullPath = path.resolve(storageConfig.root, validRelative.replace(/^\/?storage\//, ''));
+    expect(fullPath.startsWith(attachmentStorageDir)).toBe(true);
 
     const maliciousRelative = 'storage/quotation-attachments/../../etc/passwd';
-    const maliciousFullPath = path.resolve(STORAGE_ROOT, maliciousRelative.replace(/^\/?storage\//, ''));
-    expect(maliciousFullPath.startsWith(ATTACHMENT_STORAGE_DIR)).toBe(false);
+    const maliciousFullPath = path.resolve(storageConfig.root, maliciousRelative.replace(/^\/?storage\//, ''));
+    expect(maliciousFullPath.startsWith(attachmentStorageDir)).toBe(false);
   });
 });

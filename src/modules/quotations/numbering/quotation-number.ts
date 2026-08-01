@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 
-import { AppError } from '../../core/errors/AppError.js';
-import { getOrCreateQuotationSettings } from '../settings/index.js';
+import { AppError } from '../../../core/errors/AppError.js';
+import { getOrCreateQuotationSettings } from '../../settings/index.js';
 
 export async function generateUniqueQuotationNumber(
   tx: Prisma.TransactionClient,

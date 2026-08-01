@@ -4,7 +4,7 @@ import type {
   CalculatedLineItem,
   CalculatedQuotationTotals,
   CalculationPreviewInput,
-} from './quotations.types.js';
+} from '../quotations.types.js';
 
 export function calculateQuotationTotals(
   input: CalculationPreviewInput,
