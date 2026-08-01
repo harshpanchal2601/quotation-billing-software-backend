@@ -81,15 +81,15 @@ jobs:
 
           DEPLOY_TARGET="${EC2_USER}@${EC2_HOST}"
 
-          zip -qr backend-release.zip dist package.json prisma node_modules
+          tar czf backend-release.tar.gz dist package.json prisma node_modules
 
           scp \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             -i "$HOME/.ssh/erp-key.pem" \
             -P "$DEPLOY_PORT" \
-            backend-release.zip \
-            "$DEPLOY_TARGET:/tmp/erp-backend-release.zip"
+            backend-release.tar.gz \
+            "$DEPLOY_TARGET:/tmp/erp-backend-release.tar.gz"
 
           ssh \
             -o StrictHostKeyChecking=no \
@@ -111,13 +111,8 @@ jobs:
           mkdir -p "$APP_PATH"
           rm -rf "$APP_PATH/dist" "$APP_PATH/prisma" "$APP_PATH/node_modules"
 
-          if ! command -v unzip >/dev/null 2>&1; then
-            echo "unzip is required on the EC2 instance to deploy the backend archive."
-            exit 1
-          fi
-
-          unzip -q -o /tmp/erp-backend-release.zip -d "$APP_PATH"
-          rm -f /tmp/erp-backend-release.zip
+          tar xzf /tmp/erp-backend-release.tar.gz -C "$APP_PATH"
+          rm -f /tmp/erp-backend-release.tar.gz
 
           cd "$APP_PATH"
 
