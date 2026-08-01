@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-import { requireAuthentication, requireRole } from '../../core/auth/authentication.middleware.js';
+import { requireAuthentication, requireRole } from '../auth/auth.middleware.js';
 import * as categoriesController from './categories.controller.js';
 
 export const categoriesRouter = Router();

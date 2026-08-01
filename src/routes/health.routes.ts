@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-import { prisma } from '../core/database/prisma.js';
+import { checkDatabaseHealth } from '../core/database/database-health.js';
 import { asyncHandler } from '../core/http/asyncHandler.js';
 import { sendSuccess } from '../core/http/apiResponse.js';
 
@@ -19,7 +19,7 @@ healthRouter.get(
   '/database',
   asyncHandler(async (_req, res) => {
     try {
-      await prisma.$queryRaw`SELECT 1`;
+      await checkDatabaseHealth();
 
       return sendSuccess(res, 200, 'Database connection is healthy', {
         status: 'healthy',

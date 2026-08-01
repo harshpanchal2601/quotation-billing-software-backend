@@ -21,7 +21,7 @@
 | `src/bootstrap/server.ts` | Server startup and shutdown | `src/bootstrap/startServer.ts` | Server start lifecycle | Rename | core/database | Low | BE-02 | build/typecheck | Review |
 | `src/config/env.ts` | Env parsing and config typing | `src/config/*.config.ts` later | Config parsing and typed provider settings | Split | none | Medium | BE-02 | env tests | Keep |
 | `src/core/database/prisma.ts` | Shared Prisma client | `src/core/database/prisma.ts` | Shared Prisma client | Keep | config | Low | BE-02 | baseline | Keep |
-| `src/core/auth/authentication.middleware.ts` | Auth middleware and role guard | `src/core/auth/authentication.middleware.ts` | Business-neutral auth middleware | Keep after dependency cleanup | auth module, core errors | High | BE-02 | auth middleware tests | Review |
+| `src/core/auth/authentication.middleware.ts` | Auth middleware and role guard | `src/modules/auth/auth.middleware.ts` | Business-neutral auth middleware | Move | auth module, core errors | High | BE-02 | auth middleware tests | Move |
 | `src/core/http/*` | Async, response, not-found, error handling | `src/core/http/*` | Business-neutral HTTP helpers | Keep | none | Low | BE-02 | baseline | Keep |
 | `src/core/audit/audit-log.service.ts` | Audit persistence helper | `src/core/audit/audit-log.service.ts` | Shared audit helper | Keep | Prisma client | Low | BE-02 | service tests | Keep |
 | `src/core/mail/mail-transport.service.ts` | Nodemailer transport | `src/integrations/mail/*` | Mail provider mechanics | Move | config | High | BE-02 | mocked mail tests | Move |

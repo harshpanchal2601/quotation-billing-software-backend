@@ -56,7 +56,7 @@ Current source-tree reality:
 ## Middleware And Error Ownership
 
 - Middleware registration happens in `src/bootstrap/app.ts`.
-- Authentication middleware lives in `src/core/auth/authentication.middleware.ts`.
+- Authentication middleware now lives in `src/modules/auth/auth.middleware.ts`.
 - Global error handling lives in `src/core/http/errorHandler.ts`.
 - Not-found handling lives in `src/core/http/notFoundHandler.ts`.
 - Async wrapper lives in `src/core/http/asyncHandler.ts`.
@@ -73,7 +73,7 @@ Current source-tree reality:
 Prisma usage is concentrated in:
 
 - `src/core/database/prisma.ts`: Prisma client ownership
-- `src/core/auth/authentication.middleware.ts`: user lookup for authenticated requests
+- `src/modules/auth/auth.middleware.ts`: user lookup for authenticated requests
 - `src/routes/health.routes.ts`: database health query
 - `src/modules/auth/*`: auth workflow, sessions, password change, audit logging
 - `src/modules/business-settings/*`: profile, quotation settings, bank details, branding uploads
@@ -121,9 +121,9 @@ Services currently carry the bulk of the business workflow and Prisma work. In t
 
 Confirmed violation:
 
-- `src/core/auth/authentication.middleware.ts` imports auth-module constants and token verification from `src/modules/auth/*`.
+- `src/core/auth/authentication.middleware.ts` imported auth-module constants and token verification from `src/modules/auth/*`.
 
-This is the clearest current core-to-module dependency and should be fixed later in the foundation phase.
+This was the clearest current core-to-module dependency and was addressed in the foundation phase by moving the middleware into `src/modules/auth/auth.middleware.ts`.
 
 ## Auth Findings
 
@@ -136,20 +136,20 @@ This is the clearest current core-to-module dependency and should be fixed later
 
 ## Mail Findings
 
-- Nodemailer transport creation is in `src/core/mail/mail-transport.service.ts`.
-- Quotation email workflow and provider result handling are in `src/modules/quotation-email/quotation-email.service.ts`.
-- Recipient normalization, attachment selection, communication history, and status transition decisions are feature-owned and currently mixed with SMTP mechanics in that service.
+- Nodemailer transport creation now lives in `src/integrations/mail/mail.service.ts`.
+- Quotation email workflow and provider result handling remain in `src/modules/quotation-email/quotation-email.service.ts`.
+- Recipient normalization, attachment selection, communication history, and status transition decisions remain feature-owned and are still mixed with SMTP orchestration in that service.
 
 ## PDF Findings
 
-- Puppeteer launch and HTML-to-PDF generation live in `src/modules/quotation-documents/quotation-pdf.service.ts`.
+- Puppeteer launch and HTML-to-PDF generation now live in `src/integrations/pdf/pdf.service.ts`.
 - Quotation-specific template rendering lives in `src/modules/quotation-documents/quotation-pdf-template.ts`.
-- The document workflow also handles business profile branding data, generated-document persistence, file writing, and audit logging.
+- The document workflow still handles business profile branding data, generated-document persistence, file writing, and audit logging.
 
 ## Storage Findings
 
 - Runtime storage root is `storage/`.
-- Public asset serving is exposed from `src/core/storage/public-assets.ts`.
+- Public asset serving is now exposed from `src/integrations/storage/*`.
 - Branding uploads, item images, quotation attachments, and generated quotation PDFs all use storage-specific helpers.
 - Path traversal checks exist in multiple places, but storage behavior is still spread across several feature files.
 

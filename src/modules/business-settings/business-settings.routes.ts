@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { UserRole } from '@prisma/client';
 
-import { requireAuthentication, requireRole } from '../../core/auth/authentication.middleware.js';
+import { requireAuthentication, requireRole } from '../auth/auth.middleware.js';
 import { asyncHandler } from '../../core/http/asyncHandler.js';
 import { AppError } from '../../core/errors/AppError.js';
 import {

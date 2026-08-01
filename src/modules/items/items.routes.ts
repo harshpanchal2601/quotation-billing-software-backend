@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-import { requireAuthentication, requireRole } from '../../core/auth/authentication.middleware.js';
+import { requireAuthentication, requireRole } from '../auth/auth.middleware.js';
 import { uploadItemImage as uploadMiddleware } from './item-image.service.js';
 import * as itemsController from './items.controller.js';
 

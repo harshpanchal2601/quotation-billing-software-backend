@@ -10,9 +10,12 @@ process.env.JWT_REFRESH_SECRET = 'refresh-secret';
 
 vi.mock('../src/core/database/prisma.js', () => ({
   prisma: {
-    $queryRaw: vi.fn(),
     $disconnect: vi.fn(),
   },
+}));
+
+vi.mock('../src/core/database/database-health.js', () => ({
+  checkDatabaseHealth: vi.fn(),
 }));
 
 type RouteLayer = {
@@ -82,7 +85,7 @@ async function callHandler(handler: RequestHandler): Promise<JsonResponse> {
 }
 
 const { healthRouter } = await import('../src/routes/health.routes.js');
-const { prisma } = await import('../src/core/database/prisma.js');
+const { checkDatabaseHealth } = await import('../src/core/database/database-health.js');
 
 describe('health endpoints', () => {
   beforeEach(() => {
@@ -103,7 +106,7 @@ describe('health endpoints', () => {
   });
 
   it('returns a healthy database response when Prisma succeeds', async () => {
-    vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ 1: 1 }]);
+    vi.mocked(checkDatabaseHealth).mockResolvedValueOnce(undefined);
 
     const response = await callHandler(getRouteHandler('/database'));
 
@@ -118,7 +121,7 @@ describe('health endpoints', () => {
   });
 
   it('returns an unhealthy database response when Prisma fails', async () => {
-    vi.mocked(prisma.$queryRaw).mockRejectedValueOnce(new Error('Connection failed'));
+    vi.mocked(checkDatabaseHealth).mockRejectedValueOnce(new Error('Connection failed'));
 
     const response = await callHandler(getRouteHandler('/database'));
 

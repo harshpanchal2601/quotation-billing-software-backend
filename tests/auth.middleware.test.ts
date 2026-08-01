@@ -19,7 +19,7 @@ vi.mock('../src/core/database/prisma.js', () => ({
   },
 }));
 
-const { requireAuthentication, requireRole } = await import('../src/core/auth/authentication.middleware.js');
+const { requireAuthentication, requireRole } = await import('../src/modules/auth/auth.middleware.js');
 const { ACCESS_TOKEN_COOKIE_NAME } = await import('../src/modules/auth/auth.constants.js');
 const { generateAccessToken } = await import('../src/modules/auth/security/auth.tokens.js');
 const { prisma } = await import('../src/core/database/prisma.js');

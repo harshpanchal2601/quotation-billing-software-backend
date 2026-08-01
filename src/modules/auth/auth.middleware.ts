@@ -1,10 +1,10 @@
-import type { RequestHandler } from 'express';
 import type { UserRole } from '@prisma/client';
+import type { RequestHandler } from 'express';
 
-import { ACCESS_TOKEN_COOKIE_NAME, AUTHENTICATION_REQUIRED_MESSAGE } from '../../modules/auth/auth.constants.js';
-import { verifyAccessToken } from '../../modules/auth/security/auth.tokens.js';
-import { prisma } from '../database/prisma.js';
-import { AppError } from '../errors/AppError.js';
+import { prisma } from '../../core/database/prisma.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { ACCESS_TOKEN_COOKIE_NAME, AUTHENTICATION_REQUIRED_MESSAGE } from './auth.constants.js';
+import { verifyAccessToken } from './security/auth.tokens.js';
 
 export const requireAuthentication: RequestHandler = async (req, _res, next) => {
   try {
@@ -23,10 +23,7 @@ export const requireAuthentication: RequestHandler = async (req, _res, next) => 
       throw new AppError(AUTHENTICATION_REQUIRED_MESSAGE, 401);
     }
 
-    if (
-      user.passwordChangedAt !== null &&
-      payload.iat * 1000 < user.passwordChangedAt.getTime()
-    ) {
+    if (user.passwordChangedAt !== null && payload.iat * 1000 < user.passwordChangedAt.getTime()) {
       throw new AppError(AUTHENTICATION_REQUIRED_MESSAGE, 401);
     }
 

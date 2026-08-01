@@ -3,10 +3,11 @@ import path from 'node:path';
 import { AuditAction, CommunicationStatus, CommunicationType, Prisma, QuotationStatus } from '@prisma/client';
 
 import { prisma } from '../../core/database/prisma.js';
-import { env } from '../../config/env.js';
+import { mailConfig } from '../../config/mail.config.js';
+import { storageConfig } from '../../config/storage.config.js';
 import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
-import { ATTACHMENT_STORAGE_DIR, STORAGE_ROOT as ATTACHMENT_STORAGE_ROOT } from '../quotation-attachments/quotation-attachments.storage.js';
+import { mailService } from '../../integrations/mail/index.js';
 import type {
   GeneratedDocumentHistoryItemDto,
   GeneratedDocumentHistoryResponse,
@@ -16,11 +17,11 @@ import type {
   SendQuotationEmailResponse,
 } from '../quotation-documents/quotation-documents.types.js';
 import { getStatusTimestampUpdate, validateStatusTransition } from '../quotations/quotation-status.service.js';
-import { getMailTransporter } from '../../core/mail/mail-transport.service.js';
 import { buildQuotationEmailContent } from './quotation-email-template.js';
 
-const DOC_STORAGE_ROOT = path.resolve(process.cwd(), 'storage');
-const PDF_STORAGE_DIR = path.resolve(DOC_STORAGE_ROOT, 'quotation-documents');
+const DOC_STORAGE_ROOT = storageConfig.root;
+const PDF_STORAGE_DIR = path.resolve(DOC_STORAGE_ROOT, storageConfig.quotationDocumentDirectory);
+const ATTACHMENT_STORAGE_DIR = path.resolve(DOC_STORAGE_ROOT, storageConfig.quotationAttachmentDirectory);
 const MAX_TOTAL_ATTACHMENT_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 
 function sanitiseFilename(filename: string): string {
@@ -316,7 +317,7 @@ export async function sendQuotationEmailService(
     }
 
     for (const att of fetchedAttachments) {
-      const attFullPath = path.resolve(ATTACHMENT_STORAGE_ROOT, att.filePath.replace(/^\/?storage\//, ''));
+      const attFullPath = path.resolve(DOC_STORAGE_ROOT, att.filePath.replace(/^\/?storage\//, ''));
       if (!attFullPath.startsWith(ATTACHMENT_STORAGE_DIR)) {
         throw new AppError('Invalid attachment storage path', 403);
       }
@@ -353,11 +354,10 @@ export async function sendQuotationEmailService(
   });
 
   const businessName = businessProfile?.displayName || 'Buminex Pharmtech Solutions';
-  const fromEmail = env.SMTP_FROM_EMAIL || businessProfile?.primaryEmail || 'noreply@example.com';
-  const fromName = env.SMTP_FROM_NAME || businessName;
+  const fromEmail = mailConfig.fromEmail || businessProfile?.primaryEmail || 'noreply@example.com';
+  const fromName = mailConfig.fromName || businessName;
 
   // 5. Build email transport and message
-  const transporter = getMailTransporter();
   const { text, html } = buildQuotationEmailContent({
     quotationNumber: quotation.quotationNumber,
     businessName,
@@ -398,7 +398,7 @@ export async function sendQuotationEmailService(
 
   let sendInfo: unknown;
   try {
-    sendInfo = await transporter.sendMail({
+    sendInfo = await mailService.send({
       from: `"${fromName}" <${fromEmail}>`,
       to: recipients.to.join(', '),
       cc: recipients.cc.length > 0 ? recipients.cc.join(', ') : undefined,
@@ -409,6 +409,10 @@ export async function sendQuotationEmailService(
       attachments: emailAttachments,
     });
   } catch (err: unknown) {
+    if (err instanceof AppError && err.statusCode === 503) {
+      throw err;
+    }
+
     console.error('SMTP Send Error:', err instanceof Error ? err.message : 'Unknown SMTP error');
     const failure = safeFailureSummary(err);
     await prisma.quotationCommunication.update({

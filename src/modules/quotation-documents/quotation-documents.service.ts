@@ -5,13 +5,14 @@ import { AuditAction, DocumentType } from '@prisma/client';
 
 import { prisma } from '../../core/database/prisma.js';
 import { AppError } from '../../core/errors/AppError.js';
+import { pdfService } from '../../integrations/pdf/index.js';
+import { storageConfig } from '../../config/storage.config.js';
 import { brandingAssetConfig, resolveBrandingPath, type BrandingAssetType } from '../business-settings/branding-upload.js';
-import { generatePdfBufferFromHtml } from './quotation-pdf.service.js';
 import { renderQuotationHtmlTemplate } from './quotation-pdf-template.js';
 import type { GeneratedDocumentDto, QuotationPdfViewModel } from './quotation-documents.types.js';
 
-const STORAGE_ROOT = path.resolve(process.cwd(), 'storage');
-const PDF_STORAGE_DIR = path.resolve(STORAGE_ROOT, 'quotation-documents');
+const STORAGE_ROOT = storageConfig.root;
+const PDF_STORAGE_DIR = path.resolve(STORAGE_ROOT, storageConfig.quotationDocumentDirectory);
 
 async function ensureStorageDirExists(): Promise<void> {
   await fs.mkdir(PDF_STORAGE_DIR, { recursive: true });
@@ -167,13 +168,13 @@ export async function generateQuotationPdfService(
 
   // 4. Render HTML and generate PDF buffer
   const html = renderQuotationHtmlTemplate(viewModel);
-  const pdfBuffer = await generatePdfBufferFromHtml(html);
+  const pdfBuffer = await pdfService.generateBufferFromHtml(html);
 
   // 5. Save PDF file to storage directory
   await ensureStorageDirExists();
   const fileUuid = crypto.randomUUID();
   const filename = `${fileUuid}.pdf`;
-  const relativeFilePath = `quotation-documents/${filename}`;
+  const relativeFilePath = `${storageConfig.quotationDocumentDirectory}/${filename}`;
   const fullFilePath = path.resolve(PDF_STORAGE_DIR, filename);
 
   try {

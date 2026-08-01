@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildQuotationEmailContent, escapeHtml } from '../src/modules/quotation-email/quotation-email-template';
 import { validateSendQuotationEmailInput } from '../src/modules/quotation-email/quotation-email.validation';
 
+process.env.SMTP_HOST = 'smtp.example.com';
+
 const mocks = vi.hoisted(() => {
   const prisma = {
     quotation: { findFirst: vi.fn(), update: vi.fn() },
@@ -31,8 +33,10 @@ vi.mock('../src/core/database/prisma.js', () => ({
   prisma: mocks.prisma,
 }));
 
-vi.mock('../src/core/mail/mail-transport.service.js', () => ({
-  getMailTransporter: () => ({ sendMail: mocks.sendMail }),
+vi.mock('../src/integrations/mail/index.js', () => ({
+  mailService: {
+    send: mocks.sendMail,
+  },
 }));
 
 vi.mock('node:fs/promises', () => ({

@@ -9,7 +9,7 @@
 
 ## Current Violations Found
 
-- `src/core/auth/authentication.middleware.ts` imports auth-module constants and token verification from `src/modules/auth/*`.
+- `src/modules/auth/auth.middleware.ts` owns authentication middleware and token verification boundary usage; Core no longer imports auth-module internals for this flow.
 
 ## Boundary Notes
 

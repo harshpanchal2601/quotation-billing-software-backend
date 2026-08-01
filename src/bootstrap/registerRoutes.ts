@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { healthRouter } from '../routes/health.routes.js';
 import { authRouter } from '../modules/auth/index.js';
 import { businessSettingsRouter } from '../modules/business-settings/business-settings.routes.js';
 import { categoriesRouter } from '../modules/categories/index.js';
@@ -11,7 +12,6 @@ import quotationDocumentsRouter from '../modules/quotation-documents/quotation-d
 import { quotationAttachmentsRouter } from '../modules/quotation-attachments/quotation-attachments.routes.js';
 import { quotationEmailRouter } from '../modules/quotation-email/quotation-email.routes.js';
 import { quotationsRouter } from '../modules/quotations/quotations.routes.js';
-import { healthRouter } from '../routes/health.routes.js';
 
 export const apiRouter = Router();
 

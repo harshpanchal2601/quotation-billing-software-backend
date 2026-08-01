@@ -1,8 +1,10 @@
 # Backend Project Status
 
-## BE-01 Status
+## BE-02 Status
 
-Completed as documentation-only. No production source, tests, Prisma, package, config, or deployment files were changed.
+Completed as a foundation migration.
+
+The backend now has typed config modules for mail, PDF, and storage; integration ownership for mail/PDF/storage mechanics; a business-neutral database health helper; and auth middleware moved out of Core into the auth module.
 
 ## Baseline Validation
 
@@ -13,7 +15,7 @@ Completed as documentation-only. No production source, tests, Prisma, package, c
 
 ## Current Architecture Summary
 
-The backend currently uses a controller-plus-service style on top of Express routes. There is a shared core layer for errors, response helpers, Prisma client ownership, auth middleware, audit logging, and public storage serving. Business domains are implemented as module folders, but many of them still route through controllers and services instead of the target route + repository split.
+The backend currently uses a controller-plus-service style on top of Express routes. There is a shared core layer for errors, response helpers, Prisma client ownership, audit logging, and database health. Business domains are implemented as module folders, but many of them still route through controllers and services instead of the target route + repository split.
 
 The largest concentration of workflow and persistence is in quotations, quotation documents, quotation email, companies, business settings, and items. Auth also currently mixes module-owned token/cookie helpers with core authentication middleware.
 
@@ -25,14 +27,14 @@ The target direction is route + repository by default. Routes own HTTP workflow 
 
 - Quotations is critical because it combines status transitions, revisions, numbering, snapshots, documents, attachments, communications, and audit logging.
 - Companies, settings, and item image handling all have meaningful transactional and storage rules.
-- Current core auth depends on auth-module constants and token helpers.
 - Some external-infrastructure behavior is still embedded in feature services rather than isolated integrations.
+- Auth middleware is now isolated in the auth module, but the auth domain still mixes workflow, session persistence, and token helpers.
 
 ## Readiness Result
 
 READY WITH CONDITIONS
 
-Conditions: BE-02 should begin only after preserving current API contracts and explicitly separating foundation work from the critical quotation domain.
+Conditions: preserve current API contracts and keep the critical quotation domain isolated for later phases.
 
 ## Next Phase
 

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-import { requireAuthentication, requireRole } from '../../core/auth/authentication.middleware.js';
+import { requireAuthentication, requireRole } from '../auth/auth.middleware.js';
 import * as measurementUnitsController from './measurement-units.controller.js';
 
 export const measurementUnitsRouter = Router();
