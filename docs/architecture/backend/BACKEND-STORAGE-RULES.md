@@ -19,3 +19,11 @@
 - Storage integration should own safe filesystem mechanics only.
 - Modules should own file-type policy, file-size policy, ownership policy, naming policy, and delete permission decisions.
 - Physical storage migration should remain a separate future operation with backup and rollback planning.
+
+## Items Image Storage (BE-05)
+
+- Directory: `storage/items` (unchanged)
+- Public URL prefix: `/storage/items/...` (unchanged)
+- No physical file migration performed
+- Items adopted storage integration for directory ensure and file delete
+- Remaining direct filesystem consumers: business-settings branding, quotation attachments, quotation documents

@@ -1,13 +1,15 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import multer from 'multer';
 
-import { AppError } from '../../core/errors/AppError.js';
-
-export const itemsStorageDirectory = path.resolve(process.cwd(), 'storage', 'items');
-const storageRoot = path.resolve(process.cwd(), 'storage');
+import { storageConfig } from '../../../config/storage.config.js';
+import { AppError } from '../../../core/errors/AppError.js';
+import {
+  deleteStorageFile,
+  ensureStorageDirectory,
+  publicAssetPath,
+} from '../../../integrations/storage/index.js';
 
 const allowedMimeExtensions = {
   'image/jpeg': '.jpg',
@@ -15,12 +17,14 @@ const allowedMimeExtensions = {
   'image/webp': '.webp',
 } as const;
 
+export const ITEM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
 export const uploadItemImage = multer({
   storage: multer.diskStorage({
     destination: async (_req, _file, callback) => {
       try {
-        await fs.mkdir(itemsStorageDirectory, { recursive: true });
-        callback(null, itemsStorageDirectory);
+        await ensureStorageDirectory(storageConfig.itemImageDirectory);
+        callback(null, publicAssetPath('items'));
       } catch (error) {
         callback(error as Error, '');
       }
@@ -35,7 +39,7 @@ export const uploadItemImage = multer({
     },
   }),
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: ITEM_IMAGE_MAX_BYTES,
     files: 1,
   },
   fileFilter: (_req, file, callback) => {
@@ -49,7 +53,7 @@ export const uploadItemImage = multer({
 });
 
 export function validateItemImageFile(file: Pick<Express.Multer.File, 'mimetype' | 'originalname' | 'size'>) {
-  if (file.size > 5 * 1024 * 1024) {
+  if (file.size > ITEM_IMAGE_MAX_BYTES) {
     return new AppError('Item image exceeds the 5 MB limit', 413);
   }
 
@@ -69,15 +73,7 @@ export function validateItemImageFile(file: Pick<Express.Multer.File, 'mimetype'
 }
 
 export function toItemRelativePath(filename: string): string {
-  return `items/${path.basename(filename)}`;
-}
-
-export function resolveItemImagePath(relativePath: string): string {
-  const resolved = path.resolve(storageRoot, relativePath);
-  if (!resolved.startsWith(itemsStorageDirectory)) {
-    throw new AppError('Invalid item image path', 400);
-  }
-  return resolved;
+  return `${storageConfig.itemImageDirectory}/${path.basename(filename)}`;
 }
 
 export async function removeStoredItemImage(relativePath: string | null): Promise<void> {
@@ -86,12 +82,20 @@ export async function removeStoredItemImage(relativePath: string | null): Promis
   }
 
   try {
-    const absolutePath = resolveItemImagePath(relativePath);
-    await fs.unlink(absolutePath);
+    await deleteStorageFile(relativePath);
   } catch (error) {
-    const code = error instanceof Error && 'code' in error ? error.code : undefined;
-    if (code !== 'ENOENT') {
+    if (error instanceof AppError) {
       console.warn('Stored item image could not be removed.');
     }
   }
+}
+
+export function handleMulterError(error: unknown) {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return new AppError('Item image exceeds the 5 MB limit', 413);
+    }
+    return new AppError('The image could not be uploaded. Please choose a supported image and try again.', 400);
+  }
+  return error;
 }

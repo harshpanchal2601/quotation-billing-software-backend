@@ -132,3 +132,20 @@ Controllers and services are not mandatory. A module can be a route, repository,
 - `companies.schema.ts` — Zod validation for company/contact/address inputs and list/history queries
 - `code/company-code.ts` — `COMP-` prefix, six-digit padding, sequence parsing
 - `index.ts` — exports `companiesRouter` only
+
+## Implemented Module Example — Items (BE-05)
+
+No Catalog parent module was created. Categories remain at `src/modules/categories/`, measurement units at `src/modules/measurement-units/`, and items at `src/modules/items/`.
+
+`src/modules/items/`
+
+- `items.routes.ts` — all item CRUD, options, status, restore, and image upload/delete HTTP endpoints
+- `items.repository.ts` — item persistence, category/unit validation queries, code generation with retry, image metadata, quotation usage counts, audit
+- `items.schema.ts` — Zod validation for item inputs and list/options queries
+- `items.serializer.ts` — API response mapping including `/storage/{path}` image URLs
+- `items.types.ts` — pagination and relation types
+- `item-specifications.ts` — specification validation and parsing
+- `code/item-code.ts` — `ITEM-` prefix, six-digit padding, sequence parsing
+- `images/item-image.policy.ts` — Multer wiring, MIME/size/extension policy, relative path mapping; uses storage integration for directory ensure and file delete
+- `images/index.ts` — narrow image policy exports
+- `index.ts` — exports `itemsRouter` only

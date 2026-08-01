@@ -6,7 +6,7 @@ import { businessSettingsRouter } from '../modules/business-settings/business-se
 import { categoriesRouter } from '../modules/categories/index.js';
 import { companiesRouter } from '../modules/companies/index.js';
 import { dashboardRouter } from '../modules/dashboard/index.js';
-import { itemsRouter } from '../modules/items/items.routes.js';
+import { itemsRouter } from '../modules/items/index.js';
 import { measurementUnitsRouter } from '../modules/measurement-units/index.js';
 import quotationDocumentsRouter from '../modules/quotation-documents/quotation-documents.routes.js';
 import { quotationAttachmentsRouter } from '../modules/quotation-attachments/quotation-attachments.routes.js';

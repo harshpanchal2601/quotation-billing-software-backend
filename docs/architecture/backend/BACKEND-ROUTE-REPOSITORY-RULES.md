@@ -58,3 +58,6 @@ Repositories must not:
 - Companies routes own validated extraction and HTTP responses while `companies.repository.ts` owns list/search filters, CRUD transactions, nested create on company create, quotation-history queries, and transactional company code generation with retry on unique conflict.
 - `company-contacts.repository.ts` owns primary-contact clearing and promotion inside transactions; routes delegate contact workflow without Prisma.
 - `company-addresses.repository.ts` owns per-`addressType` primary replacement and promotion on delete/type change; routes delegate address workflow without Prisma.
+- Items routes own Multer upload middleware wiring, validated extraction, and HTTP responses while `items.repository.ts` owns list/search filters, CRUD, soft delete/restore, category/unit validation queries, item code generation with retry, image metadata persistence, and quotation usage counts.
+- Item image routes orchestrate upload/delete workflow; `images/item-image.policy.ts` owns MIME/size/extension policy and Multer configuration; storage integration owns directory ensure and file delete mechanics.
+- `code/item-code.ts` owns pure `ITEM-` formatting and sequence parsing; database lookup and retry-on-conflict live in `items.repository.ts`.

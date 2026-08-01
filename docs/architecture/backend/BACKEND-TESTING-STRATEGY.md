@@ -12,7 +12,7 @@
 
 - Auth: middleware, route, validation, cookie helpers
 - Core health and env: health, env
-- Catalog-style domains: categories and measurement units (routes + repositories); companies (repositories + schema + `code/company-code` helpers); items (services, pending BE-05)
+- Catalog-style domains: categories and measurement units (routes + repositories); companies (repositories + schema + `code/company-code` helpers); items (repository + schema + `code/item-code` + `images/item-image.policy` helpers)
 - Settings: business settings service and validation
 - Quotation workflow: quotations service, attachments, documents, email
 - Seed: initial data behavior

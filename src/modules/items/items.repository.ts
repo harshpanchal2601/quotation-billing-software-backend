@@ -2,22 +2,24 @@ import { AuditAction, ItemSourceType, Prisma, type Item, type PrismaClient } fro
 
 import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
-import { generateUniqueItemCodeWithRetry } from './item-code.service.js';
-import { removeStoredItemImage, toItemRelativePath } from './item-image.service.js';
+import { prisma } from '../../core/database/prisma.js';
+import { formatItemCode, findLatestItemCodeSequence } from './code/item-code.js';
+import { removeStoredItemImage, toItemRelativePath } from './images/item-image.policy.js';
 import {
   serialiseItemDetail,
   serialiseItemListItem,
   serialiseItemOption,
 } from './items.serializer.js';
-import { createPaginationMetadata, type ItemWithRelations } from './items.types.js';
 import type {
   ItemCreateInput,
   ItemListQuery,
   ItemOptionsQuery,
   ItemUpdateInput,
-} from './items.validation.js';
+} from './items.schema.js';
+import { createPaginationMetadata, type ItemWithRelations } from './items.types.js';
 
 const UNCATEGORISED_SLUG = 'uncategorised';
+const MAX_ITEM_CODE_RETRIES = 5;
 
 const itemDetailInclude = {
   category: true,
@@ -29,7 +31,7 @@ const itemDetailInclude = {
   },
 } satisfies Prisma.ItemInclude;
 
-export class ItemsService {
+export class ItemsRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async listItems(query: ItemListQuery) {
@@ -106,7 +108,7 @@ export class ItemsService {
     const categoryId = await this.resolveAndValidateCategory(input.categoryId);
     await this.validateMeasurementUnit(input.measurementUnitId);
 
-    const itemCode = await generateUniqueItemCodeWithRetry(this.db);
+    const itemCode = await this.generateUniqueItemCodeWithRetry();
 
     const item = await this.db.item.create({
       data: {
@@ -330,6 +332,59 @@ export class ItemsService {
     return serialiseItemDetail(updated);
   }
 
+  private async generateNextItemCode(db: PrismaClient | Prisma.TransactionClient): Promise<string> {
+    const latestItem = await db.item.findFirst({
+      select: { itemCode: true },
+      orderBy: { id: 'desc' },
+    });
+
+    let maxNum = 0;
+
+    if (latestItem !== null) {
+      const sequence = parseItemCodeFromMatch(latestItem.itemCode);
+      if (sequence !== null) {
+        maxNum = sequence;
+      }
+    }
+
+    const recentItems = await db.item.findMany({
+      select: { itemCode: true },
+      take: 1000,
+      orderBy: { id: 'desc' },
+    });
+
+    maxNum = Math.max(maxNum, findLatestItemCodeSequence(recentItems));
+
+    return formatItemCode(maxNum + 1);
+  }
+
+  private async generateUniqueItemCodeWithRetry(): Promise<string> {
+    let currentNum: number | null = null;
+
+    for (let attempt = 0; attempt < MAX_ITEM_CODE_RETRIES; attempt += 1) {
+      let candidate: string;
+
+      if (currentNum === null) {
+        candidate = await this.generateNextItemCode(this.db);
+        currentNum = parseItemCodeFromMatch(candidate) ?? 1;
+      } else {
+        currentNum += 1;
+        candidate = formatItemCode(currentNum);
+      }
+
+      const existing = await this.db.item.findFirst({
+        where: { itemCode: candidate },
+        select: { id: true },
+      });
+
+      if (!existing) {
+        return candidate;
+      }
+    }
+
+    throw new AppError('Unable to generate a unique item code due to high concurrency. Please retry.', 409);
+  }
+
   private async getExistingItemRecord(id: number): Promise<ItemWithRelations> {
     const item = await this.db.item.findFirst({
       where: { id, deletedAt: null },
@@ -417,6 +472,12 @@ export class ItemsService {
   }
 }
 
+function parseItemCodeFromMatch(itemCode: string) {
+  const match = /^ITEM-(\d+)$/.exec(itemCode);
+  if (match === null || !match[1]) return null;
+  return Number.parseInt(match[1], 10);
+}
+
 function createItemSearchFilter(search: string): Prisma.ItemWhereInput {
   return {
     OR: [
@@ -431,3 +492,5 @@ function createItemSearchFilter(search: string): Prisma.ItemWhereInput {
     ],
   };
 }
+
+export const itemsRepository = new ItemsRepository(prisma);

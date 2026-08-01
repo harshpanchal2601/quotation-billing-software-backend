@@ -29,3 +29,17 @@
 - Validation: baseline and final lint, typecheck, test (149), build passed.
 - Deferred work: optional route-level conflict/not-found refactor for Companies repositories; Quotations cross-module read boundary in BE-07.
 - Next phase: BE-05 — Catalog and Items Domain.
+
+## BE-05 — Catalog and Items Domain Route + Repository Migration
+
+- Scope: items CRUD, options, status, restore, item code generation, item image upload/delete, audit preservation.
+- Catalog decision: no Catalog parent; categories, measurement units, and items remain separate modules.
+- Main structural changes: removed controller and two service layers; added `items.repository.ts`, renamed validation to `items.schema.ts`, added `code/item-code.ts`, `images/item-image.policy.ts`, and `index.ts`; consolidated HTTP handlers in `items.routes.ts`.
+- Item code: pure formatting in `code/item-code.ts`; database sequence lookup and retry in `items.repository.ts` (max 5 attempts, `ITEM-` prefix, six-digit padding unchanged).
+- Image/Storage: MIME/size/extension policy and Multer wiring in `images/item-image.policy.ts`; adopted storage integration for directory ensure and file delete; paths and public URLs unchanged.
+- Category/Unit boundary: Items repository queries category and measurement unit Prisma models directly.
+- Cleanup: deleted obsolete controller, services, validation file, and `.gitkeep`; renamed `items.service.test.ts` to `items.repository.test.ts`; added `item-code.test.ts` and `item-image.policy.test.ts`.
+- Behaviour preservation: API paths, payloads, pagination, search/filter/sort, soft delete/restore, image upload/delete, code format and retry, category/unit rules unchanged.
+- Validation: baseline and final lint, typecheck, test (157), build passed.
+- Deferred work: optional route-level conflict refactor; Quotations cross-module read boundary in BE-07.
+- Next phase: BE-06 — Settings Domain.

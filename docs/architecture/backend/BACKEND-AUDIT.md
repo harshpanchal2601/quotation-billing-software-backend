@@ -80,7 +80,9 @@ Prisma usage is concentrated in:
 - `src/modules/categories/*`: category CRUD and audit
 - `src/modules/companies/companies.repository.ts`, `company-contacts.repository.ts`, `company-addresses.repository.ts`: companies, contacts, addresses, quotation history read queries, transactional company code reservation
 - `src/modules/companies/code/company-code.ts`: pure company code formatting and parsing (no Prisma)
-- `src/modules/items/*`: item CRUD, code generation, image storage coupling, audit
+- `src/modules/items/items.repository.ts`: item CRUD, code generation with retry, category/unit validation, image metadata, quotation usage counts, audit
+- `src/modules/items/code/item-code.ts`: pure item code formatting and parsing (no Prisma)
+- `src/modules/items/images/item-image.policy.ts`: MIME/size/extension policy and Multer wiring (uses storage integration for filesystem mechanics)
 - `src/modules/measurement-units/*`: measurement-unit CRUD and audit
 - `src/modules/dashboard/*`: dashboard aggregation queries
 - `src/modules/quotation-attachments/*`: attachment metadata and file lifecycle
@@ -92,9 +94,9 @@ There are also direct `$transaction` calls in many of those module services.
 
 ## Controller And Service Findings
 
-Controllers still exist throughout business settings, items, quotations, quotation attachments, quotation documents, and quotation email. They mainly parse input and bridge to services, but the layer is not consistently useful everywhere.
+Controllers still exist throughout business settings, quotations, quotation attachments, quotation documents, and quotation email. They mainly parse input and bridge to services, but the layer is not consistently useful everywhere.
 
-Services currently carry the bulk of the business workflow and Prisma work in the remaining unmigrated domains. Auth, categories, dashboard, measurement units, and companies use route + repository shape; obsolete controller/service layers for completed phases were removed in BE-03A and BE-04.
+Services currently carry the bulk of the business workflow and Prisma work in the remaining unmigrated domains. Auth, categories, dashboard, measurement units, companies, and items use route + repository shape; obsolete controller/service layers for completed phases were removed in BE-03A, BE-04, and BE-05.
 
 ## Schema And Validation Findings
 

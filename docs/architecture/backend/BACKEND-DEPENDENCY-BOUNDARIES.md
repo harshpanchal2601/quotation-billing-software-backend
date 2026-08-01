@@ -27,12 +27,23 @@
 - `src/modules/companies/company-contacts.service.ts` removed in BE-04.
 - `src/modules/companies/company-addresses.service.ts` removed in BE-04.
 - `src/modules/companies/company-code.service.ts` removed in BE-04.
+- `src/modules/items/items.controller.ts` removed in BE-05.
+- `src/modules/items/items.service.ts` removed in BE-05.
+- `src/modules/items/item-code.service.ts` removed in BE-05.
+- `src/modules/items/item-image.service.ts` removed in BE-05.
 
 ## Companies Public API (BE-04)
 
 - Export: `companiesRouter` from `src/modules/companies/index.ts`.
 - Consumer: `src/bootstrap/registerRoutes.ts` mounts `/api/v1/companies`.
 - No cross-module Companies repository imports today; Quotations does not import Companies internals for persistence.
+
+## Items Public API (BE-05)
+
+- Export: `itemsRouter` from `src/modules/items/index.ts`.
+- Consumer: `src/bootstrap/registerRoutes.ts` mounts `/api/v1/items`.
+- No cross-module Items imports today; Quotations does not import Items internals.
+- Category/unit checks: Items repository queries category and measurement unit Prisma models directly (intentional Item-owned dependency query, not full repository exposure).
 
 ## Boundary Notes
 

@@ -45,3 +45,20 @@ Storage integrations must not own:
 - branding policy
 - attachment ownership
 - file naming rules that depend on domain decisions
+
+## Items Storage Adoption (BE-05)
+
+Items image workflow uses storage integration APIs:
+
+- `ensureStorageDirectory` — create item image directory before Multer write
+- `publicAssetPath('items')` — Multer disk destination
+- `deleteStorageFile` — physical file removal on replace, delete, and upload compensation
+
+Items module retains:
+
+- allowed MIME types (JPEG, PNG, WebP)
+- 5 MB size limit
+- extension/MIME matching
+- `item-{uuid}.{ext}` filename policy
+- `items/{basename}` relative path stored in database
+- `/storage/{relativePath}` public URL via serializer

@@ -1,7 +1,7 @@
 import { Prisma, type Item, type ItemCategory, type MeasurementUnit, type PrismaClient } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ItemsService } from '../src/modules/items/items.service.js';
+import { ItemsRepository } from '../src/modules/items/items.repository.js';
 
 type MockPrisma = {
   item: {
@@ -113,7 +113,7 @@ function mockItem(overrides: Partial<Item> = {}) {
   };
 }
 
-describe('items service', () => {
+describe('items repository', () => {
   let db: MockPrisma;
 
   beforeEach(() => {
@@ -127,8 +127,8 @@ describe('items service', () => {
     db.itemCategory.findFirst.mockResolvedValueOnce(uncategorisedCat);
     db.measurementUnit.findFirst.mockResolvedValueOnce(mockUnit());
 
-    db.item.findFirst.mockResolvedValueOnce(null); // No previous item code
-    db.item.findMany.mockResolvedValueOnce([]); // No previous items
+    db.item.findFirst.mockResolvedValueOnce(null);
+    db.item.findMany.mockResolvedValueOnce([]);
 
     const createdRecord = mockItem({
       itemCode: 'ITEM-000001',
@@ -137,8 +137,8 @@ describe('items service', () => {
     });
     db.item.create.mockResolvedValueOnce(createdRecord);
 
-    const service = new ItemsService(asPrisma(db));
-    const result = await service.createItem(
+    const repository = new ItemsRepository(asPrisma(db));
+    const result = await repository.createItem(
       {
         name: 'SS Tank 500L',
         measurementUnitId: 1,
@@ -164,9 +164,9 @@ describe('items service', () => {
     const inactiveCategory = mockCategory({ isActive: false });
     db.itemCategory.findFirst.mockResolvedValueOnce(inactiveCategory);
 
-    const service = new ItemsService(asPrisma(db));
+    const repository = new ItemsRepository(asPrisma(db));
     await expect(
-      service.createItem(
+      repository.createItem(
         { categoryId: 1, name: 'SS Tank', measurementUnitId: 1 },
         { userId: 1 },
       ),
@@ -179,8 +179,8 @@ describe('items service', () => {
   it('serialises default rate and GST rate consistently as decimal strings', async () => {
     db.item.findFirst.mockResolvedValueOnce(mockItem());
 
-    const service = new ItemsService(asPrisma(db));
-    const result = await service.getItem(1);
+    const repository = new ItemsRepository(asPrisma(db));
+    const result = await repository.getItem(1);
 
     expect(result.defaultRate).toBe('4500.00');
     expect(result.gstRate).toBe('18.00');
@@ -189,8 +189,8 @@ describe('items service', () => {
   it('returns active usable items only for options endpoint', async () => {
     db.item.findMany.mockResolvedValueOnce([mockItem()]);
 
-    const service = new ItemsService(asPrisma(db));
-    const result = await service.getItemOptions({ limit: 20 });
+    const repository = new ItemsRepository(asPrisma(db));
+    const result = await repository.getItemOptions({ limit: 20 });
 
     expect(result.items.length).toBe(1);
     expect(result.items[0]?.itemCode).toBe('ITEM-000001');
@@ -214,8 +214,8 @@ describe('items service', () => {
     });
     db.item.findFirst.mockResolvedValueOnce(inactiveCatItem);
 
-    const service = new ItemsService(asPrisma(db));
-    await expect(service.updateItemStatus(1, true, { userId: 1 })).rejects.toMatchObject({
+    const repository = new ItemsRepository(asPrisma(db));
+    await expect(repository.updateItemStatus(1, true, { userId: 1 })).rejects.toMatchObject({
       statusCode: 409,
       message: 'Item cannot be activated because its category is inactive or unavailable.',
     });
@@ -226,8 +226,8 @@ describe('items service', () => {
     db.item.findFirst.mockResolvedValueOnce(itemWithImage);
     db.item.update.mockResolvedValueOnce({ ...itemWithImage, deletedAt: now, isActive: false });
 
-    const service = new ItemsService(asPrisma(db));
-    await service.deleteItem(1, { userId: 1 });
+    const repository = new ItemsRepository(asPrisma(db));
+    await repository.deleteItem(1, { userId: 1 });
 
     expect(db.item.update).toHaveBeenCalledWith({
       where: { id: 1 },
@@ -245,8 +245,8 @@ describe('items service', () => {
     });
     db.item.findFirst.mockResolvedValueOnce(deletedCatItem);
 
-    const service = new ItemsService(asPrisma(db));
-    await expect(service.restoreItem(1, { userId: 1 })).rejects.toMatchObject({
+    const repository = new ItemsRepository(asPrisma(db));
+    await expect(repository.restoreItem(1, { userId: 1 })).rejects.toMatchObject({
       statusCode: 409,
       message: 'Cannot restore item because its category is deleted.',
     });
@@ -256,8 +256,8 @@ describe('items service', () => {
     db.item.findMany.mockResolvedValueOnce([mockItem()]);
     db.item.count.mockResolvedValueOnce(1);
 
-    const service = new ItemsService(asPrisma(db));
-    const result = await service.listItems({
+    const repository = new ItemsRepository(asPrisma(db));
+    const result = await repository.listItems({
       page: 1,
       limit: 20,
       search: 'SS Tank',
@@ -276,5 +276,36 @@ describe('items service', () => {
         take: 20,
       }),
     );
+  });
+
+  it('retries item code generation when a duplicate code already exists', async () => {
+    const uncategorisedCat = mockCategory({ id: 10, name: 'Uncategorised', slug: 'uncategorised' });
+    db.itemCategory.findFirst.mockResolvedValueOnce(uncategorisedCat);
+    db.measurementUnit.findFirst.mockResolvedValueOnce(mockUnit());
+
+    db.item.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 99 })
+      .mockResolvedValueOnce(null);
+    db.item.findMany.mockResolvedValueOnce([]);
+
+    const createdRecord = mockItem({
+      itemCode: 'ITEM-000002',
+      categoryId: 10,
+      category: uncategorisedCat,
+    });
+    db.item.create.mockResolvedValueOnce(createdRecord);
+
+    const repository = new ItemsRepository(asPrisma(db));
+    const result = await repository.createItem(
+      {
+        name: 'Retry Item',
+        measurementUnitId: 1,
+      },
+      { userId: 1 },
+    );
+
+    expect(result.itemCode).toBe('ITEM-000002');
+    expect(db.item.findFirst).toHaveBeenCalledTimes(3);
   });
 });
