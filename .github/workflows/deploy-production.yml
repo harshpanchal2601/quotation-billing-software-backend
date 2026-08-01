@@ -1,0 +1,157 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - feat/code-migration 
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: erp-backend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Validate and Deploy Backend
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Verify backend build
+        run: npm run build
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "Missing required secret: EC2_SSH_PRIVATE_KEY"
+            exit 1
+          fi
+
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/erp-key.pem"
+          chmod 600 "$HOME/.ssh/erp-key.pem"
+
+      - name: Deploy backend to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
+        run: |
+          if [ -z "$EC2_HOST" ]; then
+            echo "Missing required secret: EC2_HOST"
+            exit 1
+          fi
+
+          if [ -z "$EC2_USER" ]; then
+            echo "Missing required secret: EC2_USER"
+            exit 1
+          fi
+
+          DEPLOY_PORT="${EC2_PORT:-22}"
+          if ! printf '%s' "$DEPLOY_PORT" | grep -Eq '^[0-9]+$'; then
+            echo "EC2_PORT must be numeric when set."
+            exit 1
+          fi
+
+          DEPLOY_TARGET="${EC2_USER}@${EC2_HOST}"
+
+          zip -qr backend-release.zip dist package.json prisma
+
+          scp \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -i "$HOME/.ssh/erp-key.pem" \
+            -P "$DEPLOY_PORT" \
+            backend-release.zip \
+            "$DEPLOY_TARGET:/tmp/erp-backend-release.zip"
+
+          ssh \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -i "$HOME/.ssh/erp-key.pem" \
+            -p "$DEPLOY_PORT" \
+            "$DEPLOY_TARGET" <<'REMOTE_SCRIPT'
+
+          set -e
+
+          APP_NAME="erp-system-backend"
+          APP_PATH="/var/www/erp-system-backend"
+          SERVER_FILE="$APP_PATH/dist/bootstrap/server.js"
+
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+          echo "Publishing backend release..."
+          mkdir -p "$APP_PATH"
+          rm -rf "$APP_PATH/dist" "$APP_PATH/prisma"
+
+          if ! command -v unzip >/dev/null 2>&1; then
+            echo "unzip is required on the EC2 instance to deploy the backend archive."
+            exit 1
+          fi
+
+          unzip -q -o /tmp/erp-backend-release.zip -d "$APP_PATH"
+          rm -f /tmp/erp-backend-release.zip
+
+          cd "$APP_PATH"
+
+          echo "Installing backend dependencies..."
+          npm install --omit=dev
+
+          echo "Generating Prisma client..."
+          npm run prisma:generate
+
+          if [ ! -f "$SERVER_FILE" ]; then
+            echo "Backend build failed: $SERVER_FILE not found."
+            exit 1
+          fi
+
+          echo "Applying Prisma migrations..."
+          npx prisma migrate deploy
+
+          command -v pm2 >/dev/null 2>&1 || npm install -g pm2
+
+          if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
+            echo "Restarting backend PM2 process..."
+            pm2 restart "$APP_NAME" --update-env
+          else
+            echo "Creating backend PM2 process..."
+            pm2 start "$SERVER_FILE" \
+              --name "$APP_NAME" \
+              --time
+          fi
+
+          pm2 save
+          pm2 status "$APP_NAME"
+
+          echo "Backend deployment completed."
+          REMOTE_SCRIPT
