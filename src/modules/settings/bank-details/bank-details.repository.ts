@@ -1,26 +1,18 @@
 import type { BankDetail, PrismaClient } from '@prisma/client';
 import { AuditAction } from '@prisma/client';
 
-import { AppError } from '../../core/errors/AppError.js';
-import { BusinessProfileService } from './business-profile.service.js';
-import { createSettingsAuditLog, type RequestMetadata } from './business-settings.audit.js';
-import { maskAccountNumber, serialiseBankDetail } from './business-settings.serializers.js';
-import type { BankDetailCreateInput, BankDetailUpdateInput } from './business-settings.validation.js';
+import { AppError } from '../../../core/errors/AppError.js';
+import { prisma } from '../../../core/database/prisma.js';
+import { businessProfileRepository } from '../business-profile/business-profile.repository.js';
+import { createSettingsAuditLog, type RequestMetadata } from '../settings.audit.js';
+import { maskAccountNumber, serialiseBankDetail } from '../settings.serializers.js';
+import type { BankDetailCreateInput, BankDetailUpdateInput } from './bank-details.schema.js';
 
-type TransactionClient = Omit<
-  PrismaClient,
-  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
->;
-
-export class BankDetailsService {
-  private readonly businessProfileService: BusinessProfileService;
-
-  constructor(private readonly db: PrismaClient) {
-    this.businessProfileService = new BusinessProfileService(db);
-  }
+export class BankDetailsRepository {
+  constructor(private readonly db: PrismaClient) {}
 
   async listBankDetails() {
-    const businessProfile = await this.businessProfileService.getOrCreateBusinessProfile();
+    const businessProfile = await businessProfileRepository.getOrCreateBusinessProfile();
     const bankDetails = await this.db.bankDetail.findMany({
       where: { businessProfileId: businessProfile.id, deletedAt: null },
       orderBy: [{ isDefault: 'desc' }, { bankName: 'asc' }, { createdAt: 'asc' }],
@@ -29,7 +21,7 @@ export class BankDetailsService {
   }
 
   async createBankDetail(input: BankDetailCreateInput, metadata: RequestMetadata) {
-    const businessProfile = await this.businessProfileService.getOrCreateBusinessProfile();
+    const businessProfile = await businessProfileRepository.getOrCreateBusinessProfile();
 
     const created = await this.db.$transaction(async (tx) => {
       if (input.isDefault) {
@@ -138,7 +130,7 @@ export class BankDetailsService {
   }
 
   private async getExistingBankDetail(id: number) {
-    const businessProfile = await this.businessProfileService.getOrCreateBusinessProfile();
+    const businessProfile = await businessProfileRepository.getOrCreateBusinessProfile();
     const bankDetail = await this.db.bankDetail.findFirst({
       where: { id, businessProfileId: businessProfile.id, deletedAt: null },
     });
@@ -179,4 +171,4 @@ export class BankDetailsService {
   }
 }
 
-export type { TransactionClient };
+export const bankDetailsRepository = new BankDetailsRepository(prisma);

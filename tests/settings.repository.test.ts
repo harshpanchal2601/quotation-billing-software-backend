@@ -2,9 +2,9 @@ import { AuditAction, Prisma, SequenceResetRule, TaxMode } from '@prisma/client'
 import type { BusinessProfile, QuotationSetting, BankDetail, PrismaClient } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { BankDetailsService } from '../src/modules/business-settings/bank-details.service.js';
-import { BusinessProfileService } from '../src/modules/business-settings/business-profile.service.js';
-import { QuotationSettingsService } from '../src/modules/business-settings/quotation-settings.service.js';
+import { BankDetailsRepository } from '../src/modules/settings/bank-details/bank-details.repository.js';
+import { BusinessProfileRepository } from '../src/modules/settings/business-profile/business-profile.repository.js';
+import { QuotationSettingsRepository } from '../src/modules/settings/quotation-settings/quotation-settings.repository.js';
 
 type MockPrisma = {
   businessProfile: {
@@ -131,7 +131,7 @@ function bank(overrides: Partial<BankDetail> = {}): BankDetail {
   };
 }
 
-describe('business settings services', () => {
+describe('settings repositories', () => {
   let db: MockPrisma;
 
   beforeEach(() => {
@@ -142,8 +142,8 @@ describe('business settings services', () => {
     db.businessProfile.findFirst.mockResolvedValueOnce(null);
     db.businessProfile.create.mockResolvedValueOnce(profile());
 
-    const service = new BusinessProfileService(asPrisma(db));
-    await expect(service.getBusinessProfile()).resolves.toMatchObject({ id: 1 });
+    const repository = new BusinessProfileRepository(asPrisma(db));
+    await expect(repository.getBusinessProfile()).resolves.toMatchObject({ id: 1 });
     expect(db.businessProfile.create).toHaveBeenCalledOnce();
   });
 
@@ -152,8 +152,8 @@ describe('business settings services', () => {
     db.businessProfile.update.mockResolvedValueOnce(profile({ displayName: 'New' }));
     db.auditLog.create.mockResolvedValueOnce({ id: 1 });
 
-    const service = new BusinessProfileService(asPrisma(db));
-    const result = await service.updateBusinessProfile({ displayName: 'New' }, { userId: 1 });
+    const repository = new BusinessProfileRepository(asPrisma(db));
+    const result = await repository.updateBusinessProfile({ displayName: 'New' }, { userId: 1 });
 
     expect(result.displayName).toBe('New');
     expect(db.businessProfile.update).toHaveBeenCalledWith({
@@ -173,8 +173,8 @@ describe('business settings services', () => {
     db.quotationSetting.findUnique.mockResolvedValueOnce(null);
     db.quotationSetting.create.mockResolvedValueOnce(settings());
 
-    const service = new QuotationSettingsService(asPrisma(db));
-    const result = await service.getQuotationSettings();
+    const repository = new QuotationSettingsRepository(asPrisma(db));
+    const result = await repository.getQuotationSettings();
 
     expect(result.defaultGstRate).toBe('18.00');
     expect(db.quotationSetting.create).toHaveBeenCalledWith({
@@ -188,8 +188,8 @@ describe('business settings services', () => {
     db.quotationSetting.update.mockResolvedValueOnce(settings({ defaultGstRate: new Prisma.Decimal('12.50') }));
     db.auditLog.create.mockResolvedValueOnce({ id: 1 });
 
-    const service = new QuotationSettingsService(asPrisma(db));
-    const result = await service.updateQuotationSettings({ defaultGstRate: '12.50' }, { userId: 1 });
+    const repository = new QuotationSettingsRepository(asPrisma(db));
+    const result = await repository.updateQuotationSettings({ defaultGstRate: '12.50' }, { userId: 1 });
 
     expect(result.defaultGstRate).toBe('12.50');
     expect(db.quotationSetting.update.mock.calls[0]?.[0].data.defaultGstRate).toBeInstanceOf(Prisma.Decimal);
@@ -200,8 +200,8 @@ describe('business settings services', () => {
     db.bankDetail.create.mockResolvedValueOnce(bank({ isDefault: true }));
     db.auditLog.create.mockResolvedValueOnce({ id: 1 });
 
-    const service = new BankDetailsService(asPrisma(db));
-    const result = await service.createBankDetail(
+    const repository = new BankDetailsRepository(asPrisma(db));
+    const result = await repository.createBankDetail(
       { bankName: 'HDFC Bank', accountName: 'Buminex', accountNumber: '1234567890', isDefault: true },
       { userId: 1 },
     );
@@ -220,8 +220,8 @@ describe('business settings services', () => {
     db.bankDetail.update.mockResolvedValueOnce(bank({ isDefault: true, accountNumber: '1234567890' }));
     db.auditLog.create.mockResolvedValueOnce({ id: 1 });
 
-    const service = new BankDetailsService(asPrisma(db));
-    await service.setDefaultBankDetail(1, { userId: 1 });
+    const repository = new BankDetailsRepository(asPrisma(db));
+    await repository.setDefaultBankDetail(1, { userId: 1 });
 
     expect(db.$transaction).toHaveBeenCalledOnce();
     const auditCall = db.auditLog.create.mock.calls[0]?.[0];
@@ -237,8 +237,8 @@ describe('business settings services', () => {
     db.bankDetail.update.mockResolvedValue(bank());
     db.auditLog.create.mockResolvedValueOnce({ id: 1 });
 
-    const service = new BankDetailsService(asPrisma(db));
-    await service.deleteBankDetail(1, { userId: 1 });
+    const repository = new BankDetailsRepository(asPrisma(db));
+    await repository.deleteBankDetail(1, { userId: 1 });
 
     expect(db.bankDetail.update).toHaveBeenCalledWith({
       where: { id: 1 },
@@ -254,8 +254,8 @@ describe('business settings services', () => {
     db.businessProfile.findFirst.mockResolvedValueOnce(profile());
     db.bankDetail.findFirst.mockResolvedValueOnce(null);
 
-    const service = new BankDetailsService(asPrisma(db));
-    await expect(service.setDefaultBankDetail(999, { userId: 1 })).rejects.toMatchObject({
+    const repository = new BankDetailsRepository(asPrisma(db));
+    await expect(repository.setDefaultBankDetail(999, { userId: 1 })).rejects.toMatchObject({
       statusCode: 404,
     });
   });

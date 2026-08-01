@@ -1,17 +1,23 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import multer from 'multer';
 
-import { AppError } from '../../core/errors/AppError.js';
+import { storageConfig } from '../../../config/storage.config.js';
+import { AppError } from '../../../core/errors/AppError.js';
+import {
+  deleteStorageFile,
+  ensureStorageDirectory,
+  publicAssetPath,
+  resolveStoragePath,
+} from '../../../integrations/storage/index.js';
 
 export type BrandingAssetType = 'logo' | 'signature' | 'stamp';
 
 export const brandingAssetConfig = {
-  logo: { directory: 'logos', field: 'logo', profileField: 'logoPath' },
-  signature: { directory: 'signatures', field: 'signature', profileField: 'signaturePath' },
-  stamp: { directory: 'stamps', field: 'stamp', profileField: 'stampPath' },
+  logo: { directory: storageConfig.brandingDirectories.logo, field: 'logo', profileField: 'logoPath' },
+  signature: { directory: storageConfig.brandingDirectories.signature, field: 'signature', profileField: 'signaturePath' },
+  stamp: { directory: storageConfig.brandingDirectories.stamp, field: 'stamp', profileField: 'stampPath' },
 } as const;
 
 const allowedMimeExtensions = {
@@ -20,7 +26,7 @@ const allowedMimeExtensions = {
   'image/webp': '.webp',
 } as const;
 
-export const brandingStorageRoot = path.resolve(process.cwd(), 'storage');
+export const BRANDING_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 export const uploadBrandingAsset = multer({
   storage: multer.diskStorage({
@@ -31,9 +37,9 @@ export const uploadBrandingAsset = multer({
           callback(new AppError('Unsupported branding asset type', 404), '');
           return;
         }
-        const directory = path.join(brandingStorageRoot, brandingAssetConfig[assetType].directory);
-        await fs.mkdir(directory, { recursive: true });
-        callback(null, directory);
+        const directory = brandingAssetConfig[assetType].directory;
+        await ensureStorageDirectory(directory);
+        callback(null, publicAssetPath(directory));
       } catch (error) {
         callback(error as Error, '');
       }
@@ -50,7 +56,7 @@ export const uploadBrandingAsset = multer({
     },
   }),
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: BRANDING_IMAGE_MAX_BYTES,
     files: 1,
   },
   fileFilter: (_req, file, callback) => {
@@ -65,7 +71,7 @@ export const uploadBrandingAsset = multer({
 });
 
 export function validateBrandingFile(file: Pick<Express.Multer.File, 'mimetype' | 'originalname' | 'size'>) {
-  if (file.size > 5 * 1024 * 1024) {
+  if (file.size > BRANDING_IMAGE_MAX_BYTES) {
     return new AppError('Image must be 5 MB or smaller', 413);
   }
 
@@ -86,13 +92,11 @@ export function validateBrandingFile(file: Pick<Express.Multer.File, 'mimetype' 
 
 export async function removeStoredBrandingAsset(relativePath: string | null) {
   if (relativePath === null) return;
-  const absolutePath = resolveBrandingPath(relativePath);
 
   try {
-    await fs.unlink(absolutePath);
+    await deleteStorageFile(relativePath);
   } catch (error) {
-    const code = error instanceof Error && 'code' in error ? error.code : undefined;
-    if (code !== 'ENOENT') {
+    if (error instanceof AppError) {
       console.warn('Stored branding asset could not be removed.');
     }
   }
@@ -103,10 +107,14 @@ export function toBrandingRelativePath(assetType: BrandingAssetType, filename: s
 }
 
 export function resolveBrandingPath(relativePath: string) {
-  const resolved = path.resolve(brandingStorageRoot, relativePath);
-  const relativeToStorage = path.relative(brandingStorageRoot, resolved);
-  if (relativeToStorage.startsWith('..') || path.isAbsolute(relativeToStorage)) {
-    throw new AppError('Invalid branding asset path', 400);
+  return resolveStoragePath(relativePath);
+}
+
+export function mapMulterError(error: unknown) {
+  if (error instanceof AppError) return error;
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') return new AppError('Image must be 5 MB or smaller', 413);
+    return new AppError('Invalid upload request', 400);
   }
-  return resolved;
+  return error;
 }

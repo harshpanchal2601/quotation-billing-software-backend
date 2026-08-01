@@ -1,10 +1,11 @@
 import type { BusinessProfile, PrismaClient } from '@prisma/client';
 import { AuditAction } from '@prisma/client';
 
-import { defaultBusinessProfileData } from './business-settings.defaults.js';
-import { createSettingsAuditLog, pickChangedFields, type RequestMetadata } from './business-settings.audit.js';
-import { serialiseBusinessProfile } from './business-settings.serializers.js';
-import type { BusinessProfileUpdateInput } from './business-settings.validation.js';
+import { prisma } from '../../../core/database/prisma.js';
+import { defaultBusinessProfileData } from '../settings.defaults.js';
+import { createSettingsAuditLog, pickChangedFields, type RequestMetadata } from '../settings.audit.js';
+import { serialiseBusinessProfile } from '../settings.serializers.js';
+import type { BusinessProfileUpdateInput } from './business-profile.schema.js';
 
 const businessProfileFields = [
   'legalName',
@@ -28,7 +29,7 @@ const businessProfileFields = [
   'defaultCurrency',
 ] as const;
 
-export class BusinessProfileService {
+export class BusinessProfileRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async getOrCreateBusinessProfile() {
@@ -81,3 +82,5 @@ export class BusinessProfileService {
     return this.db.businessProfile.findFirst({ orderBy: { id: 'asc' } });
   }
 }
+
+export const businessProfileRepository = new BusinessProfileRepository(prisma);

@@ -2,14 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import {
   bankDetailCreateSchema,
+} from '../src/modules/settings/bank-details/bank-details.schema.js';
+import {
   businessProfileUpdateSchema,
+} from '../src/modules/settings/business-profile/business-profile.schema.js';
+import {
   quotationSettingsUpdateSchema,
-} from '../src/modules/business-settings/business-settings.validation.js';
-import { maskAccountNumber, serialiseBusinessProfile, serialiseQuotationSettings } from '../src/modules/business-settings/business-settings.serializers.js';
-import { brandingAssetConfig, toBrandingRelativePath, validateBrandingFile } from '../src/modules/business-settings/branding-upload.js';
+} from '../src/modules/settings/quotation-settings/quotation-settings.schema.js';
+import { maskAccountNumber, serialiseBusinessProfile, serialiseQuotationSettings } from '../src/modules/settings/settings.serializers.js';
+import { brandingAssetConfig, toBrandingRelativePath, validateBrandingFile } from '../src/modules/settings/branding/branding.policy.js';
 import { Prisma, SequenceResetRule, TaxMode } from '@prisma/client';
 
-describe('business settings validation', () => {
+describe('settings validation and policy', () => {
   it('validates GSTIN, PAN and colour values', () => {
     expect(() => businessProfileUpdateSchema.parse({ gstin: 'invalid' })).toThrow();
     expect(() => businessProfileUpdateSchema.parse({ pan: 'invalid' })).toThrow();

@@ -1,25 +1,22 @@
 import type { PrismaClient } from '@prisma/client';
 import { AuditAction } from '@prisma/client';
 
-import { BusinessProfileService } from './business-profile.service.js';
-import { createSettingsAuditLog, type RequestMetadata } from './business-settings.audit.js';
-import { serialiseBusinessProfile, toAssetUrl } from './business-settings.serializers.js';
+import { prisma } from '../../../core/database/prisma.js';
+import { businessProfileRepository } from '../business-profile/business-profile.repository.js';
+import { createSettingsAuditLog, type RequestMetadata } from '../settings.audit.js';
+import { serialiseBusinessProfile, toAssetUrl } from '../settings.serializers.js';
 import {
   brandingAssetConfig,
   removeStoredBrandingAsset,
   toBrandingRelativePath,
   type BrandingAssetType,
-} from './branding-upload.js';
+} from './branding.policy.js';
 
-export class BrandingAssetsService {
-  private readonly businessProfileService: BusinessProfileService;
-
-  constructor(private readonly db: PrismaClient) {
-    this.businessProfileService = new BusinessProfileService(db);
-  }
+export class BrandingRepository {
+  constructor(private readonly db: PrismaClient) {}
 
   async replaceAsset(assetType: BrandingAssetType, file: Express.Multer.File, metadata: RequestMetadata) {
-    const profile = await this.businessProfileService.getOrCreateBusinessProfile();
+    const profile = await businessProfileRepository.getOrCreateBusinessProfile();
     const config = brandingAssetConfig[assetType];
     const relativePath = toBrandingRelativePath(assetType, file.filename);
     const previousPath = profile[config.profileField];
@@ -48,7 +45,7 @@ export class BrandingAssetsService {
   }
 
   async deleteAsset(assetType: BrandingAssetType, metadata: RequestMetadata) {
-    const profile = await this.businessProfileService.getOrCreateBusinessProfile();
+    const profile = await businessProfileRepository.getOrCreateBusinessProfile();
     const config = brandingAssetConfig[assetType];
     const previousPath = profile[config.profileField];
 
@@ -74,3 +71,5 @@ export class BrandingAssetsService {
     return serialiseBusinessProfile(updated);
   }
 }
+
+export const brandingRepository = new BrandingRepository(prisma);

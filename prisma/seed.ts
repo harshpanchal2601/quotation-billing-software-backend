@@ -12,7 +12,7 @@ import {
 import {
   defaultBusinessProfileData,
   defaultQuotationSettingsData,
-} from '../src/modules/business-settings/business-settings.defaults.js';
+} from '../src/modules/settings/index.js';
 
 export const defaultItemCategory = {
   name: 'Uncategorised',

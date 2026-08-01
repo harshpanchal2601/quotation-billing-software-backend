@@ -2,7 +2,7 @@ import { Router } from 'express';
 
 import { healthRouter } from '../routes/health.routes.js';
 import { authRouter } from '../modules/auth/index.js';
-import { businessSettingsRouter } from '../modules/business-settings/business-settings.routes.js';
+import { settingsRouter } from '../modules/settings/index.js';
 import { categoriesRouter } from '../modules/categories/index.js';
 import { companiesRouter } from '../modules/companies/index.js';
 import { dashboardRouter } from '../modules/dashboard/index.js';
@@ -16,7 +16,7 @@ import { quotationsRouter } from '../modules/quotations/quotations.routes.js';
 export const apiRouter = Router();
 
 apiRouter.use('/auth', authRouter);
-apiRouter.use('/settings', businessSettingsRouter);
+apiRouter.use('/settings', settingsRouter);
 apiRouter.use('/companies', companiesRouter);
 apiRouter.use('/categories', categoriesRouter);
 apiRouter.use('/measurement-units', measurementUnitsRouter);

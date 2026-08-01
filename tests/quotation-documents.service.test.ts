@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
-import { brandingStorageRoot } from '../src/modules/business-settings/branding-upload';
+import { storageConfig } from '../src/config/storage.config';
 import { getBrandingFileDataUrl } from '../src/modules/quotation-documents/quotation-documents.service';
 import {
   escapeHtml,
@@ -260,8 +260,8 @@ describe('quotation PDF template and document security', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const filename = `signature-test-${Date.now()}.png`;
     const relativePath = path.join('signatures', filename);
-    await fs.mkdir(path.join(brandingStorageRoot, 'signatures'), { recursive: true });
-    await fs.writeFile(path.join(brandingStorageRoot, relativePath), Buffer.from('signature-fixture'));
+    await fs.mkdir(path.join(storageConfig.root, 'signatures'), { recursive: true });
+    await fs.writeFile(path.join(storageConfig.root, relativePath), Buffer.from('signature-fixture'));
 
     try {
       const signatureDataUrl = await getBrandingFileDataUrl('signature', relativePath);
@@ -270,7 +270,7 @@ describe('quotation PDF template and document security', () => {
       expect(signatureDataUrl).toBe(`data:image/png;base64,${Buffer.from('signature-fixture').toString('base64')}`);
       expect(stampDataUrl).toBeNull();
     } finally {
-      await fs.unlink(path.join(brandingStorageRoot, relativePath)).catch(() => {});
+      await fs.unlink(path.join(storageConfig.root, relativePath)).catch(() => {});
       warnSpy.mockRestore();
     }
   });

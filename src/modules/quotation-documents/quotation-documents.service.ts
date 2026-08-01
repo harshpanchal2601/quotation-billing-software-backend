@@ -7,7 +7,7 @@ import { prisma } from '../../core/database/prisma.js';
 import { AppError } from '../../core/errors/AppError.js';
 import { pdfService } from '../../integrations/pdf/index.js';
 import { storageConfig } from '../../config/storage.config.js';
-import { brandingAssetConfig, resolveBrandingPath, type BrandingAssetType } from '../business-settings/branding-upload.js';
+import { brandingAssetConfig, resolveBrandingPath, type BrandingAssetType } from '../settings/index.js';
 import { renderQuotationHtmlTemplate } from './quotation-pdf-template.js';
 import type { GeneratedDocumentDto, QuotationPdfViewModel } from './quotation-documents.types.js';
 

@@ -1,15 +1,14 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 
 import { AppError } from '../../core/errors/AppError.js';
-import { QuotationSettingsService } from '../business-settings/quotation-settings.service.js';
+import { getOrCreateQuotationSettings } from '../settings/index.js';
 
 export async function generateUniqueQuotationNumber(
   tx: Prisma.TransactionClient,
-  dbForSetting: PrismaClient,
+  _dbForSetting: PrismaClient,
   quotationDate: Date = new Date(),
 ): Promise<string> {
-  const settingsService = new QuotationSettingsService(dbForSetting);
-  const settings = await settingsService.getOrCreateQuotationSettings();
+  const settings = await getOrCreateQuotationSettings();
 
   const prefix = settings.quotationPrefix || 'BUMINEX';
   const fyFormat = settings.financialYearFormat || 'YYYY-YY';

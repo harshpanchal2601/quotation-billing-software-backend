@@ -1,11 +1,12 @@
 import { Prisma, AuditAction } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
 
-import { BusinessProfileService } from './business-profile.service.js';
-import { defaultQuotationSettingsData } from './business-settings.defaults.js';
-import { createSettingsAuditLog, pickChangedFields, type RequestMetadata } from './business-settings.audit.js';
-import { serialiseQuotationSettings } from './business-settings.serializers.js';
-import type { QuotationSettingsUpdateInput } from './business-settings.validation.js';
+import { prisma } from '../../../core/database/prisma.js';
+import { businessProfileRepository } from '../business-profile/business-profile.repository.js';
+import { defaultQuotationSettingsData } from '../settings.defaults.js';
+import { createSettingsAuditLog, pickChangedFields, type RequestMetadata } from '../settings.audit.js';
+import { serialiseQuotationSettings } from '../settings.serializers.js';
+import type { QuotationSettingsUpdateInput } from './quotation-settings.schema.js';
 
 const quotationSettingFields = [
   'quotationPrefix',
@@ -26,15 +27,11 @@ const quotationSettingFields = [
   'showAmountInWords',
 ] as const;
 
-export class QuotationSettingsService {
-  private readonly businessProfileService: BusinessProfileService;
-
-  constructor(private readonly db: PrismaClient) {
-    this.businessProfileService = new BusinessProfileService(db);
-  }
+export class QuotationSettingsRepository {
+  constructor(private readonly db: PrismaClient) {}
 
   async getOrCreateQuotationSettings() {
-    const businessProfile = await this.businessProfileService.getOrCreateBusinessProfile();
+    const businessProfile = await businessProfileRepository.getOrCreateBusinessProfile();
     const existing = await this.db.quotationSetting.findUnique({
       where: { businessProfileId: businessProfile.id },
     });
@@ -98,4 +95,10 @@ export class QuotationSettingsService {
 
     return serialiseQuotationSettings(updated);
   }
+}
+
+export const quotationSettingsRepository = new QuotationSettingsRepository(prisma);
+
+export async function getOrCreateQuotationSettings() {
+  return quotationSettingsRepository.getOrCreateQuotationSettings();
 }
