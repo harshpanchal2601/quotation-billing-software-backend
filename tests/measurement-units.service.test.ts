@@ -2,7 +2,7 @@ import type { MeasurementUnit, PrismaClient } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MeasurementUnitsService } from '../src/modules/measurement-units/measurement-units.service.js';
-import { measurementUnitCreateSchema } from '../src/modules/measurement-units/measurement-units.validation.js';
+import { measurementUnitCreateSchema } from '../src/modules/measurement-units/measurement-units.schema.js';
 
 type MockPrisma = {
   measurementUnit: {

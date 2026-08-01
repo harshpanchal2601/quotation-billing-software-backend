@@ -10,7 +10,7 @@ process.env.JWT_REFRESH_SECRET = 'refresh-secret';
 process.env.JWT_ACCESS_EXPIRES_IN = '15m';
 process.env.JWT_REFRESH_EXPIRES_IN = '7d';
 
-const { clearAuthCookies, setAuthCookies } = await import('../src/modules/auth/auth.cookies.js');
+const { clearAuthCookies, setAuthCookies } = await import('../src/modules/auth/security/auth.cookies.js');
 const { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME } = await import('../src/modules/auth/auth.constants.js');
 
 function createResponse() {

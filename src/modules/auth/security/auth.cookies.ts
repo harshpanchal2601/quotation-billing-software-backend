@@ -1,7 +1,7 @@
 import type { Response } from 'express';
 
-import { env } from '../../config/env.js';
-import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME } from './auth.constants.js';
+import { env } from '../../../config/env.js';
+import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME } from '../auth.constants.js';
 import { durationToMilliseconds } from './auth.tokens.js';
 
 const secure = env.NODE_ENV === 'production';

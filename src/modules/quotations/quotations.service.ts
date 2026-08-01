@@ -1,7 +1,7 @@
 import { AuditAction, Prisma, QuotationStatus, type PrismaClient } from '@prisma/client';
 
-import { AppError } from '../../utils/AppError.js';
-import { createAuditLog, type RequestMetadata } from '../../utils/auditLog.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { calculateQuotationTotals } from './quotation-calculation.service.js';
 import {
   isValidUntilBeforeQuotationDate,

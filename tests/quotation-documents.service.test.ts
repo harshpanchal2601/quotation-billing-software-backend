@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 
+import { brandingStorageRoot } from '../src/modules/business-settings/branding-upload';
+import { getBrandingFileDataUrl } from '../src/modules/quotation-documents/quotation-documents.service';
 import {
   escapeHtml,
   formatCurrencyPdf,
@@ -138,5 +142,150 @@ describe('quotation PDF template and document security', () => {
     });
 
     expect(html).toContain('Revision:</strong> #2');
+  });
+
+  it('renders a dedicated signatory block with company sign-off and label', () => {
+    const html = renderQuotationHtmlTemplate(mockViewModel);
+
+    expect(html).toContain('class="signatory-block"');
+    expect(html).toContain('For Buminex Pharmtech');
+    expect(html).toContain('class="signatory-label">Authorised Signatory</span>');
+    expect(html).toContain('This is a computer-generated quotation document.');
+  });
+
+  it('renders signature and stamp in separate safe containers when both assets exist', () => {
+    const html = renderQuotationHtmlTemplate({
+      ...mockViewModel,
+      businessProfile: {
+        ...mockViewModel.businessProfile!,
+        signatureDataUrl: 'data:image/png;base64,signature-data',
+        stampDataUrl: 'data:image/png;base64,stamp-data',
+      },
+    });
+
+    expect(html).toContain('class="stamp-frame"');
+    expect(html).toContain('class="stamp-image" alt="Company stamp"');
+    expect(html).toContain('class="signature-frame"');
+    expect(html).toContain('class="signature-image" alt="Authorised signature"');
+    expect(html).toContain('object-fit: contain');
+  });
+
+  it('uses bounded dimensions for the authorised signature image', () => {
+    const html = renderQuotationHtmlTemplate(mockViewModel);
+
+    expect(html).toContain('max-width: 150px;');
+    expect(html).toContain('max-height: 68px;');
+    expect(html).toContain('.signature-image');
+  });
+
+  it('uses bounded dimensions for the company stamp image', () => {
+    const html = renderQuotationHtmlTemplate(mockViewModel);
+
+    expect(html).toContain('max-width: 92px;');
+    expect(html).toContain('max-height: 92px;');
+    expect(html).toContain('.stamp-image');
+  });
+
+  it('does not render an empty stamp placeholder when only signature exists', () => {
+    const html = renderQuotationHtmlTemplate({
+      ...mockViewModel,
+      businessProfile: {
+        ...mockViewModel.businessProfile!,
+        signatureDataUrl: 'data:image/png;base64,signature-data',
+        stampDataUrl: null,
+      },
+    });
+
+    expect(html).toContain('class="signature-frame"');
+    expect(html).not.toContain('class="stamp-frame"');
+    expect(html).not.toContain('alt="Company stamp"');
+  });
+
+  it('does not render a broken signature placeholder when only stamp exists', () => {
+    const html = renderQuotationHtmlTemplate({
+      ...mockViewModel,
+      businessProfile: {
+        ...mockViewModel.businessProfile!,
+        signatureDataUrl: null,
+        stampDataUrl: 'data:image/png;base64,stamp-data',
+      },
+    });
+
+    expect(html).toContain('class="stamp-frame"');
+    expect(html).not.toContain('class="signature-frame"');
+    expect(html).not.toContain('alt="Authorised signature"');
+  });
+
+  it('keeps the signatory section usable when neither signature nor stamp exists', () => {
+    const html = renderQuotationHtmlTemplate({
+      ...mockViewModel,
+      businessProfile: {
+        ...mockViewModel.businessProfile!,
+        signatureDataUrl: null,
+        stampDataUrl: null,
+      },
+    });
+
+    expect(html).toContain('class="signatory-block"');
+    expect(html).toContain('Authorised Signatory');
+    expect(html).not.toContain('class="signatory-assets"');
+    expect(html).not.toContain('<img src=""');
+  });
+
+  it('applies page-break protection to terms and signatory sections', () => {
+    const html = renderQuotationHtmlTemplate(mockViewModel);
+
+    expect(html).toContain('.terms-grid');
+    expect(html).toContain('page-break-inside: avoid');
+    expect(html).toContain('break-inside: avoid');
+    expect(html).toContain('.document-footer');
+  });
+
+  it('keeps the quotation revision visible in the PDF HTML alongside signatory layout changes', () => {
+    const html = renderQuotationHtmlTemplate({
+      ...mockViewModel,
+      revisionNumber: 1,
+      businessProfile: {
+        ...mockViewModel.businessProfile!,
+        signatureDataUrl: 'data:image/png;base64,signature-data',
+        stampDataUrl: 'data:image/png;base64,stamp-data',
+      },
+    });
+
+    expect(html).toContain('Revision:</strong> #1');
+    expect(html).toContain('class="signatory-block"');
+  });
+
+  it('resolves branding data URLs only from the matching asset storage area', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const filename = `signature-test-${Date.now()}.png`;
+    const relativePath = path.join('signatures', filename);
+    await fs.mkdir(path.join(brandingStorageRoot, 'signatures'), { recursive: true });
+    await fs.writeFile(path.join(brandingStorageRoot, relativePath), Buffer.from('signature-fixture'));
+
+    try {
+      const signatureDataUrl = await getBrandingFileDataUrl('signature', relativePath);
+      const stampDataUrl = await getBrandingFileDataUrl('stamp', relativePath);
+
+      expect(signatureDataUrl).toBe(`data:image/png;base64,${Buffer.from('signature-fixture').toString('base64')}`);
+      expect(stampDataUrl).toBeNull();
+    } finally {
+      await fs.unlink(path.join(brandingStorageRoot, relativePath)).catch(() => {});
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('returns null for missing optional branding files without exposing storage paths', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const missingSignature = await getBrandingFileDataUrl('signature', 'signatures/missing-signature.png');
+      const unsafeSignature = await getBrandingFileDataUrl('signature', '../outside-storage.png');
+
+      expect(missingSignature).toBeNull();
+      expect(unsafeSignature).toBeNull();
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });

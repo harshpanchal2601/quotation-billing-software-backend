@@ -23,6 +23,25 @@ export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string
 
   const primaryColor = bp?.primaryColour || '#168A56';
   const secondaryColor = bp?.secondaryColour || '#082B67';
+  const signatoryAssetsHtml =
+    bp?.stampDataUrl || bp?.signatureDataUrl
+      ? `<div class="signatory-assets">
+          ${
+            bp.stampDataUrl
+              ? `<div class="stamp-frame">
+                  <img src="${bp.stampDataUrl}" class="stamp-image" alt="Company stamp">
+                </div>`
+              : ''
+          }
+          ${
+            bp.signatureDataUrl
+              ? `<div class="signature-frame">
+                  <img src="${bp.signatureDataUrl}" class="signature-image" alt="Authorised signature">
+                </div>`
+              : ''
+          }
+        </div>`
+      : '';
 
   // Build items HTML rows
   const itemsHtml = data.items
@@ -169,6 +188,8 @@ export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string
       width: 100%;
       border-collapse: collapse;
       margin-bottom: 20px;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     .terms-grid td {
       width: 50%;
@@ -176,22 +197,80 @@ export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string
       padding: 10px;
       border: 1px solid #e0e0e0;
     }
-    .signatory-box {
+    .document-footer {
       width: 100%;
-      margin-top: 30px;
       border-collapse: collapse;
+      margin-top: 18px;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
-    .signatory-box td {
+    .document-footer td {
       width: 50%;
       vertical-align: bottom;
     }
-    .sign-space {
+    .computer-note {
+      font-size: 10px;
+      color: #888;
+    }
+    .signatory-cell {
       text-align: right;
     }
-    .sign-image {
-      max-height: 50px;
+    .signatory-block {
+      display: inline-block;
+      width: 260px;
+      max-width: 100%;
+      text-align: center;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .signatory-company {
+      font-size: 11px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 7px;
+    }
+    .signatory-assets {
+      display: inline-flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 12px;
+      max-width: 260px;
+      min-height: 72px;
+      margin-bottom: 6px;
+    }
+    .stamp-frame,
+    .signature-frame {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      min-width: 0;
+    }
+    .stamp-frame {
+      width: 92px;
+      min-height: 72px;
+    }
+    .signature-frame {
+      width: 150px;
+      min-height: 58px;
+    }
+    .stamp-image {
+      display: block;
+      max-width: 92px;
+      max-height: 92px;
+      object-fit: contain;
+    }
+    .signature-image {
+      display: block;
       max-width: 150px;
-      margin-bottom: 5px;
+      max-height: 68px;
+      object-fit: contain;
+    }
+    .signatory-label {
+      display: block;
+      padding-top: 4px;
+      border-top: 1px solid #bbb;
+      font-size: 10px;
+      color: #555;
     }
   </style>
 </head>
@@ -396,16 +475,17 @@ export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string
   }
 
   <!-- Signatory -->
-  <table class="signatory-box">
+  <table class="document-footer">
     <tr>
       <td>
-        <span style="font-size: 10px; color: #888;">This is a computer-generated quotation document.</span>
+        <span class="computer-note">This is a computer-generated quotation document.</span>
       </td>
-      <td class="sign-space">
-        ${bp?.stampDataUrl ? `<img src="${bp.stampDataUrl}" class="sign-image" alt="Stamp">` : ''}
-        ${bp?.signatureDataUrl ? `<img src="${bp.signatureDataUrl}" class="sign-image" alt="Signature"><br>` : ''}
-        <strong style="font-size: 11px;">For ${escapeHtml(bp?.displayName || 'Buminex Pharmtech Solutions')}</strong><br>
-        <span style="font-size: 10px; color: #555;">Authorised Signatory</span>
+      <td class="signatory-cell">
+        <div class="signatory-block">
+          <div class="signatory-company">For ${escapeHtml(bp?.displayName || 'Buminex Pharmtech Solutions')}</div>
+          ${signatoryAssetsHtml}
+          <span class="signatory-label">Authorised Signatory</span>
+        </div>
       </td>
     </tr>
   </table>

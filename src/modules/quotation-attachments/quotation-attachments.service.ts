@@ -2,9 +2,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { AuditAction } from '@prisma/client';
 
-import { prisma } from '../../config/database.js';
-import { AppError } from '../../utils/AppError.js';
-import { createAuditLog, type RequestMetadata } from '../../utils/auditLog.js';
+import { prisma } from '../../core/database/prisma.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import {
   ATTACHMENT_STORAGE_DIR,
   getFileCategory,

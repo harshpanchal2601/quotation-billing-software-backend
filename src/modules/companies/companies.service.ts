@@ -1,8 +1,8 @@
 import type { Company, Prisma, PrismaClient, QuotationStatus } from '@prisma/client';
 import { AuditAction } from '@prisma/client';
 
-import { AppError } from '../../utils/AppError.js';
-import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../utils/auditLog.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { CompanyCodeService } from './company-code.service.js';
 import {
   serialiseCompanyDetail,

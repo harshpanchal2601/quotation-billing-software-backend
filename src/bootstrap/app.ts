@@ -5,11 +5,11 @@ import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
-import { env } from './config/env.js';
-import { errorHandler } from './middleware/errorHandler.js';
-import { notFoundHandler } from './middleware/notFoundHandler.js';
-import { createPublicAssetStaticMiddleware, publicAssetDirectories } from './public-assets.js';
-import { apiRouter } from './routes/index.js';
+import { env } from '../config/env.js';
+import { errorHandler } from '../core/http/errorHandler.js';
+import { notFoundHandler } from '../core/http/notFoundHandler.js';
+import { createPublicAssetStaticMiddleware, publicAssetDirectories } from '../core/storage/public-assets.js';
+import { apiRouter } from './registerRoutes.js';
 
 export const app = express();
 

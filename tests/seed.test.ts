@@ -8,7 +8,7 @@ process.env.JWT_ACCESS_SECRET = 'access-secret';
 process.env.JWT_REFRESH_SECRET = 'refresh-secret';
 process.env.BCRYPT_SALT_ROUNDS = '10';
 
-vi.mock('../src/config/database.js', () => ({
+vi.mock('../src/core/database/prisma.js', () => ({
   prisma: {
     itemCategory: {
       upsert: vi.fn(),
@@ -30,7 +30,7 @@ const {
   getInitialAdminSeedInput,
   seedInitialAdmin,
 } = await import('../prisma/seed.js');
-const { prisma } = await import('../src/config/database.js');
+const { prisma } = await import('../src/core/database/prisma.js');
 
 describe('seed reference data', () => {
   beforeEach(() => {

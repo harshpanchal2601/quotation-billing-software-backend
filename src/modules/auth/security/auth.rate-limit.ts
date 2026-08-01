@@ -1,6 +1,6 @@
 import rateLimit from 'express-rate-limit';
 
-import { LOGIN_RATE_LIMIT_MAX, LOGIN_RATE_LIMIT_WINDOW_MS } from './auth.constants.js';
+import { LOGIN_RATE_LIMIT_MAX, LOGIN_RATE_LIMIT_WINDOW_MS } from '../auth.constants.js';
 
 export const loginRateLimiter = rateLimit({
   windowMs: LOGIN_RATE_LIMIT_WINDOW_MS,

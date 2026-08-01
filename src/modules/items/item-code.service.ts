@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../../core/errors/AppError.js';
 
 const ITEM_CODE_PREFIX = 'ITEM-';
 

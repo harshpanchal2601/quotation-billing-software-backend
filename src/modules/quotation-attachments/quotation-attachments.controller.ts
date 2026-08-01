@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import multer from 'multer';
 
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../../core/errors/AppError.js';
 import {
   createQuotationAttachmentService,
   deleteQuotationAttachmentService,

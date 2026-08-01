@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import multer from 'multer';
 
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../../core/errors/AppError.js';
 
 export const itemsStorageDirectory = path.resolve(process.cwd(), 'storage', 'items');
 const storageRoot = path.resolve(process.cwd(), 'storage');

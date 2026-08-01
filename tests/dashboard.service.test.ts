@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveDashboardDateRange } from '../src/modules/dashboard/dashboard.service.js';
-import { dashboardOverviewQuerySchema } from '../src/modules/dashboard/dashboard.validation.js';
+import { dashboardOverviewQuerySchema } from '../src/modules/dashboard/dashboard.schema.js';
 
 describe('Dashboard Service & Validation', () => {
   it('resolves CURRENT_FINANCIAL_YEAR correctly based on Indian financial year (April 1 to March 31)', () => {

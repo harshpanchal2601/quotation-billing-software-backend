@@ -3,8 +3,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { AuditAction, DocumentType } from '@prisma/client';
 
-import { prisma } from '../../config/database.js';
-import { AppError } from '../../utils/AppError.js';
+import { prisma } from '../../core/database/prisma.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { brandingAssetConfig, resolveBrandingPath, type BrandingAssetType } from '../business-settings/branding-upload.js';
 import { generatePdfBufferFromHtml } from './quotation-pdf.service.js';
 import { renderQuotationHtmlTemplate } from './quotation-pdf-template.js';
 import type { GeneratedDocumentDto, QuotationPdfViewModel } from './quotation-documents.types.js';
@@ -16,15 +17,32 @@ async function ensureStorageDirExists(): Promise<void> {
   await fs.mkdir(PDF_STORAGE_DIR, { recursive: true });
 }
 
-async function getFileDataUrl(relativePath: string | null | undefined): Promise<string | null> {
+export async function getBrandingFileDataUrl(
+  assetType: BrandingAssetType,
+  relativePath: string | null | undefined,
+): Promise<string | null> {
   if (!relativePath) return null;
+
   try {
-    const fullPath = path.resolve(STORAGE_ROOT, relativePath.replace(/^\/?storage\//, ''));
+    const normalizedPath = relativePath.replace(/^\/?storage\//, '');
+    const expectedDirectory = brandingAssetConfig[assetType].directory;
+    const relativeDirectory = normalizedPath.split(/[\\/]/)[0];
+
+    if (relativeDirectory !== expectedDirectory) {
+      console.warn(`Configured ${assetType} branding asset is outside its storage area.`);
+      return null;
+    }
+
+    const fullPath = resolveBrandingPath(normalizedPath);
     const fileBuffer = await fs.readFile(fullPath);
     const ext = path.extname(fullPath).toLowerCase();
     const mimeType = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/webp';
     return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
-  } catch {
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? error.code : undefined;
+    if (code !== 'ENOENT') {
+      console.warn(`Configured ${assetType} branding asset could not be loaded for PDF generation.`);
+    }
     return null;
   }
 }
@@ -53,9 +71,9 @@ export async function generateQuotationPdfService(
   const fallbackBank = defaultBank || (await prisma.bankDetail.findFirst({ where: { deletedAt: null } }));
 
   // Convert branding images to base64 data URLs for local Puppeteer resolution
-  const logoDataUrl = await getFileDataUrl(businessProfile?.logoPath);
-  const signatureDataUrl = await getFileDataUrl(businessProfile?.signaturePath);
-  const stampDataUrl = await getFileDataUrl(businessProfile?.stampPath);
+  const logoDataUrl = await getBrandingFileDataUrl('logo', businessProfile?.logoPath);
+  const signatureDataUrl = await getBrandingFileDataUrl('signature', businessProfile?.signaturePath);
+  const stampDataUrl = await getBrandingFileDataUrl('stamp', businessProfile?.stampPath);
 
   // 3. Build view model using ONLY saved quotation snapshots and saved authoritative calculations
   const viewModel: QuotationPdfViewModel = {

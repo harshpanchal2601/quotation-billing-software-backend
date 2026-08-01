@@ -1,8 +1,8 @@
 import type { ItemCategory, Prisma, PrismaClient } from '@prisma/client';
 import { AuditAction } from '@prisma/client';
 
-import { AppError } from '../../utils/AppError.js';
-import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../utils/auditLog.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import {
   serialiseCategory,
   serialiseCategoryOption,
@@ -13,7 +13,7 @@ import type {
   CategoryCreateInput,
   CategoryListQuery,
   CategoryUpdateInput,
-} from './categories.validation.js';
+} from './categories.schema.js';
 
 const UNCATEGORISED_SLUG = 'uncategorised';
 

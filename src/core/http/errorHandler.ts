@@ -1,9 +1,9 @@
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
 
-import { env } from '../config/env.js';
-import { sendError } from '../utils/apiResponse.js';
-import { AppError } from '../utils/AppError.js';
+import { env } from '../../config/env.js';
+import { AppError } from '../errors/AppError.js';
+import { sendError } from './apiResponse.js';
 
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   void _next;

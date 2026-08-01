@@ -11,7 +11,7 @@ process.env.JWT_REFRESH_SECRET = 'refresh-secret';
 process.env.JWT_ACCESS_EXPIRES_IN = '15m';
 process.env.JWT_REFRESH_EXPIRES_IN = '7d';
 
-vi.mock('../src/config/database.js', () => ({
+vi.mock('../src/core/database/prisma.js', () => ({
   prisma: {
     user: {
       findUnique: vi.fn(),
@@ -19,10 +19,10 @@ vi.mock('../src/config/database.js', () => ({
   },
 }));
 
-const { requireAuthentication, requireRole } = await import('../src/middleware/authentication.js');
+const { requireAuthentication, requireRole } = await import('../src/core/auth/authentication.middleware.js');
 const { ACCESS_TOKEN_COOKIE_NAME } = await import('../src/modules/auth/auth.constants.js');
-const { generateAccessToken } = await import('../src/modules/auth/auth.tokens.js');
-const { prisma } = await import('../src/config/database.js');
+const { generateAccessToken } = await import('../src/modules/auth/security/auth.tokens.js');
+const { prisma } = await import('../src/core/database/prisma.js');
 
 function createUser(passwordChangedAt: Date | null = null) {
   return {

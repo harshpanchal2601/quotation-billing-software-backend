@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'node:path';
 
-import { env } from './config/env.js';
+import { env } from '../../config/env.js';
 
 export const publicAssetDirectories = ['items', 'logos', 'signatures', 'stamps'] as const;
 

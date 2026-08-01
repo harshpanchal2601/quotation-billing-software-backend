@@ -8,7 +8,7 @@ process.env.DATABASE_URL = 'mysql://user:password@localhost:3306/buminex_quotati
 process.env.JWT_ACCESS_SECRET = 'access-secret';
 process.env.JWT_REFRESH_SECRET = 'refresh-secret';
 
-vi.mock('../src/config/database.js', () => ({
+vi.mock('../src/core/database/prisma.js', () => ({
   prisma: {
     $queryRaw: vi.fn(),
     $disconnect: vi.fn(),
@@ -82,7 +82,7 @@ async function callHandler(handler: RequestHandler): Promise<JsonResponse> {
 }
 
 const { healthRouter } = await import('../src/routes/health.routes.js');
-const { prisma } = await import('../src/config/database.js');
+const { prisma } = await import('../src/core/database/prisma.js');
 
 describe('health endpoints', () => {
   beforeEach(() => {

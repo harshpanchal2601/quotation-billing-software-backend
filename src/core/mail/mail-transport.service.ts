@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import { env } from '../../config/env.js';
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../errors/AppError.js';
 
 let cachedTransporter: nodemailer.Transporter | null = null;
 

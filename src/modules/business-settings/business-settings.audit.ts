@@ -4,7 +4,7 @@ import {
   createAuditLog,
   pickChangedFields,
   type RequestMetadata,
-} from '../../utils/auditLog.js';
+} from '../../core/audit/audit-log.service.js';
 
 export { pickChangedFields, type RequestMetadata };
 

@@ -4,11 +4,11 @@ import bcrypt from 'bcrypt';
 import { UserRole, UserStatus } from '@prisma/client';
 
 import { env } from '../src/config/env.js';
-import { prisma } from '../src/config/database.js';
+import { prisma } from '../src/core/database/prisma.js';
 import {
   initialAdminSeedSchema,
   type InitialAdminSeedInput,
-} from '../src/modules/auth/auth.validation.js';
+} from '../src/modules/auth/auth.schema.js';
 import {
   defaultBusinessProfileData,
   defaultQuotationSettingsData,

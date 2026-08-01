@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import multer from 'multer';
 
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../../core/errors/AppError.js';
 
 export type BrandingAssetType = 'logo' | 'signature' | 'stamp';
 
@@ -104,7 +104,8 @@ export function toBrandingRelativePath(assetType: BrandingAssetType, filename: s
 
 export function resolveBrandingPath(relativePath: string) {
   const resolved = path.resolve(brandingStorageRoot, relativePath);
-  if (!resolved.startsWith(brandingStorageRoot)) {
+  const relativeToStorage = path.relative(brandingStorageRoot, resolved);
+  if (relativeToStorage.startsWith('..') || path.isAbsolute(relativeToStorage)) {
     throw new AppError('Invalid branding asset path', 400);
   }
   return resolved;

@@ -1,15 +1,15 @@
 import type { Request, Response } from 'express';
 
-import { prisma } from '../../config/database.js';
+import { prisma } from '../../core/database/prisma.js';
 import {
   AUTHENTICATION_REQUIRED_MESSAGE,
   REFRESH_TOKEN_COOKIE_NAME,
 } from './auth.constants.js';
-import { clearAuthCookies, setAuthCookies } from './auth.cookies.js';
+import { clearAuthCookies, setAuthCookies } from './security/auth.cookies.js';
 import { AuthService } from './auth.service.js';
-import { changePasswordSchema, loginSchema } from './auth.validation.js';
-import { sendSuccess } from '../../utils/apiResponse.js';
-import { AppError } from '../../utils/AppError.js';
+import { changePasswordSchema, loginSchema } from './auth.schema.js';
+import { sendSuccess } from '../../core/http/apiResponse.js';
+import { AppError } from '../../core/errors/AppError.js';
 
 const authService = new AuthService(prisma);
 

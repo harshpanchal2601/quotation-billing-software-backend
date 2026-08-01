@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
 
-import { prisma } from '../../config/database.js';
-import { sendSuccess } from '../../utils/apiResponse.js';
-import { asyncHandler } from '../../utils/asyncHandler.js';
+import { prisma } from '../../core/database/prisma.js';
+import { sendSuccess } from '../../core/http/apiResponse.js';
+import { asyncHandler } from '../../core/http/asyncHandler.js';
 import { CompanyAddressesService } from './company-addresses.service.js';
 import { CompanyContactsService } from './company-contacts.service.js';
 import { CompaniesService } from './companies.service.js';

@@ -1,17 +1,17 @@
 import { Router } from 'express';
 
-import { authRouter } from '../modules/auth/auth.routes.js';
+import { authRouter } from '../modules/auth/index.js';
 import { businessSettingsRouter } from '../modules/business-settings/business-settings.routes.js';
-import { categoriesRouter } from '../modules/categories/categories.routes.js';
+import { categoriesRouter } from '../modules/categories/index.js';
 import { companiesRouter } from '../modules/companies/companies.routes.js';
-import { dashboardRouter } from '../modules/dashboard/dashboard.routes.js';
+import { dashboardRouter } from '../modules/dashboard/index.js';
 import { itemsRouter } from '../modules/items/items.routes.js';
-import { measurementUnitsRouter } from '../modules/measurement-units/measurement-units.routes.js';
+import { measurementUnitsRouter } from '../modules/measurement-units/index.js';
 import quotationDocumentsRouter from '../modules/quotation-documents/quotation-documents.routes.js';
 import { quotationAttachmentsRouter } from '../modules/quotation-attachments/quotation-attachments.routes.js';
 import { quotationEmailRouter } from '../modules/quotation-email/quotation-email.routes.js';
 import { quotationsRouter } from '../modules/quotations/quotations.routes.js';
-import { healthRouter } from './health.routes.js';
+import { healthRouter } from '../routes/health.routes.js';
 
 export const apiRouter = Router();
 

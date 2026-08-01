@@ -14,7 +14,7 @@ process.env.JWT_REFRESH_EXPIRES_IN = '7d';
 process.env.BCRYPT_SALT_ROUNDS = '10';
 
 const { AuthService } = await import('../src/modules/auth/auth.service.js');
-const { hashRefreshToken, verifyRefreshToken } = await import('../src/modules/auth/auth.tokens.js');
+const { hashRefreshToken, verifyRefreshToken } = await import('../src/modules/auth/security/auth.tokens.js');
 const { INVALID_CREDENTIALS_MESSAGE } = await import('../src/modules/auth/auth.constants.js');
 
 type MockPrisma = {

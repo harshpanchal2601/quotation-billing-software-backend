@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 
 import { getDashboardOverviewService } from './dashboard.service.js';
-import { dashboardOverviewQuerySchema } from './dashboard.validation.js';
+import { dashboardOverviewQuerySchema } from './dashboard.schema.js';
 
 export async function getDashboardOverviewController(req: Request, res: Response): Promise<void> {
   const query = dashboardOverviewQuerySchema.parse(req.query);

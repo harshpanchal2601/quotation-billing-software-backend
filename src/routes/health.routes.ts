@@ -1,8 +1,8 @@
 import { Router } from 'express';
 
-import { prisma } from '../config/database.js';
-import { asyncHandler } from '../utils/asyncHandler.js';
-import { sendSuccess } from '../utils/apiResponse.js';
+import { prisma } from '../core/database/prisma.js';
+import { asyncHandler } from '../core/http/asyncHandler.js';
+import { sendSuccess } from '../core/http/apiResponse.js';
 
 export const healthRouter = Router();
 

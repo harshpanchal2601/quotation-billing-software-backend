@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import multer from 'multer';
 
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../../core/errors/AppError.js';
 
 export const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 export const MAX_ATTACHMENTS_PER_QUOTATION = 20;

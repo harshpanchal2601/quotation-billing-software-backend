@@ -1,7 +1,7 @@
 import { AuditAction, ItemSourceType, Prisma, type Item, type PrismaClient } from '@prisma/client';
 
-import { AppError } from '../../utils/AppError.js';
-import { createAuditLog, type RequestMetadata } from '../../utils/auditLog.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { generateUniqueItemCodeWithRetry } from './item-code.service.js';
 import { removeStoredItemImage, toItemRelativePath } from './item-image.service.js';
 import {

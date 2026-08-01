@@ -10,6 +10,23 @@ export async function generatePdfBufferFromHtml(html: string): Promise<Buffer> {
 
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.evaluate(async () => {
+      const images = Array.from((globalThis as unknown as { document: { images: Iterable<unknown> } }).document.images);
+      await Promise.all(
+        images.map((image) => {
+          const pdfImage = image as {
+            complete: boolean;
+            addEventListener: (event: 'load' | 'error', callback: () => void, options: { once: boolean }) => void;
+          };
+          if (pdfImage.complete) return Promise.resolve();
+
+          return new Promise<void>((resolve) => {
+            pdfImage.addEventListener('load', () => resolve(), { once: true });
+            pdfImage.addEventListener('error', () => resolve(), { once: true });
+          });
+        }),
+      );
+    });
 
     const pdfBuffer = await page.pdf({
       format: 'A4',

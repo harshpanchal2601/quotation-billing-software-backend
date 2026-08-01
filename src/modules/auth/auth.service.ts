@@ -3,10 +3,10 @@ import type { PrismaClient, User } from '@prisma/client';
 import { AuditAction, UserStatus } from '@prisma/client';
 
 import { env } from '../../config/env.js';
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../../core/errors/AppError.js';
 import { INVALID_CREDENTIALS_MESSAGE } from './auth.constants.js';
-import { hashRefreshToken, durationToMilliseconds, generateAccessToken, generateRefreshToken, verifyRefreshToken } from './auth.tokens.js';
-import type { ChangePasswordInput, LoginInput } from './auth.validation.js';
+import { hashRefreshToken, durationToMilliseconds, generateAccessToken, generateRefreshToken, verifyRefreshToken } from './security/auth.tokens.js';
+import type { ChangePasswordInput, LoginInput } from './auth.schema.js';
 import type { SanitisedUser } from './auth.types.js';
 
 type RequestMetadata = {

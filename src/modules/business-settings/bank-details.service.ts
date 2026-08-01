@@ -1,7 +1,7 @@
 import type { BankDetail, PrismaClient } from '@prisma/client';
 import { AuditAction } from '@prisma/client';
 
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../../core/errors/AppError.js';
 import { BusinessProfileService } from './business-profile.service.js';
 import { createSettingsAuditLog, type RequestMetadata } from './business-settings.audit.js';
 import { maskAccountNumber, serialiseBankDetail } from './business-settings.serializers.js';

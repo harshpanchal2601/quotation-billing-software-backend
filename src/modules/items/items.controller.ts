@@ -1,10 +1,10 @@
 import type { Request, Response } from 'express';
 import multer from 'multer';
 
-import { prisma } from '../../config/database.js';
-import { AppError } from '../../utils/AppError.js';
-import { sendSuccess } from '../../utils/apiResponse.js';
-import { asyncHandler } from '../../utils/asyncHandler.js';
+import { prisma } from '../../core/database/prisma.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { sendSuccess } from '../../core/http/apiResponse.js';
+import { asyncHandler } from '../../core/http/asyncHandler.js';
 import { ItemsService } from './items.service.js';
 import {
   createItemSchema,

@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { UserRole } from '@prisma/client';
 
-import { requireAuthentication, requireRole } from '../../middleware/authentication.js';
-import { asyncHandler } from '../../utils/asyncHandler.js';
-import { AppError } from '../../utils/AppError.js';
+import { requireAuthentication, requireRole } from '../../core/auth/authentication.middleware.js';
+import { asyncHandler } from '../../core/http/asyncHandler.js';
+import { AppError } from '../../core/errors/AppError.js';
 import {
   createBankDetail,
   deleteBankDetail,

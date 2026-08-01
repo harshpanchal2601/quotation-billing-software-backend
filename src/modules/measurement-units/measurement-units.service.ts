@@ -1,8 +1,8 @@
 import type { MeasurementUnit, Prisma, PrismaClient } from '@prisma/client';
 import { AuditAction } from '@prisma/client';
 
-import { AppError } from '../../utils/AppError.js';
-import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../utils/auditLog.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import {
   serialiseMeasurementUnit,
   serialiseMeasurementUnitOption,
@@ -13,7 +13,7 @@ import type {
   MeasurementUnitCreateInput,
   MeasurementUnitListQuery,
   MeasurementUnitUpdateInput,
-} from './measurement-units.validation.js';
+} from './measurement-units.schema.js';
 
 const unitAuditFields = ['name', 'symbol', 'allowDecimal', 'isActive'] as const;
 

@@ -1,6 +1,6 @@
 import { QuotationStatus, type PrismaClient } from '@prisma/client';
 
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../../core/errors/AppError.js';
 
 const ALLOWED_TRANSITIONS: Record<QuotationStatus, QuotationStatus[]> = {
   [QuotationStatus.DRAFT]: [QuotationStatus.PENDING, QuotationStatus.SENT, QuotationStatus.CANCELLED],

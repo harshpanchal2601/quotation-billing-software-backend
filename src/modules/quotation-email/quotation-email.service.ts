@@ -2,10 +2,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { AuditAction, CommunicationStatus, CommunicationType, Prisma, QuotationStatus } from '@prisma/client';
 
-import { prisma } from '../../config/database.js';
+import { prisma } from '../../core/database/prisma.js';
 import { env } from '../../config/env.js';
-import { AppError } from '../../utils/AppError.js';
-import { createAuditLog, type RequestMetadata } from '../../utils/auditLog.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { ATTACHMENT_STORAGE_DIR, STORAGE_ROOT as ATTACHMENT_STORAGE_ROOT } from '../quotation-attachments/quotation-attachments.storage.js';
 import type {
   GeneratedDocumentHistoryItemDto,
@@ -16,7 +16,7 @@ import type {
   SendQuotationEmailResponse,
 } from '../quotation-documents/quotation-documents.types.js';
 import { getStatusTimestampUpdate, validateStatusTransition } from '../quotations/quotation-status.service.js';
-import { getMailTransporter } from './mail-transport.service.js';
+import { getMailTransporter } from '../../core/mail/mail-transport.service.js';
 import { buildQuotationEmailContent } from './quotation-email-template.js';
 
 const DOC_STORAGE_ROOT = path.resolve(process.cwd(), 'storage');

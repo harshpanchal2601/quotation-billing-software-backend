@@ -1,6 +1,6 @@
 import type { Response } from 'express';
 
-import type { ApiErrorResponse, ApiSuccessResponse } from '../types/api.js';
+import type { ApiErrorResponse, ApiSuccessResponse } from '../../types/api.js';
 
 export function sendSuccess<TData>(
   res: Response,

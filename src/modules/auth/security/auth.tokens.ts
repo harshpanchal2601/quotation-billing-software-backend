@@ -4,9 +4,9 @@ import type { UserRole } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 
-import { env } from '../../config/env.js';
-import { AppError } from '../../utils/AppError.js';
-import type { AccessTokenPayload, RefreshTokenPayload } from './auth.types.js';
+import { env } from '../../../config/env.js';
+import { AppError } from '../../../core/errors/AppError.js';
+import type { AccessTokenPayload, RefreshTokenPayload } from '../auth.types.js';
 
 const accessTokenPayloadSchema = z.object({
   sub: z.string().regex(/^\d+$/),

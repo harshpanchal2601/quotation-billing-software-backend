@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
 
-import { prisma } from '../../config/database.js';
-import { sendSuccess } from '../../utils/apiResponse.js';
-import { asyncHandler } from '../../utils/asyncHandler.js';
+import { prisma } from '../../core/database/prisma.js';
+import { sendSuccess } from '../../core/http/apiResponse.js';
+import { asyncHandler } from '../../core/http/asyncHandler.js';
 import { CategoriesService } from './categories.service.js';
 import {
   categoryCreateSchema,
@@ -10,7 +10,7 @@ import {
   categoryStatusSchema,
   categoryUpdateSchema,
   idParamSchema,
-} from './categories.validation.js';
+} from './categories.schema.js';
 
 const categoriesService = new CategoriesService(prisma);
 

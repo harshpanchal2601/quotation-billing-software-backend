@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import fs from 'node:fs';
 
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../../core/errors/AppError.js';
 import { generateQuotationPdfService, getQuotationPdfDocumentService } from './quotation-documents.service.js';
 
 export async function generatePdfController(req: Request, res: Response): Promise<void> {

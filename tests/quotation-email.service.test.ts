@@ -27,11 +27,11 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('../src/config/database.js', () => ({
+vi.mock('../src/core/database/prisma.js', () => ({
   prisma: mocks.prisma,
 }));
 
-vi.mock('../src/modules/quotation-email/mail-transport.service.js', () => ({
+vi.mock('../src/core/mail/mail-transport.service.js', () => ({
   getMailTransporter: () => ({ sendMail: mocks.sendMail }),
 }));
 

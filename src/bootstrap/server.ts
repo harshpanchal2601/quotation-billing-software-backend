@@ -1,6 +1,6 @@
-import { env } from './config/env.js';
 import { app } from './app.js';
-import { prisma } from './config/database.js';
+import { env } from '../config/env.js';
+import { prisma } from '../core/database/prisma.js';
 
 const server = app.listen(env.PORT, () => {
   console.info(`Buminex API listening on port ${env.PORT}`);

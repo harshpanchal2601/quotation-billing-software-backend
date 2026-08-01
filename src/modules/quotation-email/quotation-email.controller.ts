@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../../core/errors/AppError.js';
 import {
   getGeneratedDocumentHistoryService,
   getQuotationCommunicationHistoryService,

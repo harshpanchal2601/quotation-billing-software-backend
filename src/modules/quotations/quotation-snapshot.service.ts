@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../../core/errors/AppError.js';
 import type { AddressSnapshot, QuotationItemInput } from './quotations.types.js';
 
 export async function deriveCompanySnapshots(

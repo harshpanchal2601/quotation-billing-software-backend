@@ -1,9 +1,9 @@
 import { Router } from 'express';
 
-import { asyncHandler } from '../../utils/asyncHandler.js';
-import { requireAuthentication } from '../../middleware/authentication.js';
+import { asyncHandler } from '../../core/http/asyncHandler.js';
+import { requireAuthentication } from '../../core/auth/authentication.middleware.js';
 import { changePassword, login, logout, me, refresh } from './auth.controller.js';
-import { loginRateLimiter } from './auth.rateLimit.js';
+import { loginRateLimiter } from './security/auth.rate-limit.js';
 
 export const authRouter = Router();
 
