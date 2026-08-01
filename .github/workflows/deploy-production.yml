@@ -81,7 +81,7 @@ jobs:
 
           DEPLOY_TARGET="${EC2_USER}@${EC2_HOST}"
 
-          zip -qr backend-release.zip dist package.json prisma
+          zip -qr backend-release.zip dist package.json prisma node_modules
 
           scp \
             -o StrictHostKeyChecking=no \
@@ -109,7 +109,7 @@ jobs:
 
           echo "Publishing backend release..."
           mkdir -p "$APP_PATH"
-          rm -rf "$APP_PATH/dist" "$APP_PATH/prisma"
+          rm -rf "$APP_PATH/dist" "$APP_PATH/prisma" "$APP_PATH/node_modules"
 
           if ! command -v unzip >/dev/null 2>&1; then
             echo "unzip is required on the EC2 instance to deploy the backend archive."
@@ -121,21 +121,18 @@ jobs:
 
           cd "$APP_PATH"
 
-          echo "Installing backend dependencies..."
-          npm install --omit=dev
-
-          echo "Generating Prisma client..."
-          npm run prisma:generate
-
           if [ ! -f "$SERVER_FILE" ]; then
             echo "Backend build failed: $SERVER_FILE not found."
             exit 1
           fi
 
           echo "Applying Prisma migrations..."
-          npx prisma migrate deploy
+          ./node_modules/.bin/prisma migrate deploy
 
-          command -v pm2 >/dev/null 2>&1 || npm install -g pm2
+          if ! command -v pm2 >/dev/null 2>&1; then
+            echo "pm2 is required on the EC2 instance. Install it once with: sudo npm install -g pm2"
+            exit 1
+          fi
 
           if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
             echo "Restarting backend PM2 process..."
