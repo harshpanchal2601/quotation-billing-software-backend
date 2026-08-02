@@ -109,6 +109,15 @@ jobs:
 
           echo "Publishing backend release..."
           mkdir -p "$APP_PATH"
+          mkdir -p \
+            "$APP_PATH/storage/items" \
+            "$APP_PATH/storage/logos" \
+            "$APP_PATH/storage/signatures" \
+            "$APP_PATH/storage/stamps" \
+            "$APP_PATH/storage/quotation-attachments" \
+            "$APP_PATH/storage/quotation-documents" \
+            "$APP_PATH/storage/quotations" \
+            "$APP_PATH/storage/attachments"
           rm -rf "$APP_PATH/dist" "$APP_PATH/prisma" "$APP_PATH/node_modules"
 
           tar xzf /tmp/erp-backend-release.tar.gz -C "$APP_PATH"
