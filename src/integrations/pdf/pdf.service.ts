@@ -40,7 +40,8 @@ export const pdfService = {
         throw error;
       }
 
-      throw new AppError('Failed to generate PDF document', 500);
+      console.error('PDF Error:', error);
+      throw error;
     } finally {
       if (browser) {
         await browser.close().catch(() => {
