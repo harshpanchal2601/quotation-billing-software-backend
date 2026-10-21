@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { Prisma, QuotationStatus, type PrismaClient } from '@prisma/client';
+import { describe, expect, it, vi } from 'vitest';
 
-import { resolveDashboardDateRange } from '../src/modules/dashboard/dashboard.repository.js';
+import { DashboardRepository, resolveDashboardDateRange } from '../src/modules/dashboard/dashboard.repository.js';
 import { dashboardOverviewQuerySchema } from '../src/modules/dashboard/dashboard.schema.js';
 
 describe('dashboard repository helpers and validation', () => {
@@ -46,5 +47,55 @@ describe('dashboard repository helpers and validation', () => {
       dateTo: '2026-01-01',
     });
     expect(invalidLong.success).toBe(false);
+  });
+});
+
+describe('dashboard currency boundaries', () => {
+  const date = new Date('2026-06-01T00:00:00Z');
+  function quotation(id: number, currency: string, amount: string, status: QuotationStatus) {
+    return {
+      id, currency, grandTotal: new Prisma.Decimal(amount), status,
+      quotationNumber: `ERP/2026-27/${id}`, revisionNumber: 0, companyId: id,
+      companyNameSnapshot: `Customer ${id}`, contactNameSnapshot: null,
+      quotationDate: date, validUntil: null, createdAt: date, updatedAt: date,
+    };
+  }
+
+  it.each(['INR', 'USD'])('scopes all monetary aggregates to %s and keeps overall counts', async (currency) => {
+    const db = {
+      quotation: { findMany: vi.fn().mockResolvedValueOnce([
+        quotation(1, 'INR', '100.10', QuotationStatus.ACCEPTED),
+        quotation(2, 'INR', '200.20', QuotationStatus.DRAFT),
+        quotation(3, 'USD', '900.90', QuotationStatus.COMPLETED),
+      ]).mockResolvedValueOnce([]) },
+      company: { count: vi.fn().mockResolvedValue(2) },
+      item: { count: vi.fn().mockResolvedValue(5) },
+      businessProfile: { findUnique: vi.fn().mockResolvedValue({ defaultCurrency: 'INR' }) },
+    };
+    const result = await new DashboardRepository(db as unknown as PrismaClient).getDashboardOverview(1, {
+      currency, period: 'CUSTOM', dateFrom: '2026-06-01', dateTo: '2026-06-30',
+    });
+    expect(result.currencyTotals).toEqual([
+      { currency: 'INR', quotationCount: 2, totalQuotationValue: '300.30' },
+      { currency: 'USD', quotationCount: 1, totalQuotationValue: '900.90' },
+    ]);
+    expect(result.quotationMetrics).toMatchObject({
+      totalQuotations: 3, acceptedQuotationCount: 2, completedQuotationCount: 1, openQuotationCount: 1,
+      totalQuotationValue: currency === 'INR' ? '300.30' : '900.90',
+      averageQuotationValue: currency === 'INR' ? '150.15' : '900.90',
+      acceptedQuotationValue: currency === 'INR' ? '100.10' : '900.90',
+      completedQuotationValue: currency === 'INR' ? '0.00' : '900.90',
+      openQuotationValue: currency === 'INR' ? '200.20' : '0.00',
+    });
+    expect(result.monthlyTrend[0]).toMatchObject({
+      quotationCount: 3, totalQuotationValue: currency === 'INR' ? '300.30' : '900.90',
+      acceptedQuotationCount: 2, acceptedQuotationValue: currency === 'INR' ? '100.10' : '900.90',
+    });
+    expect(result.statusBreakdown.find((item) => item.status === QuotationStatus.COMPLETED)).toMatchObject({
+      count: 1, totalValue: currency === 'INR' ? '0.00' : '900.90',
+    });
+    expect(result.topCustomers.map((customer) => customer.companyId)).toEqual(currency === 'INR' ? [2, 1] : [3]);
+    expect(result.masterDataMetrics).toEqual({ activeCompanies: 2, activeItems: 5 });
+    expect(db.quotation.findMany.mock.calls.every(([query]) => query.where.firmId === 1)).toBe(true);
   });
 });

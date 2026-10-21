@@ -242,6 +242,10 @@ describe('quotations repository', () => {
   beforeEach(() => {
     db = createMockPrisma();
     db.auditLog.create.mockResolvedValue({ id: 1 });
+    db.quotation.updateMany.mockResolvedValue({ count: 1 });
+    db.quotationSetting.update.mockResolvedValue({
+      nextSequenceNumber: 2, quotationPrefix: 'BUMINEX', financialYearFormat: 'YYYY-YY',
+    });
     db.quotationSetting.findUnique.mockResolvedValue({
       id: 1,
       businessProfileId: 1,
@@ -420,6 +424,41 @@ describe('quotations repository', () => {
         changedById: 1,
       }),
     });
+    expect(db.$transaction).toHaveBeenCalled();
+    expect(db.quotation.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ firmId: 1, status: QuotationStatus.DRAFT, isLatestRevision: true }),
+    }));
+  });
+
+  it('does not append status history when a concurrent request wins the transition', async () => {
+    db.quotation.findFirst.mockResolvedValue(mockDraftQuotation());
+    db.quotation.updateMany.mockResolvedValue({ count: 0 });
+    await expect(new QuotationsRepository(asPrisma(db)).updateQuotationStatus(
+      1, 1, { status: QuotationStatus.SENT }, { firmId: 1, userId: 1 }, 1,
+    )).rejects.toMatchObject({ statusCode: 409 });
+    expect(db.quotationStatusHistory.create).not.toHaveBeenCalled();
+    expect(db.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it.each(['history', 'audit'])('propagates %s failures out of the status transaction', async (failurePoint) => {
+    db.quotation.findFirst.mockResolvedValue(mockDraftQuotation());
+    const failure = new Error(`${failurePoint} unavailable`);
+    if (failurePoint === 'history') db.quotationStatusHistory.create.mockRejectedValue(failure);
+    else db.auditLog.create.mockRejectedValue(failure);
+    await expect(new QuotationsRepository(asPrisma(db)).updateQuotationStatus(
+      1, 1, { status: QuotationStatus.SENT }, { firmId: 1, userId: 1 }, 1,
+    )).rejects.toBe(failure);
+    // This mock verifies propagation; database rollback requires the MySQL integration gate.
+    expect(db.$transaction).toHaveBeenCalled();
+  });
+
+  it('rejects another firm quotation ID before a status mutation', async () => {
+    db.quotation.findFirst.mockResolvedValue(null);
+    await expect(new QuotationsRepository(asPrisma(db)).updateQuotationStatus(
+      1, 99, { status: QuotationStatus.SENT }, { firmId: 1, userId: 1 }, 1,
+    )).rejects.toMatchObject({ statusCode: 404 });
+    expect(db.quotation.findFirst).toHaveBeenCalledWith({ where: { id: 99, firmId: 1, deletedAt: null } });
+    expect(db.quotation.updateMany).not.toHaveBeenCalled();
   });
 
   it('rejects editing non-draft quotation', async () => {
@@ -481,6 +520,28 @@ describe('quotations repository', () => {
       expect(result.error.issues.map((issue) => issue.path.join('.'))).toEqual(
         expect.arrayContaining(['items.0.unitRate', 'items.0.itemName']),
       );
+    }
+  });
+
+  it('advances the draft concurrency timestamp even within the same millisecond', async () => {
+    const draft = mockDraftQuotation();
+    db.quotation.findFirst.mockResolvedValue(draft);
+    db.company.findFirst.mockResolvedValue(mockCompany());
+    db.quotationVersion.count.mockResolvedValue(1);
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(draft.updatedAt.getTime());
+    try {
+      await new QuotationsRepository(asPrisma(db)).updateQuotation(
+        1, 1, { remarks: 'Updated' }, { firmId: 1, userId: 1 }, 1,
+      );
+      const expected = new Date(draft.updatedAt.getTime() + 1);
+      expect(db.quotation.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        data: { updatedById: 1, updatedAt: expected },
+      }));
+      expect(db.quotation.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ updatedAt: expected }),
+      }));
+    } finally {
+      clock.mockRestore();
     }
   });
 
@@ -579,7 +640,8 @@ describe('quotations repository', () => {
     expect(result.revisionNumber).toBe(1);
     expect(result.status).toBe(QuotationStatus.DRAFT);
     expect(db.quotation.updateMany).toHaveBeenCalledWith({
-      where: { firmId: 1, rootQuotationId: 1, isLatestRevision: true },
+      where: { id: sentRevision.id, firmId: 1, deletedAt: null, status: sentRevision.status,
+        updatedAt: sentRevision.updatedAt, isLatestRevision: true },
       data: { isLatestRevision: false },
     });
     expect(db.quotation.create).toHaveBeenCalledWith({
@@ -685,15 +747,15 @@ describe('quotations repository', () => {
     const service = new QuotationsRepository(asPrisma(db));
     await service.deleteQuotation(1, 2, { userId: 1, firmId: 1 });
 
-    expect(db.quotation.update).toHaveBeenNthCalledWith(1, {
-      where: { id: 2 },
+    expect(db.quotation.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: 2, firmId: 1, status: QuotationStatus.DRAFT, isLatestRevision: true }),
       data: expect.objectContaining({
         deletedAt: expect.any(Date),
         isLatestRevision: false,
       }),
     });
-    expect(db.quotation.update).toHaveBeenNthCalledWith(2, {
-      where: { id: 1 },
+    expect(db.quotation.update).toHaveBeenCalledWith({
+      where: { id: 1, firmId: 1, deletedAt: null },
       data: { isLatestRevision: true },
     });
   });

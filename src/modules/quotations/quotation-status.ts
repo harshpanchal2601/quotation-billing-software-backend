@@ -1,4 +1,4 @@
-import { QuotationStatus, type PrismaClient } from '@prisma/client';
+import { QuotationStatus, type Prisma, type PrismaClient } from '@prisma/client';
 
 import { AppError } from '../../core/errors/AppError.js';
 
@@ -41,7 +41,7 @@ export function getStatusTimestampUpdate(targetStatus: QuotationStatus): Record<
 }
 
 export async function recordStatusHistory(
-  db: PrismaClient,
+  db: PrismaClient | Prisma.TransactionClient,
   quotationId: number,
   fromStatus: QuotationStatus | null,
   toStatus: QuotationStatus,

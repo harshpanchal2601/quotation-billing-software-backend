@@ -7,7 +7,7 @@ process.env.SMTP_HOST = 'smtp.example.com';
 
 const mocks = vi.hoisted(() => {
   const prisma = {
-    quotation: { findFirst: vi.fn(), update: vi.fn() },
+    quotation: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     generatedDocument: { findFirst: vi.fn() },
     quotationAttachment: { findMany: vi.fn() },
     businessProfile: { findFirst: vi.fn() },
@@ -166,6 +166,7 @@ describe('quotation email communication lifecycle', () => {
     mocks.prisma.quotationCommunication.create.mockResolvedValue({ id: 100 });
     mocks.prisma.quotationCommunication.update.mockResolvedValue({ id: 100 });
     mocks.prisma.quotation.update.mockResolvedValue({ id: 1, status: QuotationStatus.SENT });
+    mocks.prisma.quotation.updateMany.mockResolvedValue({ count: 1 });
     mocks.prisma.quotationStatusHistory.create.mockResolvedValue({ id: 1 });
     mocks.prisma.auditLog.create.mockResolvedValue({ id: 1 });
     mocks.stat.mockResolvedValue({ size: 1024 });
@@ -222,8 +223,8 @@ describe('quotation email communication lifecycle', () => {
         providerMessageId: 'smtp-message-123',
       }),
     });
-    expect(mocks.prisma.quotation.update).toHaveBeenCalledWith({
-      where: { id: 1 },
+    expect(mocks.prisma.quotation.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: 1, firmId: 1, status: QuotationStatus.DRAFT, isLatestRevision: true }),
       data: expect.objectContaining({ status: QuotationStatus.SENT, updatedById: 1 }),
     });
     expect(mocks.prisma.quotationStatusHistory.create).toHaveBeenCalledWith({
@@ -241,6 +242,45 @@ describe('quotation email communication lifecycle', () => {
       quotationStatusAfter: QuotationStatus.SENT,
       statusTransitioned: true,
     });
+  });
+
+  it('does not overwrite a quotation cancelled while SMTP is in flight', async () => {
+    mocks.sendMail.mockImplementationOnce(async () => {
+      mocks.prisma.quotation.findFirst.mockResolvedValue({
+        id: 1, status: QuotationStatus.CANCELLED, isLatestRevision: true,
+      });
+      return { messageId: 'smtp-message-123' };
+    });
+    const result = await quotationCommunicationsRepository.sendQuotationEmail(1, 1, {
+      generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Quotation', message: 'Attached',
+    }, 1, { firmId: 1, userId: 1 });
+    expect(result).toMatchObject({ statusTransitioned: false, quotationStatusAfter: QuotationStatus.CANCELLED });
+    expect(mocks.prisma.quotation.updateMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.quotationStatusHistory.create).not.toHaveBeenCalled();
+  });
+
+  it('does not append history when a status mutation wins after the post-send read', async () => {
+    mocks.prisma.quotation.updateMany.mockResolvedValueOnce({ count: 0 });
+    mocks.prisma.quotation.findFirst
+      .mockResolvedValueOnce({ id: 1, quotationNumber: 'ERP/2026-27/000001', revisionNumber: 0,
+        status: QuotationStatus.DRAFT, isLatestRevision: true })
+      .mockResolvedValueOnce({ id: 1, status: QuotationStatus.DRAFT, isLatestRevision: true })
+      .mockResolvedValueOnce({ id: 1, status: QuotationStatus.CANCELLED, isLatestRevision: true });
+    const result = await quotationCommunicationsRepository.sendQuotationEmail(1, 1, {
+      generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Quotation', message: 'Attached',
+    }, 1, { firmId: 1, userId: 1 });
+    expect(result).toMatchObject({ statusTransitioned: false, quotationStatusAfter: QuotationStatus.CANCELLED });
+    expect(mocks.prisma.quotationStatusHistory.create).not.toHaveBeenCalled();
+  });
+
+  it('propagates mandatory audit failure after SMTP acceptance', async () => {
+    mocks.prisma.auditLog.create.mockRejectedValueOnce(new Error('audit unavailable'));
+    await expect(quotationCommunicationsRepository.sendQuotationEmail(1, 1, {
+      generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Quotation', message: 'Attached',
+    }, 1, { firmId: 1, userId: 1 })).rejects.toMatchObject({
+      statusCode: 503, details: { communicationId: 100, providerAccepted: true },
+    });
+    expect(mocks.sendMail).toHaveBeenCalledOnce();
   });
 
   it('records failed SMTP attempts without changing quotation status', async () => {

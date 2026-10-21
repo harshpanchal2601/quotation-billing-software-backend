@@ -58,6 +58,7 @@ export const itemInputSchema = z.object({
 });
 
 export const calculationPreviewSchema = z.object({
+  currency: z.string().trim().length(3).toUpperCase().default('INR'),
   taxMode: z.nativeEnum(TaxMode).default(TaxMode.CGST_SGST),
   quotationDiscountType: z.nativeEnum(DiscountType).default(DiscountType.NONE),
   quotationDiscountValue: nonNegativeDecimalNumberSchema.default(0),

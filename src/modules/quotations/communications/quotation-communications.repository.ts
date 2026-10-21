@@ -405,62 +405,93 @@ export class QuotationCommunicationsRepository {
 
     const acceptedAt = new Date();
     const providerMessageId = getProviderMessageId(sendInfo);
-    const shouldTransitionToSent =
-      quotation.isLatestRevision &&
-      (quotation.status === QuotationStatus.DRAFT || quotation.status === QuotationStatus.PENDING);
-
     let quotationStatusAfter = quotation.status;
     let statusTransitioned = false;
 
-    await this.db.$transaction(async (tx) => {
-      await tx.quotationCommunication.update({
-        where: { id: attempt.id },
-        data: { status: CommunicationStatus.ACCEPTED, acceptedAt, providerMessageId },
-      });
-
-      if (shouldTransitionToSent) {
-        validateStatusTransition(quotation.status, QuotationStatus.SENT);
-        await tx.quotation.update({
-          where: { id: quotation.id },
-          data: {
-            status: QuotationStatus.SENT,
-            updatedById: userId,
-            ...getStatusTimestampUpdate(QuotationStatus.SENT),
-          },
+    try {
+      await this.db.$transaction(async (tx) => {
+        await tx.quotationCommunication.update({
+          where: { id: attempt.id },
+          data: { status: CommunicationStatus.ACCEPTED, acceptedAt, providerMessageId },
         });
-        await tx.quotationStatusHistory.create({
-          data: {
+
+        // SMTP can take long enough for another request to change the quotation.
+        const current = await tx.quotation.findFirst({
+          where: { id: quotation.id, firmId, deletedAt: null },
+        });
+        if (current) quotationStatusAfter = current.status;
+        if (current?.isLatestRevision &&
+            (current.status === QuotationStatus.DRAFT || current.status === QuotationStatus.PENDING)) {
+          validateStatusTransition(current.status, QuotationStatus.SENT);
+          const updated = await tx.quotation.updateMany({
+            where: { id: quotation.id, firmId, deletedAt: null, isLatestRevision: true,
+              status: current.status, updatedAt: current.updatedAt },
+            data: {
+              status: QuotationStatus.SENT,
+              updatedById: userId,
+              ...getStatusTimestampUpdate(QuotationStatus.SENT),
+            },
+          });
+          if (updated.count === 1) {
+            await tx.quotationStatusHistory.create({
+              data: {
+                quotationId,
+                fromStatus: current.status,
+                toStatus: QuotationStatus.SENT,
+                changedById: userId,
+                comment: `Quotation emailed. Communication attempt #${attempt.id}.`,
+              },
+            });
+            await createAuditLog(tx, {
+              policy: 'REQUIRED',
+              metadata: { ...metadata, firmId, userId },
+              entityType: 'Quotation',
+              entityId: String(quotation.id),
+              action: AuditAction.STATUS_CHANGE,
+              oldValues: { status: current.status },
+              newValues: { status: QuotationStatus.SENT, communicationId: attempt.id },
+            });
+            quotationStatusAfter = QuotationStatus.SENT;
+            statusTransitioned = true;
+          } else {
+            const latest = await tx.quotation.findFirst({
+              where: { id: quotation.id, firmId, deletedAt: null },
+            });
+            if (latest) quotationStatusAfter = latest.status;
+          }
+        }
+
+        await createAuditLog(tx, {
+          policy: 'REQUIRED',
+          metadata: { ...metadata, firmId, userId },
+          entityType: 'QuotationCommunication',
+          entityId: String(attempt.id),
+          action: AuditAction.CREATE,
+          newValues: {
+            event: 'QUOTATION_EMAIL_ACCEPTED',
             quotationId,
-            fromStatus: quotation.status,
-            toStatus: QuotationStatus.SENT,
-            changedById: userId,
-            comment: `Quotation emailed. Communication attempt #${attempt.id}.`,
+            quotationNumber: quotation.quotationNumber,
+            revisionNumber: quotation.revisionNumber,
+            generatedDocumentId: input.generatedDocumentId,
+            recipientCount: recipients.to.length,
+            ccCount: recipients.cc.length,
+            bccCount: recipients.bcc.length,
+            attachmentCount: selectedAttachments.length,
+            acceptedAt: acceptedAt.toISOString(),
+            statusTransitioned,
           },
         });
-        quotationStatusAfter = QuotationStatus.SENT;
-        statusTransitioned = true;
-      }
-
-      await createAuditLog(tx, {
-        metadata: { ...metadata, userId },
-        entityType: 'QuotationCommunication',
-        entityId: String(attempt.id),
-        action: AuditAction.CREATE,
-        newValues: {
-          event: 'QUOTATION_EMAIL_ACCEPTED',
-          quotationId,
-          quotationNumber: quotation.quotationNumber,
-          revisionNumber: quotation.revisionNumber,
-          generatedDocumentId: input.generatedDocumentId,
-          recipientCount: recipients.to.length,
-          ccCount: recipients.cc.length,
-          bccCount: recipients.bcc.length,
-          attachmentCount: selectedAttachments.length,
-          acceptedAt: acceptedAt.toISOString(),
-          statusTransitioned,
-        },
-      });
-    });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+    } catch (error) {
+      // SMTP acceptance is irreversible. Make the outcome explicit to prevent a blind resend.
+      const failure = new AppError(
+        'The email provider accepted this email, but its confirmation could not be saved. Check delivery history with an administrator before resending.',
+        503,
+        { communicationId: attempt.id, providerAccepted: true },
+      );
+      failure.cause = error;
+      throw failure;
+    }
 
     return {
       communicationId: attempt.id,

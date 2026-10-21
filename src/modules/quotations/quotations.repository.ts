@@ -3,6 +3,7 @@ import { AuditAction, Prisma, QuotationStatus, type PrismaClient } from '@prisma
 import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
+import { getOrCreateQuotationSettings } from '../settings/index.js';
 import { calculateQuotationTotals } from './calculations/quotation-calculations.js';
 import {
   isValidUntilBeforeQuotationDate,
@@ -57,6 +58,7 @@ export class QuotationsRepository {
     const validatedItems = await validateAndSnapshotQuotationItems(this.db, firmId, input.items);
 
     const calculated = calculateQuotationTotals({
+      currency: input.currency,
       taxMode: input.taxMode,
       quotationDiscountType: input.quotationDiscountType,
       quotationDiscountValue: input.quotationDiscountValue,
@@ -70,8 +72,11 @@ export class QuotationsRepository {
 
     validateValidUntilDate(quotationDate, validUntil);
 
+    // Initialise defaults before opening the write transaction so concurrent creates
+    // do not acquire a second pool connection while holding their transaction connection.
+    const settings = await getOrCreateQuotationSettings(firmId, this.db);
     const newQuotation = await this.db.$transaction(async (tx) => {
-      const quotationNumber = await generateUniqueQuotationNumber(tx, this.db, firmId, quotationDate);
+      const quotationNumber = await generateUniqueQuotationNumber(tx, settings.id, firmId, quotationDate);
 
       const created = await tx.quotation.create({
         data: {
@@ -163,22 +168,23 @@ export class QuotationsRepository {
 
       await createQuotationVersion(tx, created.id, { created, items: itemCreateData }, userId);
 
+      await createAuditLog(tx, {
+        policy: 'REQUIRED',
+        metadata: { ...metadata, firmId, userId },
+        entityType: 'Quotation',
+        entityId: String(created.id),
+        action: AuditAction.CREATE,
+        newValues: {
+          quotationNumber: created.quotationNumber,
+          companyId: created.companyId,
+          grandTotal: created.grandTotal.toFixed(2),
+        },
+      });
+
       return tx.quotation.update({
         where: { id: created.id },
         data: { rootQuotationId: created.id },
       });
-    });
-
-    await createAuditLog(this.db, {
-      metadata,
-      entityType: 'Quotation',
-      entityId: String(newQuotation.id),
-      action: AuditAction.CREATE,
-      newValues: {
-        quotationNumber: newQuotation.quotationNumber,
-        companyId: newQuotation.companyId,
-        grandTotal: newQuotation.grandTotal.toFixed(2),
-      },
     });
 
     return this.getQuotation(firmId, newQuotation.id);
@@ -373,6 +379,7 @@ export class QuotationsRepository {
     const validatedItems = await validateAndSnapshotQuotationItems(this.db, firmId, itemsToProcess);
 
     const calculated = calculateQuotationTotals({
+      currency: input.currency ?? existing.currency,
       taxMode: input.taxMode ?? existing.taxMode,
       quotationDiscountType: input.quotationDiscountType ?? existing.quotationDiscountType,
       quotationDiscountValue: input.quotationDiscountValue ?? existing.quotationDiscountValue.toFixed(2),
@@ -392,6 +399,17 @@ export class QuotationsRepository {
     validateValidUntilDate(quotationDate, validUntil);
 
     await this.db.$transaction(async (tx) => {
+      // Two draft edits can arrive within one database timestamp tick.
+      const updatedAt = new Date(Math.max(Date.now(), existing.updatedAt.getTime() + 1));
+      const claimed = await tx.quotation.updateMany({
+        where: { id: existing.id, firmId, deletedAt: null, isLatestRevision: true,
+          status: QuotationStatus.DRAFT, updatedAt: existing.updatedAt },
+        data: { updatedById: userId, updatedAt },
+      });
+      if (claimed.count !== 1) {
+        throw new AppError('Quotation changed concurrently. Refresh and try again.', 409);
+      }
+
       await createQuotationVersion(tx, existing.id, existing, userId);
 
       await tx.quotationItem.deleteMany({
@@ -401,6 +419,7 @@ export class QuotationsRepository {
       await tx.quotation.update({
         where: { id: existing.id },
         data: {
+          updatedAt,
           companyId,
           companyContactId: input.companyContactId !== undefined ? input.companyContactId : existing.companyContactId,
           billingAddressId: input.billingAddressId !== undefined ? input.billingAddressId : existing.billingAddressId,
@@ -471,17 +490,18 @@ export class QuotationsRepository {
       await tx.quotationItem.createMany({
         data: itemCreateData,
       });
-    });
 
-    await createAuditLog(this.db, {
-      metadata,
-      entityType: 'Quotation',
-      entityId: String(existing.id),
-      action: AuditAction.UPDATE,
-      newValues: {
-        quotationNumber: existing.quotationNumber,
-        grandTotal: calculated.grandTotal,
-      },
+      await createAuditLog(tx, {
+        policy: 'REQUIRED',
+        metadata: { ...metadata, firmId, userId },
+        entityType: 'Quotation',
+        entityId: String(existing.id),
+        action: AuditAction.UPDATE,
+        newValues: {
+          quotationNumber: existing.quotationNumber,
+          grandTotal: calculated.grandTotal,
+        },
+      });
     });
 
     return this.getQuotation(firmId, existing.id);
@@ -529,14 +549,17 @@ export class QuotationsRepository {
 
         const nextRevisionNumber = latest.revisionNumber + 1;
 
-        await tx.quotation.updateMany({
+        const claimed = await tx.quotation.updateMany({
           where: {
-            firmId,
-            rootQuotationId: familyRootId,
+            id: latest.id, firmId, deletedAt: null,
+            status: latest.status, updatedAt: latest.updatedAt,
             isLatestRevision: true,
           },
           data: { isLatestRevision: false },
         });
+        if (claimed.count !== 1) {
+          throw new AppError('Quotation changed concurrently. Refresh and try again.', 409);
+        }
 
         const created = await tx.quotation.create({
           data: {
@@ -642,20 +665,21 @@ export class QuotationsRepository {
           userId,
         );
 
-        return created;
-      });
+        await createAuditLog(tx, {
+          policy: 'REQUIRED',
+          metadata: { ...metadata, firmId, userId },
+          entityType: 'Quotation',
+          entityId: String(created.id),
+          action: AuditAction.CREATE,
+          newValues: {
+            quotationNumber: created.quotationNumber,
+            revisionNumber: created.revisionNumber,
+            sourceQuotationId: source.id,
+            sourceRevisionNumber: source.revisionNumber,
+          },
+        });
 
-      await createAuditLog(this.db, {
-        metadata,
-        entityType: 'Quotation',
-        entityId: String(newRevision.id),
-        action: AuditAction.CREATE,
-        newValues: {
-          quotationNumber: newRevision.quotationNumber,
-          revisionNumber: newRevision.revisionNumber,
-          sourceQuotationId: source.id,
-          sourceRevisionNumber: source.revisionNumber,
-        },
+        return created;
       });
 
       return this.getQuotation(firmId, newRevision.id);
@@ -675,50 +699,33 @@ export class QuotationsRepository {
     metadata: RequestMetadata,
     userId: number,
   ) {
-    const existing = await this.db.quotation.findFirst({
-      where: { id, firmId, deletedAt: null },
+    await this.db.$transaction(async (tx) => {
+      const existing = await tx.quotation.findFirst({
+        where: { id, firmId, deletedAt: null },
+      });
+      if (!existing) throw new AppError('Quotation not found.', 404);
+      if (!existing.isLatestRevision) {
+        throw new AppError('Only the latest quotation revision can change status.', 409);
+      }
+      validateStatusTransition(existing.status, input.status);
+
+      const updated = await tx.quotation.updateMany({
+        where: { id, firmId, deletedAt: null, isLatestRevision: true,
+          status: existing.status, updatedAt: existing.updatedAt },
+        data: { status: input.status, updatedById: userId, ...getStatusTimestampUpdate(input.status) },
+      });
+      if (updated.count !== 1) {
+        throw new AppError('Quotation changed concurrently. Refresh and try again.', 409);
+      }
+      await recordStatusHistory(tx, id, existing.status, input.status, userId, input.comment);
+      await createAuditLog(tx, {
+        policy: 'REQUIRED',
+        metadata: { ...metadata, firmId, userId },
+        entityType: 'Quotation', entityId: String(id), action: AuditAction.STATUS_CHANGE,
+        oldValues: { status: existing.status }, newValues: { status: input.status },
+      });
     });
-
-    if (!existing) {
-      throw new AppError('Quotation not found.', 404);
-    }
-
-    if (!existing.isLatestRevision) {
-      throw new AppError('Only the latest quotation revision can change status.', 409);
-    }
-
-    validateStatusTransition(existing.status, input.status);
-
-    const timestampUpdates = getStatusTimestampUpdate(input.status);
-
-    const updated = await this.db.quotation.update({
-      where: { id: existing.id },
-      data: {
-        status: input.status,
-        updatedById: userId,
-        ...timestampUpdates,
-      },
-    });
-
-    await recordStatusHistory(
-      this.db,
-      existing.id,
-      existing.status,
-      input.status,
-      userId,
-      input.comment,
-    );
-
-    await createAuditLog(this.db, {
-      metadata,
-      entityType: 'Quotation',
-      entityId: String(existing.id),
-      action: AuditAction.STATUS_CHANGE,
-      oldValues: { status: existing.status },
-      newValues: { status: input.status },
-    });
-
-    return this.getQuotation(firmId, updated.id);
+    return this.getQuotation(firmId, id);
   }
 
   async deleteQuotation(firmId: number, id: number, metadata: RequestMetadata) {
@@ -739,28 +746,29 @@ export class QuotationsRepository {
     }
 
     await this.db.$transaction(async (tx) => {
-      await tx.quotation.update({
-        where: { id: existing.id },
-        data: {
-          deletedAt: new Date(),
-          isLatestRevision: false,
-        },
+      const deleted = await tx.quotation.updateMany({
+        where: { id: existing.id, firmId, deletedAt: null, isLatestRevision: true,
+          status: QuotationStatus.DRAFT, updatedAt: existing.updatedAt },
+        data: { deletedAt: new Date(), isLatestRevision: false },
       });
+      if (deleted.count !== 1) {
+        throw new AppError('Quotation changed concurrently. Refresh and try again.', 409);
+      }
 
       if (existing.previousRevisionId) {
         await tx.quotation.update({
-          where: { id: existing.previousRevisionId },
+          where: { id: existing.previousRevisionId, firmId, deletedAt: null },
           data: { isLatestRevision: true },
         });
       }
-    });
-
-    await createAuditLog(this.db, {
-      metadata,
-      entityType: 'Quotation',
-      entityId: String(existing.id),
-      action: AuditAction.DELETE,
-      oldValues: { quotationNumber: existing.quotationNumber },
+      await createAuditLog(tx, {
+        policy: 'REQUIRED',
+        metadata: { ...metadata, firmId },
+        entityType: 'Quotation',
+        entityId: String(existing.id),
+        action: AuditAction.DELETE,
+        oldValues: { quotationNumber: existing.quotationNumber },
+      });
     });
   }
 }

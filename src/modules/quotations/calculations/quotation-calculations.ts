@@ -183,7 +183,7 @@ export function calculateQuotationTotals(
     otherCharges: otherCharges.toFixed(2),
     roundOffAmount: roundOffAmount.toFixed(2),
     grandTotal: roundedGrandTotal.toFixed(2),
-    amountInWords: convertAmountToWords(roundedGrandTotal.toNumber()),
+    amountInWords: convertAmountToWords(roundedGrandTotal, input.currency),
     items: calculatedItems,
   };
 }
@@ -206,9 +206,16 @@ function DecimalMax(a: Prisma.Decimal, b: Prisma.Decimal): Prisma.Decimal {
   return a.greaterThan(b) ? a : b;
 }
 
-export function convertAmountToWords(amount: number): string {
-  const rounded = Math.round(amount);
-  if (rounded <= 0) return 'Zero Rupees Only';
+export function convertAmountToWords(amount: number | string | Prisma.Decimal, currency = 'INR'): string {
+  const rounded = new Prisma.Decimal(amount).toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP);
+  const code = currency.trim().toUpperCase();
+  const currencyNames: Record<string, [string, string]> = {
+    INR: ['Rupees', 'Rupees'], USD: ['US Dollar', 'US Dollars'],
+    AED: ['UAE Dirham', 'UAE Dirhams'], SAR: ['Saudi Riyal', 'Saudi Riyals'],
+  };
+  // Preserve accepted legacy codes without inventing a currency name or fraction policy.
+  const currencyName = currencyNames[code]?.[rounded.eq(1) ? 0 : 1] ?? code;
+  if (rounded.lte(0)) return `Zero ${currencyName} Only`;
 
   const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
   const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -224,5 +231,19 @@ export function convertAmountToWords(amount: number): string {
     return `${numToWords(Math.floor(n / 10000000))} Crore${n % 10000000 !== 0 ? ` ${numToWords(n % 10000000)}` : ''}`;
   }
 
-  return `${numToWords(rounded)} Rupees Only`;
+  let words: string;
+  if (code === 'INR') {
+    // Stored quotation totals have 13 integer digits, within the exact integer range.
+    words = numToWords(rounded.toNumber());
+  } else {
+    const scales = ['', 'Thousand', 'Million', 'Billion', 'Trillion'];
+    const groups = rounded.toFixed(0).match(/\d{1,3}(?=(\d{3})*$)/g) ?? [];
+    words = groups.map((group, index) => {
+      const value = Number(group);
+      if (value === 0) return '';
+      const scale = scales[groups.length - index - 1];
+      return `${numToWords(value)}${scale ? ` ${scale}` : ''}`;
+    }).filter(Boolean).join(' ');
+  }
+  return `${words} ${currencyName} Only`;
 }

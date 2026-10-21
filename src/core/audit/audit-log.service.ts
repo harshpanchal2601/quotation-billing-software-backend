@@ -14,6 +14,7 @@ export async function createAuditLog(
     entityType: string;
     entityId: string;
     action: AuditAction;
+    policy?: 'REQUIRED' | 'BEST_EFFORT';
     oldValues?: Prisma.InputJsonObject;
     newValues?: Prisma.InputJsonObject;
   },
@@ -33,6 +34,7 @@ export async function createAuditLog(
       },
     });
   } catch (error) {
+    if (input.policy === 'REQUIRED') throw error;
     console.warn(`${input.entityType} audit log could not be created.`);
     console.warn(error instanceof Error ? error.message : 'Unknown audit error');
   }
