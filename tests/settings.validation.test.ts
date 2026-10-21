@@ -106,13 +106,14 @@ describe('settings validation and policy', () => {
     expect(brandingAssetConfig.logo.directory).toBe('logos');
     expect(brandingAssetConfig.signature.directory).toBe('signatures');
     expect(brandingAssetConfig.stamp.directory).toBe('stamps');
-    expect(toBrandingRelativePath('signature', '../unsafe.png')).toBe('signatures/unsafe.png');
+    expect(toBrandingRelativePath(7, 'signature', '../unsafe.png')).toBe('firm-assets/7/signatures/unsafe.png');
   });
 
   it('serialises safe business profile URLs and decimal settings consistently', () => {
     const now = new Date('2026-01-01T00:00:00.000Z');
     const profile = serialiseBusinessProfile({
       id: 1,
+      firmId: 7,
       legalName: 'Legal',
       displayName: 'Display',
       gstin: null,

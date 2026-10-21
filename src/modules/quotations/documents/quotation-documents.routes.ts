@@ -2,12 +2,14 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { Router, type Request, type Response } from 'express';
 
-import { storageConfig } from '../../../config/storage.config.js';
+import { firmProtectedDirectory, storageConfig } from '../../../config/storage.config.js';
 import { AppError } from '../../../core/errors/AppError.js';
 import { asyncHandler } from '../../../core/http/asyncHandler.js';
+import { getFirmId } from '../../../core/tenancy/tenant-context.js';
 import { pdfService } from '../../../integrations/pdf/index.js';
 import { storageService } from '../../../integrations/storage/index.js';
-import { requireAuthentication, requireRole } from '../../auth/auth.middleware.js';
+import { requireAuthentication, requirePermission } from '../../auth/auth.middleware.js';
+import { PERMISSIONS } from '../../auth/permissions.js';
 import {
   getBusinessProfileRecordForQuotation,
   getDefaultBankDetailRecordForQuotation,
@@ -23,7 +25,7 @@ import type { GeneratedDocumentDto } from './quotation-documents.types.js';
 export const quotationDocumentsRouter = Router({ mergeParams: true });
 
 quotationDocumentsRouter.use(requireAuthentication);
-quotationDocumentsRouter.use(requireRole('ADMIN'));
+quotationDocumentsRouter.use(requirePermission(PERMISSIONS.QUOTATIONS_DOCUMENTS));
 
 quotationDocumentsRouter.post(
   '/:id/pdf',
@@ -38,18 +40,19 @@ quotationDocumentsRouter.post(
       throw new AppError('Authentication required', 401);
     }
 
-    const quotation = await quotationDocumentsRepository.findQuotationForPdf(quotationId);
+    const firmId = getFirmId(req);
+    const quotation = await quotationDocumentsRepository.findQuotationForPdf(firmId, quotationId);
     if (!quotation) {
       throw new AppError('Quotation not found', 404);
     }
 
-    const businessProfile = await getBusinessProfileRecordForQuotation();
-    const fallbackBank = await getDefaultBankDetailRecordForQuotation();
+    const businessProfile = await getBusinessProfileRecordForQuotation(firmId);
+    const fallbackBank = await getDefaultBankDetailRecordForQuotation(firmId);
 
     const [logoDataUrl, signatureDataUrl, stampDataUrl] = await Promise.all([
-      getBrandingFileDataUrl('logo', businessProfile?.logoPath),
-      getBrandingFileDataUrl('signature', businessProfile?.signaturePath),
-      getBrandingFileDataUrl('stamp', businessProfile?.stampPath),
+      getBrandingFileDataUrl(firmId, 'logo', businessProfile?.logoPath),
+      getBrandingFileDataUrl(firmId, 'signature', businessProfile?.signaturePath),
+      getBrandingFileDataUrl(firmId, 'stamp', businessProfile?.stampPath),
     ]);
 
     const viewModel = buildQuotationPdfViewModel(
@@ -64,7 +67,7 @@ quotationDocumentsRouter.post(
 
     const fileUuid = crypto.randomUUID();
     const filename = `${fileUuid}.pdf`;
-    const relativeFilePath = `${storageConfig.quotationDocumentDirectory}/${filename}`;
+    const relativeFilePath = `${firmProtectedDirectory(storageConfig.quotationDocumentDirectory, firmId)}/${filename}`;
 
     try {
       await storageService.writeStorageFile(relativeFilePath, pdfBuffer);
@@ -100,6 +103,7 @@ quotationDocumentsRouter.post(
       },
       {
         userId,
+        firmId,
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       },
@@ -137,7 +141,7 @@ async function streamPdfDocument(req: Request, res: Response, disposition: 'inli
     throw new AppError('Invalid document ID', 400);
   }
 
-  const doc = await quotationDocumentsRepository.findDocumentForQuotation(quotationId, documentId);
+  const doc = await quotationDocumentsRepository.findDocumentForQuotation(getFirmId(req), quotationId, documentId);
   if (!doc || !doc.quotation || doc.quotation.deletedAt) {
     throw new AppError('Generated document not found for this quotation', 404);
   }

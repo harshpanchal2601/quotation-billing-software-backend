@@ -281,7 +281,7 @@ export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string
     <tr>
       <td>
         ${bp?.logoDataUrl ? `<img src="${bp.logoDataUrl}" style="max-height: 60px; max-width: 200px; margin-bottom: 8px;" alt="Logo"><br>` : ''}
-        <div class="company-title">${escapeHtml(bp?.displayName || 'Buminex Pharmtech Solutions')}</div>
+        <div class="company-title">${escapeHtml(bp?.displayName || 'Your Company')}</div>
         <div class="company-details">
           ${bp?.legalName ? `<strong>${escapeHtml(bp.legalName)}</strong><br>` : ''}
           ${escapeHtml(bp?.addressLine1 || '')} ${escapeHtml(bp?.addressLine2 || '')}<br>
@@ -482,7 +482,7 @@ export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string
       </td>
       <td class="signatory-cell">
         <div class="signatory-block">
-          <div class="signatory-company">For ${escapeHtml(bp?.displayName || 'Buminex Pharmtech Solutions')}</div>
+          <div class="signatory-company">For ${escapeHtml(bp?.displayName || 'Your Company')}</div>
           ${signatoryAssetsHtml}
           <span class="signatory-label">Authorised Signatory</span>
         </div>

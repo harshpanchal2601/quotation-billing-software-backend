@@ -58,6 +58,7 @@ const now = new Date('2026-01-01T00:00:00.000Z');
 function mockCategory(overrides: Partial<ItemCategory> = {}): ItemCategory {
   return {
     id: 1,
+    firmId: 1,
     name: 'Vessels & Reactors',
     slug: 'vessels-reactors',
     description: 'Vessels description',
@@ -72,6 +73,7 @@ function mockCategory(overrides: Partial<ItemCategory> = {}): ItemCategory {
 function mockUnit(overrides: Partial<MeasurementUnit> = {}): MeasurementUnit {
   return {
     id: 1,
+    firmId: 1,
     name: 'Kilogram',
     symbol: 'kg',
     allowDecimal: true,
@@ -86,6 +88,7 @@ function mockUnit(overrides: Partial<MeasurementUnit> = {}): MeasurementUnit {
 function mockItem(overrides: Partial<Item> = {}) {
   return {
     id: 1,
+    firmId: 1,
     itemCode: 'ITEM-000001',
     categoryId: 1,
     name: 'SS Tank 500L',
@@ -139,18 +142,20 @@ describe('items repository', () => {
 
     const repository = new ItemsRepository(asPrisma(db));
     const result = await repository.createItem(
+      1,
       {
         name: 'SS Tank 500L',
         measurementUnitId: 1,
         defaultRate: '4500.00',
       },
-      { userId: 1 },
+      { userId: 1, firmId: 1 },
     );
 
     expect(result.itemCode).toBe('ITEM-000001');
     expect(result.category?.slug).toBe('uncategorised');
     expect(db.item.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        firmId: 1,
         itemCode: 'ITEM-000001',
         categoryId: 10,
         name: 'SS Tank 500L',
@@ -167,8 +172,9 @@ describe('items repository', () => {
     const repository = new ItemsRepository(asPrisma(db));
     await expect(
       repository.createItem(
+        1,
         { categoryId: 1, name: 'SS Tank', measurementUnitId: 1 },
-        { userId: 1 },
+        { userId: 1, firmId: 1 },
       ),
     ).rejects.toMatchObject({
       statusCode: 409,
@@ -180,7 +186,7 @@ describe('items repository', () => {
     db.item.findFirst.mockResolvedValueOnce(mockItem());
 
     const repository = new ItemsRepository(asPrisma(db));
-    const result = await repository.getItem(1);
+    const result = await repository.getItem(1, 1);
 
     expect(result.defaultRate).toBe('4500.00');
     expect(result.gstRate).toBe('18.00');
@@ -190,12 +196,13 @@ describe('items repository', () => {
     db.item.findMany.mockResolvedValueOnce([mockItem()]);
 
     const repository = new ItemsRepository(asPrisma(db));
-    const result = await repository.getItemOptions({ limit: 20 });
+    const result = await repository.getItemOptions(1, { limit: 20 });
 
     expect(result.items.length).toBe(1);
     expect(result.items[0]?.itemCode).toBe('ITEM-000001');
     expect(db.item.findMany).toHaveBeenCalledWith({
       where: expect.objectContaining({
+        firmId: 1,
         deletedAt: null,
         isActive: true,
         category: { deletedAt: null, isActive: true },
@@ -215,7 +222,7 @@ describe('items repository', () => {
     db.item.findFirst.mockResolvedValueOnce(inactiveCatItem);
 
     const repository = new ItemsRepository(asPrisma(db));
-    await expect(repository.updateItemStatus(1, true, { userId: 1 })).rejects.toMatchObject({
+    await expect(repository.updateItemStatus(1, 1, true, { userId: 1, firmId: 1 })).rejects.toMatchObject({
       statusCode: 409,
       message: 'Item cannot be activated because its category is inactive or unavailable.',
     });
@@ -227,7 +234,7 @@ describe('items repository', () => {
     db.item.update.mockResolvedValueOnce({ ...itemWithImage, deletedAt: now, isActive: false });
 
     const repository = new ItemsRepository(asPrisma(db));
-    await repository.deleteItem(1, { userId: 1 });
+    await repository.deleteItem(1, 1, { userId: 1, firmId: 1 });
 
     expect(db.item.update).toHaveBeenCalledWith({
       where: { id: 1 },
@@ -246,7 +253,7 @@ describe('items repository', () => {
     db.item.findFirst.mockResolvedValueOnce(deletedCatItem);
 
     const repository = new ItemsRepository(asPrisma(db));
-    await expect(repository.restoreItem(1, { userId: 1 })).rejects.toMatchObject({
+    await expect(repository.restoreItem(1, 1, { userId: 1, firmId: 1 })).rejects.toMatchObject({
       statusCode: 409,
       message: 'Cannot restore item because its category is deleted.',
     });
@@ -257,7 +264,7 @@ describe('items repository', () => {
     db.item.count.mockResolvedValueOnce(1);
 
     const repository = new ItemsRepository(asPrisma(db));
-    const result = await repository.listItems({
+    const result = await repository.listItems(1, {
       page: 1,
       limit: 20,
       search: 'SS Tank',
@@ -270,6 +277,7 @@ describe('items repository', () => {
     expect(db.item.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
+          firmId: 1,
           deletedAt: null,
         }),
         skip: 0,
@@ -298,11 +306,12 @@ describe('items repository', () => {
 
     const repository = new ItemsRepository(asPrisma(db));
     const result = await repository.createItem(
+      1,
       {
         name: 'Retry Item',
         measurementUnitId: 1,
       },
-      { userId: 1 },
+      { userId: 1, firmId: 1 },
     );
 
     expect(result.itemCode).toBe('ITEM-000002');

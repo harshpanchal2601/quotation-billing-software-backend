@@ -45,6 +45,7 @@ describe('categories routes', () => {
 
     const req = {
       body: { name: 'Vessels & Reactors', description: 'Category', isActive: true },
+      firmId: 1,
       user: { id: 7 },
       ip: '127.0.0.1',
       get: vi.fn().mockReturnValue('vitest'),
@@ -54,6 +55,7 @@ describe('categories routes', () => {
     await createCategory(req, res);
 
     expect(categoriesRepository.createCategory).toHaveBeenCalledWith(
+      1,
       expect.objectContaining({ slug: 'vessels-reactors' }),
       expect.objectContaining({ userId: 7 }),
     );
@@ -71,6 +73,7 @@ describe('categories routes', () => {
 
     const req = {
       body: { name: 'Existing', isActive: true },
+      firmId: 1,
       user: { id: 7 },
       ip: '127.0.0.1',
       get: vi.fn(),
@@ -89,7 +92,7 @@ describe('categories routes', () => {
       pagination: { page: 1, limit: 20, total: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: false },
     } as never);
 
-    const req = { query: {} } as Request;
+    const req = { query: {}, firmId: 1 } as Request;
     const res = createRes();
 
     await listCategories(req, res);

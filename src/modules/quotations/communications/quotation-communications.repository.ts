@@ -122,9 +122,9 @@ function serialiseCommunication(
 export class QuotationCommunicationsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async assertQuotationExists(quotationId: number) {
+  async assertQuotationExists(firmId: number, quotationId: number) {
     const quotation = await this.db.quotation.findFirst({
-      where: { id: quotationId, deletedAt: null },
+      where: { id: quotationId, firmId, deletedAt: null },
       select: { id: true, quotationNumber: true },
     });
     if (!quotation) {
@@ -134,15 +134,16 @@ export class QuotationCommunicationsRepository {
   }
 
   async getDocumentHistory(
+    firmId: number,
     quotationId: number,
     query: { page?: number; limit?: number; sortOrder?: 'asc' | 'desc' },
   ): Promise<GeneratedDocumentHistoryResponse> {
-    const quotation = await this.assertQuotationExists(quotationId);
+    const quotation = await this.assertQuotationExists(firmId, quotationId);
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
     const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
 
-    const { total, documents } = await quotationDocumentsRepository.listDocumentHistory(quotationId, {
+    const { total, documents } = await quotationDocumentsRepository.listDocumentHistory(firmId, quotationId, {
       page,
       limit,
       sortOrder,
@@ -181,10 +182,11 @@ export class QuotationCommunicationsRepository {
   }
 
   async getCommunicationHistory(
+    firmId: number,
     quotationId: number,
     query: { page?: number; limit?: number; sortOrder?: 'asc' | 'desc' },
   ): Promise<QuotationCommunicationHistoryResponse> {
-    await this.assertQuotationExists(quotationId);
+    await this.assertQuotationExists(firmId, quotationId);
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
     const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
@@ -211,13 +213,14 @@ export class QuotationCommunicationsRepository {
   }
 
   async sendQuotationEmail(
+    firmId: number,
     quotationId: number,
     input: SendQuotationEmailInput,
     userId: number,
     metadata: RequestMetadata,
   ): Promise<SendQuotationEmailResponse> {
     const quotation = await this.db.quotation.findFirst({
-      where: { id: quotationId, deletedAt: null },
+      where: { id: quotationId, firmId, deletedAt: null },
       select: {
         id: true,
         quotationNumber: true,
@@ -331,10 +334,10 @@ export class QuotationCommunicationsRepository {
       throw new AppError('Total email attachment size exceeds 20 MB limit', 413);
     }
 
-    const businessProfile = await getBusinessProfileRecordForQuotation();
-    const businessName = businessProfile?.displayName || 'Buminex Pharmtech Solutions';
+    const businessProfile = await getBusinessProfileRecordForQuotation(firmId);
+    const businessName = businessProfile?.displayName || 'Your Company';
     const fromEmail = mailConfig.fromEmail || businessProfile?.primaryEmail || 'noreply@example.com';
-    const fromName = mailConfig.fromName || businessName;
+    const fromName = businessName;
 
     const { text, html } = buildQuotationEmailContent({
       quotationNumber: quotation.quotationNumber,

@@ -17,9 +17,9 @@ import type { QuotationAttachmentDto, QuotationAttachmentListResponse } from './
 export class QuotationAttachmentsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async assertQuotationExists(quotationId: number) {
+  async assertQuotationExists(firmId: number, quotationId: number) {
     const quotation = await this.db.quotation.findFirst({
-      where: { id: quotationId, deletedAt: null },
+      where: { id: quotationId, firmId, deletedAt: null },
       select: { id: true, quotationNumber: true },
     });
     if (!quotation) {
@@ -28,8 +28,8 @@ export class QuotationAttachmentsRepository {
     return quotation;
   }
 
-  async listAttachments(quotationId: number): Promise<QuotationAttachmentListResponse> {
-    await this.assertQuotationExists(quotationId);
+  async listAttachments(firmId: number, quotationId: number): Promise<QuotationAttachmentListResponse> {
+    await this.assertQuotationExists(firmId, quotationId);
 
     const attachments = await this.db.quotationAttachment.findMany({
       where: { quotationId, deletedAt: null },
@@ -62,12 +62,13 @@ export class QuotationAttachmentsRepository {
   }
 
   async createAttachment(
+    firmId: number,
     quotationId: number,
     file: Express.Multer.File,
     userId: number,
     metadata: RequestMetadata,
   ): Promise<QuotationAttachmentDto> {
-    const quotation = await this.assertQuotationExists(quotationId);
+    const quotation = await this.assertQuotationExists(firmId, quotationId);
 
     const activeCount = await this.db.quotationAttachment.count({
       where: { quotationId, deletedAt: null },
@@ -77,7 +78,7 @@ export class QuotationAttachmentsRepository {
       throw new AppError(`Maximum ${MAX_ATTACHMENTS_PER_QUOTATION} attachments reached for this quotation`, 409);
     }
 
-    const relativePath = resolveAttachmentRelativePath(file.filename);
+    const relativePath = resolveAttachmentRelativePath(firmId, file.filename);
 
     const attachment = await this.db.quotationAttachment.create({
       data: {
@@ -121,8 +122,8 @@ export class QuotationAttachmentsRepository {
     };
   }
 
-  async getAttachmentForAccess(quotationId: number, attachmentId: number, previewOnly: boolean) {
-    await this.assertQuotationExists(quotationId);
+  async getAttachmentForAccess(firmId: number, quotationId: number, attachmentId: number, previewOnly: boolean) {
+    await this.assertQuotationExists(firmId, quotationId);
 
     const attachment = await this.db.quotationAttachment.findFirst({
       where: { id: attachmentId, quotationId, deletedAt: null },
@@ -150,12 +151,13 @@ export class QuotationAttachmentsRepository {
   }
 
   async deleteAttachment(
+    firmId: number,
     quotationId: number,
     attachmentId: number,
     userId: number,
     metadata: RequestMetadata,
   ): Promise<{ success: boolean; message: string }> {
-    const quotation = await this.assertQuotationExists(quotationId);
+    const quotation = await this.assertQuotationExists(firmId, quotationId);
 
     const attachment = await this.db.quotationAttachment.findFirst({
       where: { id: attachmentId, quotationId, deletedAt: null },

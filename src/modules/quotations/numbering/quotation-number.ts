@@ -6,11 +6,12 @@ import { getOrCreateQuotationSettings } from '../../settings/index.js';
 export async function generateUniqueQuotationNumber(
   tx: Prisma.TransactionClient,
   dbForSetting: PrismaClient,
+  firmId: number,
   quotationDate: Date = new Date(),
 ): Promise<string> {
-  const settings = await getOrCreateQuotationSettings(dbForSetting);
+  const settings = await getOrCreateQuotationSettings(firmId, dbForSetting);
 
-  const prefix = settings.quotationPrefix || 'BUMINEX';
+  const prefix = settings.quotationPrefix || 'ERP';
   const fyFormat = settings.financialYearFormat || 'YYYY-YY';
   const fyString = getFinancialYearString(quotationDate, fyFormat);
 
@@ -22,7 +23,7 @@ export async function generateUniqueQuotationNumber(
     const candidateNumber = `${prefix}/${fyString}/${paddedSeq}`;
 
     const existing = await tx.quotation.findFirst({
-      where: { quotationNumber: candidateNumber },
+      where: { firmId, quotationNumber: candidateNumber },
       select: { id: true },
     });
 

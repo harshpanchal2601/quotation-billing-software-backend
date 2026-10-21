@@ -180,6 +180,7 @@ describe('quotation email communication lifecycle', () => {
   it('records an accepted communication and transitions latest Draft quotation to Sent after SMTP acceptance', async () => {
     const result = await quotationCommunicationsRepository.sendQuotationEmail(
       1,
+      1,
       {
         generatedDocumentId: 10,
         to: ['customer@example.com', 'customer@example.com'],
@@ -189,7 +190,7 @@ describe('quotation email communication lifecycle', () => {
         message: 'Please find the quotation attached.',
       },
       1,
-      { userId: 1 },
+      { userId: 1, firmId: 1 },
     );
 
     expect(mocks.prisma.quotationCommunication.create).toHaveBeenCalledWith({
@@ -248,6 +249,7 @@ describe('quotation email communication lifecycle', () => {
     await expect(
       quotationCommunicationsRepository.sendQuotationEmail(
         1,
+        1,
         {
           generatedDocumentId: 10,
           to: ['customer@example.com'],
@@ -255,7 +257,7 @@ describe('quotation email communication lifecycle', () => {
           message: 'Please find attached.',
         },
         1,
-        { userId: 1 },
+        { userId: 1, firmId: 1 },
       ),
     ).rejects.toMatchObject({
       statusCode: 502,
@@ -302,7 +304,7 @@ describe('quotation email communication lifecycle', () => {
       },
     ]);
 
-    const result = await quotationCommunicationsRepository.getCommunicationHistory(1, {});
+    const result = await quotationCommunicationsRepository.getCommunicationHistory(1, 1, {});
 
     expect(result.communications).toEqual([
       expect.objectContaining({

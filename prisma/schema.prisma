@@ -11,6 +11,20 @@ enum UserRole {
   ADMIN
 }
 
+// Transitional account classification for the multi-firm rollout. The legacy
+// UserRole field remains until all application authorization has moved to the
+// account type and permission model.
+enum AccountType {
+  SUPER_ADMIN
+  FIRM_ADMIN
+  FIRM_USER
+}
+
+enum FirmStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 enum UserStatus {
   ACTIVE
   INACTIVE
@@ -114,17 +128,23 @@ enum AuditAction {
 
 model User {
   id                Int                      @id @default(autoincrement())
+  firmId            Int?                     @map("firm_id")
+  firmRoleId        Int?                     @map("firm_role_id")
   name              String                   @db.VarChar(191)
   email             String                   @unique @db.VarChar(191)
   username          String                   @unique @db.VarChar(191)
   passwordHash      String                   @map("password_hash") @db.VarChar(191)
   role              UserRole                 @default(ADMIN)
+  accountType       AccountType              @default(FIRM_ADMIN) @map("account_type")
   status            UserStatus               @default(ACTIVE)
+  mustChangePassword Boolean                  @default(false) @map("must_change_password")
   lastLoginAt       DateTime?                @map("last_login_at")
   passwordChangedAt DateTime?                @map("password_changed_at")
   createdAt         DateTime                 @default(now()) @map("created_at")
   updatedAt         DateTime                 @updatedAt @map("updated_at")
   deletedAt         DateTime?                @map("deleted_at")
+  firm              Firm?                    @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  firmRole          FirmRole?                @relation(fields: [firmRoleId], references: [id], onDelete: Restrict)
   authSessions      AuthSession[]
   companiesCreated  Company[]                @relation("CompanyCreatedBy")
   companiesUpdated  Company[]                @relation("CompanyUpdatedBy")
@@ -140,9 +160,56 @@ model User {
   importBatches     ImportBatch[]            @relation("ImportBatchStartedBy")
   auditLogs         AuditLog[]
 
+  @@index([firmId])
+  @@index([firmRoleId])
+  @@index([accountType])
   @@index([status])
   @@index([deletedAt])
   @@map("users")
+}
+
+model Firm {
+  id                Int               @id @default(autoincrement())
+  name              String            @db.VarChar(191)
+  slug              String            @unique @db.VarChar(100)
+  status            FirmStatus        @default(ACTIVE)
+  userLimit         Int               @default(4) @map("user_limit")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  deletedAt         DateTime?         @map("deleted_at")
+  users             User[]
+  roles             FirmRole[]
+  businessProfile   BusinessProfile?
+  companies         Company[]
+  itemCategories    ItemCategory[]
+  measurementUnits  MeasurementUnit[]
+  items             Item[]
+  quotations        Quotation[]
+  termsTemplates    TermsTemplate[]
+  importBatches     ImportBatch[]
+  auditLogs         AuditLog[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("firms")
+}
+
+model FirmRole {
+  id          Int       @id @default(autoincrement())
+  firmId      Int       @map("firm_id")
+  name        String    @db.VarChar(100)
+  description String?   @db.VarChar(500)
+  permissions Json
+  isSystem    Boolean   @default(false) @map("is_system")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  firm        Firm      @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  users       User[]
+
+  @@unique([firmId, name])
+  @@index([firmId, deletedAt])
+  @@map("firm_roles")
 }
 
 model AuthSession {
@@ -164,6 +231,7 @@ model AuthSession {
 
 model BusinessProfile {
   id               Int               @id @default(autoincrement())
+  firmId           Int               @unique @map("firm_id")
   legalName        String            @map("legal_name") @db.VarChar(191)
   displayName      String            @map("display_name") @db.VarChar(191)
   gstin            String?           @db.VarChar(20)
@@ -190,6 +258,7 @@ model BusinessProfile {
   updatedAt        DateTime          @updatedAt @map("updated_at")
   bankDetails      BankDetail[]
   quotationSetting QuotationSetting?
+  firm             Firm              @relation(fields: [firmId], references: [id], onDelete: Restrict)
 
   @@map("business_profiles")
 }
@@ -218,7 +287,7 @@ model BankDetail {
 model QuotationSetting {
   id                        Int               @id @default(autoincrement())
   businessProfileId         Int               @unique @map("business_profile_id")
-  quotationPrefix           String            @default("BUMINEX") @map("quotation_prefix") @db.VarChar(50)
+  quotationPrefix           String            @default("ERP") @map("quotation_prefix") @db.VarChar(50)
   financialYearFormat       String            @default("YYYY-YY") @map("financial_year_format") @db.VarChar(20)
   nextSequenceNumber        Int               @default(1) @map("next_sequence_number")
   sequenceResetRule         SequenceResetRule @default(FINANCIAL_YEAR) @map("sequence_reset_rule")
@@ -243,7 +312,8 @@ model QuotationSetting {
 
 model Company {
   id          Int              @id @default(autoincrement())
-  companyCode String           @unique @map("company_code") @db.VarChar(50)
+  firmId      Int              @map("firm_id")
+  companyCode String           @map("company_code") @db.VarChar(50)
   name        String           @db.VarChar(191)
   legalName   String?          @map("legal_name") @db.VarChar(191)
   gstin       String?          @db.VarChar(20)
@@ -258,11 +328,13 @@ model Company {
   deletedAt   DateTime?        @map("deleted_at")
   createdBy   User?            @relation("CompanyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy   User?            @relation("CompanyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  firm        Firm             @relation(fields: [firmId], references: [id], onDelete: Restrict)
   contacts    CompanyContact[]
   addresses   CompanyAddress[]
   quotations  Quotation[]
 
-  @@index([name])
+  @@unique([firmId, companyCode])
+  @@index([firmId, name])
   @@index([gstin])
   @@index([isActive])
   @@index([deletedAt])
@@ -313,36 +385,47 @@ model CompanyAddress {
 
 model ItemCategory {
   id          Int       @id @default(autoincrement())
-  name        String    @unique @db.VarChar(191)
-  slug        String    @unique @db.VarChar(191)
+  firmId      Int       @map("firm_id")
+  name        String    @db.VarChar(191)
+  slug        String    @db.VarChar(191)
   description String?   @db.Text
   isActive    Boolean   @default(true) @map("is_active")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
   items       Item[]
+  firm        Firm      @relation(fields: [firmId], references: [id], onDelete: Restrict)
 
+  @@unique([firmId, name])
+  @@unique([firmId, slug])
+  @@index([firmId])
   @@index([deletedAt])
   @@map("item_categories")
 }
 
 model MeasurementUnit {
   id           Int       @id @default(autoincrement())
-  name         String    @unique @db.VarChar(191)
-  symbol       String    @unique @db.VarChar(50)
+  firmId       Int       @map("firm_id")
+  name         String    @db.VarChar(191)
+  symbol       String    @db.VarChar(50)
   allowDecimal Boolean   @default(true) @map("allow_decimal")
   isActive     Boolean   @default(true) @map("is_active")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
   items        Item[]
+  firm         Firm      @relation(fields: [firmId], references: [id], onDelete: Restrict)
 
+  @@unique([firmId, name])
+  @@unique([firmId, symbol])
+  @@index([firmId])
   @@map("measurement_units")
 }
 
 model Item {
   id                  Int             @id @default(autoincrement())
-  itemCode            String          @unique @map("item_code") @db.VarChar(50)
+  firmId              Int             @map("firm_id")
+  itemCode            String          @map("item_code") @db.VarChar(50)
   categoryId          Int?            @map("category_id")
   name                String          @db.VarChar(191)
   shortDescription    String?         @map("short_description") @db.Text
@@ -366,9 +449,11 @@ model Item {
   measurementUnit     MeasurementUnit @relation(fields: [measurementUnitId], references: [id], onDelete: Restrict)
   createdBy           User?           @relation("ItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy           User?           @relation("ItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  firm                Firm            @relation(fields: [firmId], references: [id], onDelete: Restrict)
   quotationItems      QuotationItem[]
 
-  @@index([name])
+  @@unique([firmId, itemCode])
+  @@index([firmId, name])
   @@index([categoryId])
   @@index([measurementUnitId])
   @@index([sourceType])
@@ -379,6 +464,7 @@ model Item {
 
 model Quotation {
   id                      Int                      @id @default(autoincrement())
+  firmId                  Int                      @map("firm_id")
   quotationNumber         String                   @map("quotation_number") @db.VarChar(50)
   revisionNumber          Int                      @default(0) @map("revision_number")
   rootQuotationId         Int?                     @map("root_quotation_id")
@@ -443,6 +529,7 @@ model Quotation {
   shippingAddress         CompanyAddress?          @relation("QuotationShippingAddress", fields: [shippingAddressId], references: [id], onDelete: SetNull)
   createdBy               User                     @relation("QuotationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy               User?                    @relation("QuotationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  firm                    Firm                     @relation(fields: [firmId], references: [id], onDelete: Restrict)
   rootQuotation           Quotation?               @relation("QuotationRoot", fields: [rootQuotationId], references: [id], onDelete: Restrict)
   revisionFamily          Quotation[]              @relation("QuotationRoot")
   previousRevision        Quotation?               @relation("QuotationPrevious", fields: [previousRevisionId], references: [id], onDelete: Restrict)
@@ -454,9 +541,9 @@ model Quotation {
   generatedDocuments      GeneratedDocument[]
   communications          QuotationCommunication[]
 
-  @@unique([quotationNumber, revisionNumber])
-  @@unique([rootQuotationId, revisionNumber])
-  @@index([quotationDate])
+  @@unique([firmId, quotationNumber, revisionNumber])
+  @@unique([firmId, rootQuotationId, revisionNumber])
+  @@index([firmId, quotationDate])
   @@index([status])
   @@index([companyId])
   @@index([createdById])
@@ -600,6 +687,7 @@ model QuotationCommunication {
 
 model TermsTemplate {
   id        Int       @id @default(autoincrement())
+  firmId    Int       @map("firm_id")
   name      String    @db.VarChar(191)
   termType  TermType  @map("term_type")
   content   String    @db.LongText
@@ -608,13 +696,15 @@ model TermsTemplate {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
+  firm      Firm      @relation(fields: [firmId], references: [id], onDelete: Restrict)
 
-  @@index([termType])
+  @@index([firmId, termType])
   @@map("terms_templates")
 }
 
 model ImportBatch {
   id                Int               @id @default(autoincrement())
+  firmId            Int               @map("firm_id")
   sourceType        ItemSourceType    @map("source_type")
   sourceUrl         String?           @map("source_url") @db.VarChar(500)
   status            ImportBatchStatus @default(PENDING)
@@ -626,9 +716,10 @@ model ImportBatch {
   completedAt       DateTime?         @map("completed_at")
   errorSummary      String?           @map("error_summary") @db.Text
   startedBy         User              @relation("ImportBatchStartedBy", fields: [startedById], references: [id], onDelete: Restrict)
+  firm              Firm              @relation(fields: [firmId], references: [id], onDelete: Restrict)
   rows              ImportRow[]
 
-  @@index([status])
+  @@index([firmId, status])
   @@map("import_batches")
 }
 
@@ -651,6 +742,7 @@ model ImportRow {
 
 model AuditLog {
   id         Int         @id @default(autoincrement())
+  firmId     Int?        @map("firm_id")
   userId     Int?        @map("user_id")
   entityType String      @map("entity_type") @db.VarChar(100)
   entityId   String      @map("entity_id") @db.VarChar(191)
@@ -661,7 +753,9 @@ model AuditLog {
   userAgent  String?     @map("user_agent") @db.Text
   createdAt  DateTime    @default(now()) @map("created_at")
   user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  firm       Firm?       @relation(fields: [firmId], references: [id], onDelete: SetNull)
 
+  @@index([firmId, createdAt])
   @@index([entityType, entityId])
   @@index([userId])
   @@index([action])

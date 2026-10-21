@@ -8,8 +8,8 @@ import {
 
 describe('item image policy', () => {
   it('maps uploaded filenames to item storage-relative paths', () => {
-    expect(toItemRelativePath('item-abc123.jpg')).toBe('items/item-abc123.jpg');
-    expect(toItemRelativePath('/unsafe/path/item-abc123.jpg')).toBe('items/item-abc123.jpg');
+    expect(toItemRelativePath(7, 'item-abc123.jpg')).toBe('firm-assets/7/items/item-abc123.jpg');
+    expect(toItemRelativePath(7, '/unsafe/path/item-abc123.jpg')).toBe('firm-assets/7/items/item-abc123.jpg');
   });
 
   it('rejects unsupported MIME types and mismatched extensions', () => {

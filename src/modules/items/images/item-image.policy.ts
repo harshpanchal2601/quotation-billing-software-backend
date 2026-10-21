@@ -3,12 +3,12 @@ import path from 'node:path';
 
 import multer from 'multer';
 
-import { storageConfig } from '../../../config/storage.config.js';
+import { firmPublicAssetDirectory, storageConfig } from '../../../config/storage.config.js';
 import { AppError } from '../../../core/errors/AppError.js';
 import {
   deleteStorageFile,
   ensureStorageDirectory,
-  publicAssetPath,
+  resolveStoragePath,
 } from '../../../integrations/storage/index.js';
 
 const allowedMimeExtensions = {
@@ -21,10 +21,15 @@ export const ITEM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 export const uploadItemImage = multer({
   storage: multer.diskStorage({
-    destination: async (_req, _file, callback) => {
+    destination: async (req, _file, callback) => {
       try {
-        await ensureStorageDirectory(storageConfig.itemImageDirectory);
-        callback(null, publicAssetPath('items'));
+        if (req.firmId === undefined) {
+          callback(new AppError('Firm context is required', 500), '');
+          return;
+        }
+        const directory = firmPublicAssetDirectory(req.firmId, storageConfig.itemImageDirectory);
+        await ensureStorageDirectory(directory);
+        callback(null, resolveStoragePath(directory));
       } catch (error) {
         callback(error as Error, '');
       }
@@ -72,8 +77,8 @@ export function validateItemImageFile(file: Pick<Express.Multer.File, 'mimetype'
   return null;
 }
 
-export function toItemRelativePath(filename: string): string {
-  return `${storageConfig.itemImageDirectory}/${path.basename(filename)}`;
+export function toItemRelativePath(firmId: number, filename: string): string {
+  return `${firmPublicAssetDirectory(firmId, storageConfig.itemImageDirectory)}/${path.basename(filename)}`;
 }
 
 export async function removeStoredItemImage(relativePath: string | null): Promise<void> {

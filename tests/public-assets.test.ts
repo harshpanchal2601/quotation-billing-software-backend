@@ -4,7 +4,7 @@ import { publicAssetDirectories, publicAssetPath, setPublicAssetHeaders } from '
 
 describe('public asset static configuration', () => {
   it('only exposes approved public image storage directories', () => {
-    expect(publicAssetDirectories).toEqual(['items', 'logos', 'signatures', 'stamps']);
+    expect(publicAssetDirectories).toEqual(['items', 'logos', 'signatures', 'stamps', 'firm-assets']);
     expect(publicAssetDirectories).not.toContain('quotation-documents');
     expect(publicAssetDirectories).not.toContain('quotation-attachments');
   });
@@ -12,6 +12,7 @@ describe('public asset static configuration', () => {
   it('confines public image directories under storage', () => {
     expect(publicAssetPath('items')).toMatch(/storage[/\\]items$/);
     expect(publicAssetPath('logos')).toMatch(/storage[/\\]logos$/);
+    expect(publicAssetPath('firm-assets')).toMatch(/storage[/\\]firm-assets$/);
   });
 
   it('uses a cross-origin resource policy for approved public images', () => {

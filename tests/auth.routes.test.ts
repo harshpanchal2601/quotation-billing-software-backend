@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import type { Request, Response } from 'express';
-import { UserRole, UserStatus } from '@prisma/client';
+import { AccountType, FirmStatus, UserRole, UserStatus } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 process.env.NODE_ENV = 'test';
@@ -65,12 +65,27 @@ function createUser(overrides: Partial<{ passwordHash: string; status: UserStatu
     username: 'admin',
     passwordHash: overrides.passwordHash ?? '$2b$10$placeholderplaceholderplaceholderplaceholderplaceholder',
     role: UserRole.ADMIN,
+    accountType: AccountType.FIRM_ADMIN,
+    firmId: 1,
+    firmRoleId: null,
     status: overrides.status ?? UserStatus.ACTIVE,
+    mustChangePassword: false,
     lastLoginAt: null,
     passwordChangedAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     deletedAt: null,
+    firm: {
+      id: 1,
+      name: 'Example Firm',
+      slug: 'example-firm',
+      status: FirmStatus.ACTIVE,
+      userLimit: 4,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      deletedAt: null,
+    },
+    firmRole: null,
   };
 }
 

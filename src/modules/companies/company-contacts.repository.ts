@@ -22,8 +22,8 @@ const contactAuditFields = [
 export class CompanyContactsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async createContact(companyId: number, input: CompanyContactCreateInput, metadata: RequestMetadata) {
-    await this.ensureActiveCompany(companyId);
+  async createContact(firmId: number, companyId: number, input: CompanyContactCreateInput, metadata: RequestMetadata) {
+    await this.ensureActiveCompany(firmId, companyId);
 
     const created = await this.db.$transaction(async (tx) => {
       if (input.isPrimary) {
@@ -51,13 +51,14 @@ export class CompanyContactsRepository {
   }
 
   async updateContact(
+    firmId: number,
     companyId: number,
     contactId: number,
     input: CompanyContactUpdateInput,
     metadata: RequestMetadata,
   ) {
-    await this.ensureActiveCompany(companyId);
-    const existing = await this.getActiveContact(companyId, contactId);
+    await this.ensureActiveCompany(firmId, companyId);
+    const existing = await this.getActiveContact(firmId, companyId, contactId);
     const data = {
       ...(input.name === undefined ? {} : { name: input.name }),
       ...(input.designation === undefined ? {} : { designation: input.designation ?? null }),
@@ -89,9 +90,9 @@ export class CompanyContactsRepository {
     return serialiseContact(updated);
   }
 
-  async deleteContact(companyId: number, contactId: number, metadata: RequestMetadata) {
-    await this.ensureActiveCompany(companyId);
-    const existing = await this.getActiveContact(companyId, contactId);
+  async deleteContact(firmId: number, companyId: number, contactId: number, metadata: RequestMetadata) {
+    await this.ensureActiveCompany(firmId, companyId);
+    const existing = await this.getActiveContact(firmId, companyId, contactId);
 
     await this.db.$transaction(async (tx) => {
       await tx.companyContact.update({
@@ -116,9 +117,9 @@ export class CompanyContactsRepository {
     await this.auditContact(AuditAction.DELETE, existing, metadata);
   }
 
-  async setPrimaryContact(companyId: number, contactId: number, metadata: RequestMetadata) {
-    await this.ensureActiveCompany(companyId);
-    const existing = await this.getActiveContact(companyId, contactId);
+  async setPrimaryContact(firmId: number, companyId: number, contactId: number, metadata: RequestMetadata) {
+    await this.ensureActiveCompany(firmId, companyId);
+    const existing = await this.getActiveContact(firmId, companyId, contactId);
 
     const updated = await this.db.$transaction(async (tx) => {
       await tx.companyContact.updateMany({
@@ -138,17 +139,17 @@ export class CompanyContactsRepository {
     return serialiseContact(updated);
   }
 
-  private async ensureActiveCompany(companyId: number) {
+  private async ensureActiveCompany(firmId: number, companyId: number) {
     const company = await this.db.company.findFirst({
-      where: { id: companyId, deletedAt: null },
+      where: { id: companyId, firmId, deletedAt: null },
       select: { id: true },
     });
     if (company === null) throw new AppError('Company not found', 404);
   }
 
-  private async getActiveContact(companyId: number, contactId: number) {
+  private async getActiveContact(firmId: number, companyId: number, contactId: number) {
     const contact = await this.db.companyContact.findFirst({
-      where: { id: contactId, companyId, deletedAt: null, company: { deletedAt: null } },
+      where: { id: contactId, companyId, deletedAt: null, company: { firmId, deletedAt: null } },
     });
     if (contact === null) throw new AppError('Company contact not found', 404);
     return contact;

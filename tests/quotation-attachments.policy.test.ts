@@ -8,6 +8,7 @@ import {
   MAX_ATTACHMENTS_PER_QUOTATION,
   MAX_FILE_SIZE_BYTES,
   PREVIEWABLE_MIME_TYPES,
+  resolveAttachmentRelativePath,
   validateAttachmentFile,
 } from '../src/modules/quotations/attachments/quotation-attachment.policy';
 
@@ -73,5 +74,14 @@ describe('Quotation Attachment Security and Storage Validation', () => {
     const maliciousRelative = 'storage/quotation-attachments/../../etc/passwd';
     const maliciousFullPath = path.resolve(storageConfig.root, maliciousRelative.replace(/^\/?storage\//, ''));
     expect(maliciousFullPath.startsWith(attachmentStorageDir)).toBe(false);
+  });
+
+  it('stores attachment paths within the selected firm directory', () => {
+    const storedFilename = '5db19d45-3a55-48d2-a683-86f62c1a37b1.pdf';
+
+    expect(resolveAttachmentRelativePath(7, storedFilename)).toBe(
+      `storage/quotation-attachments/7/${storedFilename}`,
+    );
+    expect(getAttachmentStorageDirectory(7)).toMatch(/storage[/\\]quotation-attachments[/\\]7$/);
   });
 });

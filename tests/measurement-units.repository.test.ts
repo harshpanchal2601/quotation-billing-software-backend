@@ -52,6 +52,7 @@ const now = new Date('2026-01-01T00:00:00.000Z');
 function unit(overrides: Partial<MeasurementUnit> = {}): MeasurementUnit {
   return {
     id: 1,
+    firmId: 1,
     name: 'Kilogram',
     symbol: 'kg',
     allowDecimal: true,
@@ -84,13 +85,14 @@ describe('measurement units repository', () => {
 
     const repository = new MeasurementUnitsRepository(asPrisma(db));
     const result = await repository.createMeasurementUnit(
+      1,
       { name: 'Square Meter', symbol: 'm²', allowDecimal: true, isActive: true },
-      { userId: 1 },
+      { userId: 1, firmId: 1 },
     );
 
     expect(result.symbol).toBe('m²');
     expect(db.measurementUnit.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ name: 'Square Meter', symbol: 'm²' }),
+      data: expect.objectContaining({ firmId: 1, name: 'Square Meter', symbol: 'm²' }),
       include: expect.any(Object),
     });
   });
@@ -99,7 +101,7 @@ describe('measurement units repository', () => {
     db.measurementUnit.findFirst.mockResolvedValueOnce(unit({ symbol: 'kg' }));
 
     const repository = new MeasurementUnitsRepository(asPrisma(db));
-    await expect(repository.findDuplicateMeasurementUnit('Kilogram Dual', 'kg')).resolves.toEqual(unit({ symbol: 'kg' }));
+    await expect(repository.findDuplicateMeasurementUnit(1, 'Kilogram Dual', 'kg')).resolves.toEqual(unit({ symbol: 'kg' }));
   });
 
   it('blocks unit deletion when linked items exist', async () => {
@@ -107,20 +109,20 @@ describe('measurement units repository', () => {
     db.item.count.mockResolvedValueOnce(5);
 
     const repository = new MeasurementUnitsRepository(asPrisma(db));
-    await expect(repository.countLinkedItems(1)).resolves.toBe(5);
+    await expect(repository.countLinkedItems(1, 1)).resolves.toBe(5);
   });
 
   it('returns active non-deleted unit options only', async () => {
     db.measurementUnit.findMany.mockResolvedValueOnce([unit()]);
 
     const repository = new MeasurementUnitsRepository(asPrisma(db));
-    const result = await repository.getMeasurementUnitOptions();
+    const result = await repository.getMeasurementUnitOptions(1);
 
     expect(result.measurementUnits).toEqual([
       { id: 1, name: 'Kilogram', symbol: 'kg', allowDecimal: true },
     ]);
     expect(db.measurementUnit.findMany).toHaveBeenCalledWith({
-      where: { deletedAt: null, isActive: true },
+      where: { firmId: 1, deletedAt: null, isActive: true },
       orderBy: { name: 'asc' },
     });
   });
@@ -130,7 +132,7 @@ describe('measurement units repository', () => {
     db.measurementUnit.count.mockResolvedValueOnce(1);
 
     const repository = new MeasurementUnitsRepository(asPrisma(db));
-    const result = await repository.listMeasurementUnits({
+    const result = await repository.listMeasurementUnits(1, {
       page: 1,
       limit: 20,
       search: 'kg',
@@ -145,6 +147,7 @@ describe('measurement units repository', () => {
     expect(db.measurementUnit.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
+          firmId: 1,
           deletedAt: null,
           isActive: true,
           allowDecimal: true,
@@ -159,6 +162,6 @@ describe('measurement units repository', () => {
     db.measurementUnit.findFirst.mockResolvedValueOnce(unit({ id: 2 }));
 
     const repository = new MeasurementUnitsRepository(asPrisma(db));
-    await expect(repository.findRestoreConflict(1, 'Kilogram', 'kg')).resolves.toEqual(unit({ id: 2 }));
+    await expect(repository.findRestoreConflict(1, 1, 'Kilogram', 'kg')).resolves.toEqual(unit({ id: 2 }));
   });
 });

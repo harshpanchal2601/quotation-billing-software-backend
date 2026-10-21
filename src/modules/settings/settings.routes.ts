@@ -1,10 +1,11 @@
-import { UserRole } from '@prisma/client';
 import { Router, type Request, type Response } from 'express';
 
 import { AppError } from '../../core/errors/AppError.js';
 import { sendSuccess } from '../../core/http/apiResponse.js';
 import { asyncHandler } from '../../core/http/asyncHandler.js';
-import { requireAuthentication, requireRole } from '../auth/auth.middleware.js';
+import { getFirmId, requireFirmContext } from '../../core/tenancy/tenant-context.js';
+import { requireAuthentication, requirePermission } from '../auth/auth.middleware.js';
+import { PERMISSIONS } from '../auth/permissions.js';
 import { bankDetailsRepository } from './bank-details/bank-details.repository.js';
 import {
   bankDetailCreateSchema,
@@ -28,6 +29,7 @@ export const settingsRouter = Router();
 function metadata(req: Request) {
   return {
     userId: req.user?.id,
+    firmId: req.firmId,
     ipAddress: req.ip,
     userAgent: req.get('user-agent'),
   };
@@ -41,14 +43,26 @@ function assetTypeFromRequest(req: Request): BrandingAssetType {
   return assetType;
 }
 
-async function getBusinessProfile(_req: Request, res: Response) {
-  const businessProfile = await businessProfileRepository.getBusinessProfile();
+async function getBusinessProfile(req: Request, res: Response) {
+  const businessProfile = await businessProfileRepository.getBusinessProfile(getFirmId(req));
   return sendSuccess(res, 200, 'Business profile retrieved successfully', { businessProfile });
+}
+
+async function getFirmBranding(req: Request, res: Response) {
+  const businessProfile = await businessProfileRepository.getBusinessProfile(getFirmId(req));
+  return sendSuccess(res, 200, 'Firm branding retrieved successfully', {
+    branding: {
+      displayName: businessProfile.displayName,
+      logoUrl: businessProfile.logoUrl,
+      primaryColour: businessProfile.primaryColour,
+      secondaryColour: businessProfile.secondaryColour,
+    },
+  });
 }
 
 async function updateBusinessProfile(req: Request, res: Response) {
   const input = businessProfileUpdateSchema.parse(req.body);
-  const businessProfile = await businessProfileRepository.updateBusinessProfile(input, metadata(req));
+  const businessProfile = await businessProfileRepository.updateBusinessProfile(getFirmId(req), input, metadata(req));
   return sendSuccess(res, 200, 'Business profile updated successfully', { businessProfile });
 }
 
@@ -61,65 +75,67 @@ async function uploadBrandingAssetHandler(req: Request, res: Response) {
     throw new AppError(`Upload a single ${expectedField} image`, 400);
   }
 
-  const businessProfile = await brandingRepository.replaceAsset(assetType, file, metadata(req));
+  const businessProfile = await brandingRepository.replaceAsset(getFirmId(req), assetType, file, metadata(req));
   return sendSuccess(res, 200, `${assetType} uploaded successfully`, { businessProfile });
 }
 
 async function deleteBrandingAsset(req: Request, res: Response) {
   const assetType = assetTypeFromRequest(req);
-  const businessProfile = await brandingRepository.deleteAsset(assetType, metadata(req));
+  const businessProfile = await brandingRepository.deleteAsset(getFirmId(req), assetType, metadata(req));
   return sendSuccess(res, 200, `${assetType} deleted successfully`, { businessProfile });
 }
 
-async function getQuotationSettings(_req: Request, res: Response) {
-  const quotationSettings = await quotationSettingsRepository.getQuotationSettings();
+async function getQuotationSettings(req: Request, res: Response) {
+  const quotationSettings = await quotationSettingsRepository.getQuotationSettings(getFirmId(req));
   return sendSuccess(res, 200, 'Quotation settings retrieved successfully', { quotationSettings });
 }
 
 async function updateQuotationSettings(req: Request, res: Response) {
   const input = quotationSettingsUpdateSchema.parse(req.body);
-  const quotationSettings = await quotationSettingsRepository.updateQuotationSettings(input, metadata(req));
+  const quotationSettings = await quotationSettingsRepository.updateQuotationSettings(getFirmId(req), input, metadata(req));
   return sendSuccess(res, 200, 'Quotation settings updated successfully', { quotationSettings });
 }
 
-async function listBankDetails(_req: Request, res: Response) {
-  const bankDetails = await bankDetailsRepository.listBankDetails();
+async function listBankDetails(req: Request, res: Response) {
+  const bankDetails = await bankDetailsRepository.listBankDetails(getFirmId(req));
   return sendSuccess(res, 200, 'Bank details retrieved successfully', { bankDetails });
 }
 
 async function createBankDetail(req: Request, res: Response) {
   const input = bankDetailCreateSchema.parse(req.body);
-  const bankDetail = await bankDetailsRepository.createBankDetail(input, metadata(req));
+  const bankDetail = await bankDetailsRepository.createBankDetail(getFirmId(req), input, metadata(req));
   return sendSuccess(res, 201, 'Bank detail created successfully', { bankDetail });
 }
 
 async function updateBankDetail(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
   const input = bankDetailUpdateSchema.parse(req.body);
-  const bankDetail = await bankDetailsRepository.updateBankDetail(id, input, metadata(req));
+  const bankDetail = await bankDetailsRepository.updateBankDetail(getFirmId(req), id, input, metadata(req));
   return sendSuccess(res, 200, 'Bank detail updated successfully', { bankDetail });
 }
 
 async function deleteBankDetail(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
-  await bankDetailsRepository.deleteBankDetail(id, metadata(req));
+  await bankDetailsRepository.deleteBankDetail(getFirmId(req), id, metadata(req));
   return sendSuccess(res, 200, 'Bank detail deleted successfully', null);
 }
 
 async function setDefaultBankDetail(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
-  const bankDetail = await bankDetailsRepository.setDefaultBankDetail(id, metadata(req));
+  const bankDetail = await bankDetailsRepository.setDefaultBankDetail(getFirmId(req), id, metadata(req));
   return sendSuccess(res, 200, 'Default bank detail updated successfully', { bankDetail });
 }
 
-settingsRouter.use(requireAuthentication, requireRole(UserRole.ADMIN));
+settingsRouter.use(requireAuthentication, requireFirmContext);
 
-settingsRouter.get('/business-profile', asyncHandler(getBusinessProfile));
-settingsRouter.put('/business-profile', asyncHandler(updateBusinessProfile));
+settingsRouter.get('/branding', asyncHandler(getFirmBranding));
+settingsRouter.get('/business-profile', requirePermission(PERMISSIONS.FIRM_PROFILE_MANAGE), asyncHandler(getBusinessProfile));
+settingsRouter.put('/business-profile', requirePermission(PERMISSIONS.FIRM_PROFILE_MANAGE), asyncHandler(updateBusinessProfile));
 
 for (const assetType of Object.keys(brandingAssetConfig)) {
   settingsRouter.post(
     `/business-profile/${assetType}`,
+    requirePermission(PERMISSIONS.FIRM_PROFILE_MANAGE),
     (req, res, next) => {
       req.params.assetType = assetType;
       uploadBrandingAsset.single(brandingAssetConfig[assetType as keyof typeof brandingAssetConfig].field)(
@@ -130,20 +146,20 @@ for (const assetType of Object.keys(brandingAssetConfig)) {
     },
     asyncHandler(uploadBrandingAssetHandler),
   );
-  settingsRouter.delete(`/business-profile/${assetType}`, (req, _res, next) => {
+  settingsRouter.delete(`/business-profile/${assetType}`, requirePermission(PERMISSIONS.FIRM_PROFILE_MANAGE), (req, _res, next) => {
     req.params.assetType = assetType;
     next();
   }, asyncHandler(deleteBrandingAsset));
 }
 
-settingsRouter.get('/quotation', asyncHandler(getQuotationSettings));
-settingsRouter.put('/quotation', asyncHandler(updateQuotationSettings));
+settingsRouter.get('/quotation', requirePermission(PERMISSIONS.QUOTATION_SETTINGS_MANAGE), asyncHandler(getQuotationSettings));
+settingsRouter.put('/quotation', requirePermission(PERMISSIONS.QUOTATION_SETTINGS_MANAGE), asyncHandler(updateQuotationSettings));
 
-settingsRouter.get('/bank-details', asyncHandler(listBankDetails));
-settingsRouter.post('/bank-details', asyncHandler(createBankDetail));
-settingsRouter.put('/bank-details/:id', asyncHandler(updateBankDetail));
-settingsRouter.delete('/bank-details/:id', asyncHandler(deleteBankDetail));
-settingsRouter.patch('/bank-details/:id/default', asyncHandler(setDefaultBankDetail));
+settingsRouter.get('/bank-details', requirePermission(PERMISSIONS.BANK_DETAILS_MANAGE), asyncHandler(listBankDetails));
+settingsRouter.post('/bank-details', requirePermission(PERMISSIONS.BANK_DETAILS_MANAGE), asyncHandler(createBankDetail));
+settingsRouter.put('/bank-details/:id', requirePermission(PERMISSIONS.BANK_DETAILS_MANAGE), asyncHandler(updateBankDetail));
+settingsRouter.delete('/bank-details/:id', requirePermission(PERMISSIONS.BANK_DETAILS_MANAGE), asyncHandler(deleteBankDetail));
+settingsRouter.patch('/bank-details/:id/default', requirePermission(PERMISSIONS.BANK_DETAILS_MANAGE), asyncHandler(setDefaultBankDetail));
 
 settingsRouter.use(
   asyncHandler(async () => {

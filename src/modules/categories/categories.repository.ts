@@ -39,8 +39,9 @@ export function generateBaseSlug(name: string): string {
 export class CategoriesRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async listCategories(query: CategoryListQuery) {
+  async listCategories(firmId: number, query: CategoryListQuery) {
     const where: Prisma.ItemCategoryWhereInput = {
+      firmId,
       deletedAt: null,
       ...(query.isActive === undefined ? {} : { isActive: query.isActive }),
       ...(query.search === undefined ? {} : createCategorySearchFilter(query.search)),
@@ -63,9 +64,10 @@ export class CategoriesRepository {
     };
   }
 
-  async getCategoryOptions() {
+  async getCategoryOptions(firmId: number) {
     const categories = await this.db.itemCategory.findMany({
       where: {
+        firmId,
         deletedAt: null,
         isActive: true,
       },
@@ -77,28 +79,29 @@ export class CategoriesRepository {
     };
   }
 
-  async findCategoryByName(name: string) {
+  async findCategoryByName(firmId: number, name: string) {
     return this.db.itemCategory.findFirst({
-      where: { name },
+      where: { firmId, name },
     });
   }
 
-  async findCategoryById(id: number): Promise<CategoryWithItemCount | null> {
+  async findCategoryById(firmId: number, id: number): Promise<CategoryWithItemCount | null> {
     return this.db.itemCategory.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, firmId, deletedAt: null },
       include: categoryDetailInclude,
     });
   }
 
-  async findDeletedCategoryById(id: number) {
+  async findDeletedCategoryById(firmId: number, id: number) {
     return this.db.itemCategory.findFirst({
-      where: { id, deletedAt: { not: null } },
+      where: { id, firmId, deletedAt: { not: null } },
     });
   }
 
-  async findRestoreConflict(id: number, name: string, slug: string) {
+  async findRestoreConflict(firmId: number, id: number, name: string, slug: string) {
     return this.db.itemCategory.findFirst({
       where: {
+        firmId,
         OR: [{ name }, { slug }],
         deletedAt: null,
         NOT: { id },
@@ -106,20 +109,20 @@ export class CategoriesRepository {
     });
   }
 
-  async countLinkedItems(id: number) {
+  async countLinkedItems(firmId: number, id: number) {
     return this.db.item.count({
-      where: { categoryId: id, deletedAt: null },
+      where: { firmId, categoryId: id, deletedAt: null },
     });
   }
 
-  async generateUniqueSlug(name: string): Promise<string> {
+  async generateUniqueSlug(firmId: number, name: string): Promise<string> {
     const baseSlug = generateBaseSlug(name);
     let candidate = baseSlug;
     let suffix = 2;
 
     while (suffix <= 100) {
       const existing = await this.db.itemCategory.findFirst({
-        where: { slug: candidate },
+        where: { firmId, slug: candidate },
         select: { id: true },
       });
 
@@ -135,11 +138,13 @@ export class CategoriesRepository {
   }
 
   async createCategory(
+    firmId: number,
     input: CategoryCreateInput & { slug: string },
     metadata: RequestMetadata,
   ) {
     const category = await this.db.itemCategory.create({
       data: {
+        firmId,
         name: input.name,
         slug: input.slug,
         description: input.description ?? null,

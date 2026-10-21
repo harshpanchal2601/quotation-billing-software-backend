@@ -52,6 +52,7 @@ const now = new Date('2026-01-01T00:00:00.000Z');
 function category(overrides: Partial<ItemCategory> = {}): ItemCategory {
   return {
     id: 1,
+    firmId: 1,
     name: 'Vessels & Reactors',
     slug: 'vessels-reactors',
     description: 'Vessel category',
@@ -84,16 +85,18 @@ describe('category repository', () => {
     db.itemCategory.create.mockResolvedValueOnce(category({ slug: 'vessels-reactors' }));
 
     const repository = new CategoriesRepository(asPrisma(db));
-    const slug = await repository.generateUniqueSlug('Vessels & Reactors');
+    const slug = await repository.generateUniqueSlug(1, 'Vessels & Reactors');
     const result = await repository.createCategory(
+      1,
       { name: 'Vessels & Reactors', description: 'Vessel category', isActive: true, slug },
-      { userId: 1 },
+      { userId: 1, firmId: 1 },
     );
 
     expect(slug).toBe('vessels-reactors');
     expect(result.slug).toBe('vessels-reactors');
     expect(db.itemCategory.create).toHaveBeenCalledWith({
       data: {
+        firmId: 1,
         name: 'Vessels & Reactors',
         slug: 'vessels-reactors',
         description: 'Vessel category',
@@ -108,18 +111,18 @@ describe('category repository', () => {
     db.itemCategory.findFirst.mockResolvedValueOnce(category());
 
     const repository = new CategoriesRepository(asPrisma(db));
-    await expect(repository.findCategoryByName('Vessels & Reactors')).resolves.toEqual(category());
+    await expect(repository.findCategoryByName(1, 'Vessels & Reactors')).resolves.toEqual(category());
   });
 
   it('returns active non-deleted records only for options endpoint', async () => {
     db.itemCategory.findMany.mockResolvedValueOnce([category()]);
 
     const repository = new CategoriesRepository(asPrisma(db));
-    const result = await repository.getCategoryOptions();
+    const result = await repository.getCategoryOptions(1);
 
     expect(result.categories).toEqual([{ id: 1, name: 'Vessels & Reactors', slug: 'vessels-reactors' }]);
     expect(db.itemCategory.findMany).toHaveBeenCalledWith({
-      where: { deletedAt: null, isActive: true },
+      where: { firmId: 1, deletedAt: null, isActive: true },
       orderBy: { name: 'asc' },
     });
   });
@@ -129,7 +132,7 @@ describe('category repository', () => {
     db.itemCategory.count.mockResolvedValueOnce(1);
 
     const repository = new CategoriesRepository(asPrisma(db));
-    const result = await repository.listCategories({
+    const result = await repository.listCategories(1, {
       page: 1,
       limit: 20,
       search: 'vessels',
@@ -143,6 +146,7 @@ describe('category repository', () => {
     expect(db.itemCategory.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
+          firmId: 1,
           deletedAt: null,
           isActive: true,
         }),
@@ -156,7 +160,7 @@ describe('category repository', () => {
     db.itemCategory.findFirst.mockResolvedValueOnce(category({ id: 2 }));
 
     const repository = new CategoriesRepository(asPrisma(db));
-    await expect(repository.findRestoreConflict(1, 'Vessels & Reactors', 'vessels-reactors')).resolves.toEqual(
+    await expect(repository.findRestoreConflict(1, 1, 'Vessels & Reactors', 'vessels-reactors')).resolves.toEqual(
       category({ id: 2 }),
     );
   });

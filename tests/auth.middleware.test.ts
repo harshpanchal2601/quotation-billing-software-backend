@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { UserRole, UserStatus } from '@prisma/client';
+import { AccountType, FirmStatus, UserRole, UserStatus } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 process.env.NODE_ENV = 'test';
@@ -32,12 +32,27 @@ function createUser(passwordChangedAt: Date | null = null) {
     username: 'admin',
     passwordHash: 'hash',
     role: UserRole.ADMIN,
+    accountType: AccountType.FIRM_ADMIN,
+    firmId: 1,
+    firmRoleId: null,
     status: UserStatus.ACTIVE,
+    mustChangePassword: false,
     lastLoginAt: null,
     passwordChangedAt,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
+    firm: {
+      id: 1,
+      name: 'Example Firm',
+      slug: 'example-firm',
+      status: FirmStatus.ACTIVE,
+      userLimit: 4,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    },
+    firmRole: null,
   };
 }
 
@@ -74,7 +89,13 @@ describe('requireAuthentication', () => {
       email: 'admin@example.com',
       username: 'admin',
       role: 'ADMIN',
+      accountType: 'FIRM_ADMIN',
       status: 'ACTIVE',
+      firmId: 1,
+      firm: { id: 1, name: 'Example Firm', slug: 'example-firm' },
+      firmRole: null,
+      permissions: expect.any(Array),
+      mustChangePassword: false,
       sessionId: 5,
     });
     expect(req.user).not.toHaveProperty('passwordHash');
@@ -112,7 +133,13 @@ describe('requireRole', () => {
         email: 'admin@example.com',
         username: 'admin',
         role: UserRole.ADMIN,
+        accountType: AccountType.FIRM_ADMIN,
         status: UserStatus.ACTIVE,
+        firmId: 1,
+        firm: { id: 1, name: 'Example Firm', slug: 'example-firm' },
+        firmRole: null,
+        permissions: [],
+        mustChangePassword: false,
         sessionId: 5,
       },
     } as Request;

@@ -34,8 +34,9 @@ const itemDetailInclude = {
 export class ItemsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async listItems(query: ItemListQuery) {
+  async listItems(firmId: number, query: ItemListQuery) {
     const where: Prisma.ItemWhereInput = {
+      firmId,
       deletedAt: null,
       ...(query.isActive === undefined ? {} : { isActive: query.isActive }),
       ...(query.categoryId === undefined ? {} : { categoryId: query.categoryId }),
@@ -69,8 +70,9 @@ export class ItemsRepository {
     };
   }
 
-  async getItemOptions(query: ItemOptionsQuery) {
+  async getItemOptions(firmId: number, query: ItemOptionsQuery) {
     const where: Prisma.ItemWhereInput = {
+      firmId,
       deletedAt: null,
       isActive: true,
       category: {
@@ -104,14 +106,15 @@ export class ItemsRepository {
     };
   }
 
-  async createItem(input: ItemCreateInput, metadata: RequestMetadata) {
-    const categoryId = await this.resolveAndValidateCategory(input.categoryId);
-    await this.validateMeasurementUnit(input.measurementUnitId);
+  async createItem(firmId: number, input: ItemCreateInput, metadata: RequestMetadata) {
+    const categoryId = await this.resolveAndValidateCategory(firmId, input.categoryId);
+    await this.validateMeasurementUnit(firmId, input.measurementUnitId);
 
-    const itemCode = await this.generateUniqueItemCodeWithRetry();
+    const itemCode = await this.generateUniqueItemCodeWithRetry(firmId);
 
     const item = await this.db.item.create({
       data: {
+        firmId,
         itemCode,
         categoryId,
         name: input.name,
@@ -136,21 +139,21 @@ export class ItemsRepository {
     return serialiseItemDetail(item);
   }
 
-  async getItem(id: number) {
-    const item = await this.getExistingItemRecord(id);
+  async getItem(firmId: number, id: number) {
+    const item = await this.getExistingItemRecord(firmId, id);
     return serialiseItemDetail(item);
   }
 
-  async updateItem(id: number, input: ItemUpdateInput, metadata: RequestMetadata) {
-    const existing = await this.getExistingItemRecord(id);
+  async updateItem(firmId: number, id: number, input: ItemUpdateInput, metadata: RequestMetadata) {
+    const existing = await this.getExistingItemRecord(firmId, id);
 
     let targetCategoryId = existing.categoryId;
     if (input.categoryId !== undefined) {
-      targetCategoryId = await this.resolveAndValidateCategory(input.categoryId);
+      targetCategoryId = await this.resolveAndValidateCategory(firmId, input.categoryId);
     }
 
     if (input.measurementUnitId !== undefined && input.measurementUnitId !== existing.measurementUnitId) {
-      await this.validateMeasurementUnit(input.measurementUnitId);
+      await this.validateMeasurementUnit(firmId, input.measurementUnitId);
     }
 
     const updateData: Prisma.ItemUpdateInput = {
@@ -177,8 +180,8 @@ export class ItemsRepository {
     return serialiseItemDetail(updated);
   }
 
-  async updateItemStatus(id: number, isActive: boolean, metadata: RequestMetadata) {
-    const existing = await this.getExistingItemRecord(id);
+  async updateItemStatus(firmId: number, id: number, isActive: boolean, metadata: RequestMetadata) {
+    const existing = await this.getExistingItemRecord(firmId, id);
 
     if (existing.isActive === isActive) {
       return serialiseItemDetail(existing);
@@ -206,8 +209,8 @@ export class ItemsRepository {
     return serialiseItemDetail(updated);
   }
 
-  async deleteItem(id: number, metadata: RequestMetadata) {
-    const existing = await this.getExistingItemRecord(id);
+  async deleteItem(firmId: number, id: number, metadata: RequestMetadata) {
+    const existing = await this.getExistingItemRecord(firmId, id);
 
     await this.db.item.update({
       where: { id },
@@ -221,9 +224,9 @@ export class ItemsRepository {
     await this.auditItem(AuditAction.DELETE, existing, metadata);
   }
 
-  async restoreItem(id: number, metadata: RequestMetadata) {
+  async restoreItem(firmId: number, id: number, metadata: RequestMetadata) {
     const existing = await this.db.item.findFirst({
-      where: { id, deletedAt: { not: null } },
+      where: { id, firmId, deletedAt: { not: null } },
       include: itemDetailInclude,
     });
 
@@ -257,18 +260,18 @@ export class ItemsRepository {
     return serialiseItemDetail(restored);
   }
 
-  async uploadItemImage(id: number, file: Express.Multer.File, metadata: RequestMetadata) {
+  async uploadItemImage(firmId: number, id: number, file: Express.Multer.File, metadata: RequestMetadata) {
     const existing = await this.db.item.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, firmId, deletedAt: null },
       include: itemDetailInclude,
     });
 
     if (existing === null) {
-      await removeStoredItemImage(toItemRelativePath(file.filename));
+      await removeStoredItemImage(toItemRelativePath(firmId, file.filename));
       throw new AppError('Item not found', 404);
     }
 
-    const newRelativePath = toItemRelativePath(file.filename);
+    const newRelativePath = toItemRelativePath(firmId, file.filename);
     const oldRelativePath = existing.imagePath;
 
     try {
@@ -300,8 +303,8 @@ export class ItemsRepository {
     }
   }
 
-  async deleteItemImage(id: number, metadata: RequestMetadata) {
-    const existing = await this.getExistingItemRecord(id);
+  async deleteItemImage(firmId: number, id: number, metadata: RequestMetadata) {
+    const existing = await this.getExistingItemRecord(firmId, id);
 
     if (existing.imagePath === null) {
       return serialiseItemDetail(existing);
@@ -332,8 +335,9 @@ export class ItemsRepository {
     return serialiseItemDetail(updated);
   }
 
-  private async generateNextItemCode(db: PrismaClient | Prisma.TransactionClient): Promise<string> {
+  private async generateNextItemCode(db: PrismaClient | Prisma.TransactionClient, firmId: number): Promise<string> {
     const latestItem = await db.item.findFirst({
+      where: { firmId },
       select: { itemCode: true },
       orderBy: { id: 'desc' },
     });
@@ -348,6 +352,7 @@ export class ItemsRepository {
     }
 
     const recentItems = await db.item.findMany({
+      where: { firmId },
       select: { itemCode: true },
       take: 1000,
       orderBy: { id: 'desc' },
@@ -358,14 +363,14 @@ export class ItemsRepository {
     return formatItemCode(maxNum + 1);
   }
 
-  private async generateUniqueItemCodeWithRetry(): Promise<string> {
+  private async generateUniqueItemCodeWithRetry(firmId: number): Promise<string> {
     let currentNum: number | null = null;
 
     for (let attempt = 0; attempt < MAX_ITEM_CODE_RETRIES; attempt += 1) {
       let candidate: string;
 
       if (currentNum === null) {
-        candidate = await this.generateNextItemCode(this.db);
+        candidate = await this.generateNextItemCode(this.db, firmId);
         currentNum = parseItemCodeFromMatch(candidate) ?? 1;
       } else {
         currentNum += 1;
@@ -373,7 +378,7 @@ export class ItemsRepository {
       }
 
       const existing = await this.db.item.findFirst({
-        where: { itemCode: candidate },
+        where: { firmId, itemCode: candidate },
         select: { id: true },
       });
 
@@ -385,9 +390,9 @@ export class ItemsRepository {
     throw new AppError('Unable to generate a unique item code due to high concurrency. Please retry.', 409);
   }
 
-  private async getExistingItemRecord(id: number): Promise<ItemWithRelations> {
+  private async getExistingItemRecord(firmId: number, id: number): Promise<ItemWithRelations> {
     const item = await this.db.item.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, firmId, deletedAt: null },
       include: itemDetailInclude,
     });
 
@@ -398,10 +403,10 @@ export class ItemsRepository {
     return item;
   }
 
-  private async resolveAndValidateCategory(categoryId?: number): Promise<number> {
+  private async resolveAndValidateCategory(firmId: number, categoryId?: number): Promise<number> {
     if (categoryId !== undefined) {
       const category = await this.db.itemCategory.findFirst({
-        where: { id: categoryId, deletedAt: null },
+        where: { id: categoryId, firmId, deletedAt: null },
       });
 
       if (category === null || !category.isActive) {
@@ -412,7 +417,7 @@ export class ItemsRepository {
     }
 
     const defaultCategory = await this.db.itemCategory.findFirst({
-      where: { slug: UNCATEGORISED_SLUG, deletedAt: null },
+      where: { firmId, slug: UNCATEGORISED_SLUG, deletedAt: null },
     });
 
     if (defaultCategory === null || !defaultCategory.isActive) {
@@ -422,9 +427,9 @@ export class ItemsRepository {
     return defaultCategory.id;
   }
 
-  private async validateMeasurementUnit(measurementUnitId: number): Promise<void> {
+  private async validateMeasurementUnit(firmId: number, measurementUnitId: number): Promise<void> {
     const unit = await this.db.measurementUnit.findFirst({
-      where: { id: measurementUnitId, deletedAt: null },
+      where: { id: measurementUnitId, firmId, deletedAt: null },
     });
 
     if (unit === null || !unit.isActive) {

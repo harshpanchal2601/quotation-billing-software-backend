@@ -2,6 +2,7 @@ import type { AuditAction, Prisma, PrismaClient } from '@prisma/client';
 
 export type RequestMetadata = {
   userId?: number;
+  firmId?: number;
   ipAddress?: string;
   userAgent?: string;
 };
@@ -20,6 +21,7 @@ export async function createAuditLog(
   try {
     await db.auditLog.create({
       data: {
+        firmId: input.metadata.firmId,
         userId: input.metadata.userId,
         entityType: input.entityType,
         entityId: input.entityId,

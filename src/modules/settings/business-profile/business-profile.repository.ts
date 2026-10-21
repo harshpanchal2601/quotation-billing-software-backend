@@ -2,7 +2,7 @@ import type { BusinessProfile, PrismaClient } from '@prisma/client';
 import { AuditAction } from '@prisma/client';
 
 import { prisma } from '../../../core/database/prisma.js';
-import { defaultBusinessProfileData } from '../settings.defaults.js';
+import { AppError } from '../../../core/errors/AppError.js';
 import { createSettingsAuditLog, pickChangedFields, type RequestMetadata } from '../settings.audit.js';
 import { serialiseBusinessProfile } from '../settings.serializers.js';
 import type { BusinessProfileUpdateInput } from './business-profile.schema.js';
@@ -32,25 +32,39 @@ const businessProfileFields = [
 export class BusinessProfileRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async getOrCreateBusinessProfile() {
-    const existingProfile = await this.findFirstProfile();
+  async getOrCreateBusinessProfile(firmId: number) {
+    const existingProfile = await this.findProfile(firmId);
     if (existingProfile !== null) return existingProfile;
 
+    const firm = await this.db.firm.findFirst({ where: { id: firmId, deletedAt: null } });
+    if (firm === null) throw new AppError('Firm not found', 404);
+
     try {
-      return await this.db.businessProfile.create({ data: defaultBusinessProfileData });
+      return await this.db.businessProfile.create({
+        data: {
+          firmId,
+          legalName: firm.name,
+          displayName: firm.name,
+          addressLine1: 'Not configured',
+          city: 'Not configured',
+          state: 'Not configured',
+          postalCode: 'N/A',
+          country: 'India',
+        },
+      });
     } catch {
-      const profile = await this.findFirstProfile();
+      const profile = await this.findProfile(firmId);
       if (profile !== null) return profile;
       throw new Error('Business profile could not be created');
     }
   }
 
-  async getBusinessProfile() {
-    return serialiseBusinessProfile(await this.getOrCreateBusinessProfile());
+  async getBusinessProfile(firmId: number) {
+    return serialiseBusinessProfile(await this.getOrCreateBusinessProfile(firmId));
   }
 
-  async updateBusinessProfile(input: BusinessProfileUpdateInput, metadata: RequestMetadata) {
-    const profile = await this.getOrCreateBusinessProfile();
+  async updateBusinessProfile(firmId: number, input: BusinessProfileUpdateInput, metadata: RequestMetadata) {
+    const profile = await this.getOrCreateBusinessProfile(firmId);
     const data = Object.fromEntries(
       Object.entries(input).filter(([, value]) => value !== undefined),
     ) as Partial<BusinessProfileUpdateInput>;
@@ -78,8 +92,8 @@ export class BusinessProfileRepository {
     return serialiseBusinessProfile(updated);
   }
 
-  private async findFirstProfile(): Promise<BusinessProfile | null> {
-    return this.db.businessProfile.findFirst({ orderBy: { id: 'asc' } });
+  private async findProfile(firmId: number): Promise<BusinessProfile | null> {
+    return this.db.businessProfile.findUnique({ where: { firmId } });
   }
 }
 

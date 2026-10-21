@@ -9,10 +9,16 @@ import { dashboardRouter } from '../modules/dashboard/index.js';
 import { itemsRouter } from '../modules/items/index.js';
 import { measurementUnitsRouter } from '../modules/measurement-units/index.js';
 import { quotationsRouter } from '../modules/quotations/index.js';
+import { platformRouter } from '../modules/platform/index.js';
+import { administrationRouter } from '../modules/administration/index.js';
+import { auditLogsRouter } from '../modules/audit-logs/index.js';
 
 export const apiRouter = Router();
 
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/platform', platformRouter);
+apiRouter.use('/administration', administrationRouter);
+apiRouter.use('/audit-logs', auditLogsRouter);
 apiRouter.use('/settings', settingsRouter);
 apiRouter.use('/companies', companiesRouter);
 apiRouter.use('/categories', categoriesRouter);

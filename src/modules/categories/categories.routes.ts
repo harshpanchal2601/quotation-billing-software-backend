@@ -3,7 +3,9 @@ import { Router, type Request, type Response } from 'express';
 import { AppError } from '../../core/errors/AppError.js';
 import { sendSuccess } from '../../core/http/apiResponse.js';
 import { asyncHandler } from '../../core/http/asyncHandler.js';
-import { requireAuthentication, requireRole } from '../auth/auth.middleware.js';
+import { getFirmId, requireFirmContext } from '../../core/tenancy/tenant-context.js';
+import { requireAuthentication, requirePermission } from '../auth/auth.middleware.js';
+import { PERMISSIONS } from '../auth/permissions.js';
 import { serialiseCategory } from './categories.serializer.js';
 import { categoriesRepository } from './categories.repository.js';
 import {
@@ -20,6 +22,7 @@ export { categoriesRepository };
 function metadata(req: Request) {
 	return {
 		userId: req.user?.id,
+		firmId: req.firmId,
 		ipAddress: req.ip,
 		userAgent: req.get('user-agent'),
 	};
@@ -27,31 +30,32 @@ function metadata(req: Request) {
 
 export async function listCategories(req: Request, res: Response) {
 	const query = categoryListQuerySchema.parse(req.query);
-	const data = await categoriesRepository.listCategories(query);
+	const data = await categoriesRepository.listCategories(getFirmId(req), query);
 	return sendSuccess(res, 200, 'Categories retrieved successfully', data);
 }
 
-export async function getCategoryOptions(_req: Request, res: Response) {
-	const data = await categoriesRepository.getCategoryOptions();
+export async function getCategoryOptions(req: Request, res: Response) {
+	const data = await categoriesRepository.getCategoryOptions(getFirmId(req));
 	return sendSuccess(res, 200, 'Category options retrieved successfully', data);
 }
 
 export async function createCategory(req: Request, res: Response) {
 	const input = categoryCreateSchema.parse(req.body);
-	const existing = await categoriesRepository.findCategoryByName(input.name);
+	const firmId = getFirmId(req);
+	const existing = await categoriesRepository.findCategoryByName(firmId, input.name);
 
 	if (existing !== null) {
 		throw new AppError('Category with this name already exists', 409);
 	}
 
-	const slug = await categoriesRepository.generateUniqueSlug(input.name);
-	const category = await categoriesRepository.createCategory({ ...input, slug }, metadata(req));
+	const slug = await categoriesRepository.generateUniqueSlug(firmId, input.name);
+	const category = await categoriesRepository.createCategory(firmId, { ...input, slug }, metadata(req));
 	return sendSuccess(res, 201, 'Category created successfully', { category });
 }
 
 export async function getCategory(req: Request, res: Response) {
 	const { id } = idParamSchema.parse(req.params);
-	const category = await categoriesRepository.findCategoryById(id);
+	const category = await categoriesRepository.findCategoryById(getFirmId(req), id);
 
 	if (category === null) {
 		throw new AppError('Category not found', 404);
@@ -63,7 +67,8 @@ export async function getCategory(req: Request, res: Response) {
 export async function updateCategory(req: Request, res: Response) {
 	const { id } = idParamSchema.parse(req.params);
 	const input = categoryUpdateSchema.parse(req.body);
-	const existing = await categoriesRepository.findCategoryById(id);
+	const firmId = getFirmId(req);
+	const existing = await categoriesRepository.findCategoryById(firmId, id);
 
 	if (existing === null) {
 		throw new AppError('Category not found', 404);
@@ -74,7 +79,7 @@ export async function updateCategory(req: Request, res: Response) {
 	}
 
 	if (input.name !== undefined && input.name !== existing.name) {
-		const duplicate = await categoriesRepository.findCategoryByName(input.name);
+		const duplicate = await categoriesRepository.findCategoryByName(firmId, input.name);
 		if (duplicate !== null && duplicate.id !== id) {
 			throw new AppError('Category with this name already exists', 409);
 		}
@@ -97,7 +102,7 @@ export async function updateCategory(req: Request, res: Response) {
 export async function updateCategoryStatus(req: Request, res: Response) {
 	const { id } = idParamSchema.parse(req.params);
 	const { isActive } = categoryStatusSchema.parse(req.body);
-	const existing = await categoriesRepository.findCategoryById(id);
+	const existing = await categoriesRepository.findCategoryById(getFirmId(req), id);
 
 	if (existing === null) {
 		throw new AppError('Category not found', 404);
@@ -117,7 +122,8 @@ export async function updateCategoryStatus(req: Request, res: Response) {
 
 export async function deleteCategory(req: Request, res: Response) {
 	const { id } = idParamSchema.parse(req.params);
-	const existing = await categoriesRepository.findCategoryById(id);
+	const firmId = getFirmId(req);
+	const existing = await categoriesRepository.findCategoryById(firmId, id);
 
 	if (existing === null) {
 		throw new AppError('Category not found', 404);
@@ -127,7 +133,7 @@ export async function deleteCategory(req: Request, res: Response) {
 		throw new AppError('The default Uncategorised category cannot be deactivated or deleted.', 409);
 	}
 
-	const linkedItemsCount = await categoriesRepository.countLinkedItems(id);
+	const linkedItemsCount = await categoriesRepository.countLinkedItems(firmId, id);
 
 	if (linkedItemsCount > 0) {
 		throw new AppError('Category cannot be deleted because items are linked to it.', 409);
@@ -139,13 +145,14 @@ export async function deleteCategory(req: Request, res: Response) {
 
 export async function restoreCategory(req: Request, res: Response) {
 	const { id } = idParamSchema.parse(req.params);
-	const existing = await categoriesRepository.findDeletedCategoryById(id);
+	const firmId = getFirmId(req);
+	const existing = await categoriesRepository.findDeletedCategoryById(firmId, id);
 
 	if (existing === null) {
 		throw new AppError('Category not found', 404);
 	}
 
-	const conflict = await categoriesRepository.findRestoreConflict(existing.id, existing.name, existing.slug);
+	const conflict = await categoriesRepository.findRestoreConflict(firmId, existing.id, existing.name, existing.slug);
 
 	if (conflict !== null) {
 		throw new AppError('Cannot restore category because its name or slug conflicts with an existing category.', 409);
@@ -155,14 +162,17 @@ export async function restoreCategory(req: Request, res: Response) {
 	return sendSuccess(res, 200, 'Category restored successfully', { category });
 }
 
-categoriesRouter.use(requireAuthentication, requireRole('ADMIN'));
+categoriesRouter.use(requireAuthentication, requireFirmContext);
 
-categoriesRouter.get('/', asyncHandler(listCategories));
-categoriesRouter.get('/options', asyncHandler(getCategoryOptions));
-categoriesRouter.post('/', asyncHandler(createCategory));
-categoriesRouter.get('/:id', asyncHandler(getCategory));
-categoriesRouter.put('/:id', asyncHandler(updateCategory));
-categoriesRouter.patch('/:id/status', asyncHandler(updateCategoryStatus));
-categoriesRouter.delete('/:id', asyncHandler(deleteCategory));
-categoriesRouter.patch('/:id/restore', asyncHandler(restoreCategory));
-
+categoriesRouter.get('/', requirePermission(PERMISSIONS.CATALOG_VIEW), asyncHandler(listCategories));
+categoriesRouter.get(
+  '/options',
+  requirePermission(PERMISSIONS.CATALOG_VIEW, PERMISSIONS.ITEMS_MANAGE),
+  asyncHandler(getCategoryOptions),
+);
+categoriesRouter.post('/', requirePermission(PERMISSIONS.CATALOG_MANAGE), asyncHandler(createCategory));
+categoriesRouter.get('/:id', requirePermission(PERMISSIONS.CATALOG_VIEW), asyncHandler(getCategory));
+categoriesRouter.put('/:id', requirePermission(PERMISSIONS.CATALOG_MANAGE), asyncHandler(updateCategory));
+categoriesRouter.patch('/:id/status', requirePermission(PERMISSIONS.CATALOG_MANAGE), asyncHandler(updateCategoryStatus));
+categoriesRouter.delete('/:id', requirePermission(PERMISSIONS.CATALOG_MANAGE), asyncHandler(deleteCategory));
+categoriesRouter.patch('/:id/restore', requirePermission(PERMISSIONS.CATALOG_MANAGE), asyncHandler(restoreCategory));

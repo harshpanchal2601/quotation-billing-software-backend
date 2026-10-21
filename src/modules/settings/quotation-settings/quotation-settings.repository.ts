@@ -3,7 +3,6 @@ import type { PrismaClient } from '@prisma/client';
 
 import { prisma } from '../../../core/database/prisma.js';
 import { BusinessProfileRepository } from '../business-profile/business-profile.repository.js';
-import { defaultQuotationSettingsData } from '../settings.defaults.js';
 import { createSettingsAuditLog, pickChangedFields, type RequestMetadata } from '../settings.audit.js';
 import { serialiseQuotationSettings } from '../settings.serializers.js';
 import type { QuotationSettingsUpdateInput } from './quotation-settings.schema.js';
@@ -30,19 +29,22 @@ const quotationSettingFields = [
 export class QuotationSettingsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async getOrCreateQuotationSettings() {
-    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
+  async getOrCreateQuotationSettings(firmId: number) {
+    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile(firmId);
     const existing = await this.db.quotationSetting.findUnique({
       where: { businessProfileId: businessProfile.id },
     });
 
     if (existing !== null) return existing;
 
+    const firm = await this.db.firm.findFirst({ where: { id: firmId, deletedAt: null } });
+    if (firm === null) throw new Error('Firm not found');
+
     try {
       return await this.db.quotationSetting.create({
         data: {
           businessProfileId: businessProfile.id,
-          ...defaultQuotationSettingsData,
+          quotationPrefix: deriveQuotationPrefix(firm.slug),
         },
       });
     } catch {
@@ -54,12 +56,12 @@ export class QuotationSettingsRepository {
     }
   }
 
-  async getQuotationSettings() {
-    return serialiseQuotationSettings(await this.getOrCreateQuotationSettings());
+  async getQuotationSettings(firmId: number) {
+    return serialiseQuotationSettings(await this.getOrCreateQuotationSettings(firmId));
   }
 
-  async updateQuotationSettings(input: QuotationSettingsUpdateInput, metadata: RequestMetadata) {
-    const settings = await this.getOrCreateQuotationSettings();
+  async updateQuotationSettings(firmId: number, input: QuotationSettingsUpdateInput, metadata: RequestMetadata) {
+    const settings = await this.getOrCreateQuotationSettings(firmId);
     const data = Object.fromEntries(
       Object.entries(input)
         .filter(([, value]) => value !== undefined)
@@ -101,8 +103,13 @@ export class QuotationSettingsRepository {
   }
 }
 
+function deriveQuotationPrefix(slug: string) {
+  const prefix = slug.replace(/-/g, '_').toUpperCase().slice(0, 30);
+  return prefix.length >= 2 ? prefix : 'ERP';
+}
+
 export const quotationSettingsRepository = new QuotationSettingsRepository(prisma);
 
-export async function getOrCreateQuotationSettings(db: PrismaClient = prisma) {
-  return new QuotationSettingsRepository(db).getOrCreateQuotationSettings();
+export async function getOrCreateQuotationSettings(firmId: number, db: PrismaClient = prisma) {
+  return new QuotationSettingsRepository(db).getOrCreateQuotationSettings(firmId);
 }

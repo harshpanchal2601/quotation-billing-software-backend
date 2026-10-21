@@ -7,8 +7,11 @@ import { BusinessProfileRepository } from '../src/modules/settings/business-prof
 import { QuotationSettingsRepository } from '../src/modules/settings/quotation-settings/quotation-settings.repository.js';
 
 type MockPrisma = {
-  businessProfile: {
+  firm: {
     findFirst: ReturnType<typeof vi.fn>;
+  };
+  businessProfile: {
+    findUnique: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
@@ -36,7 +39,8 @@ function asPrisma(db: MockPrisma): PrismaClient {
 
 function createMockPrisma(): MockPrisma {
   const db: MockPrisma = {
-    businessProfile: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    firm: { findFirst: vi.fn() },
+    businessProfile: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     quotationSetting: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     bankDetail: {
       findMany: vi.fn(),
@@ -57,6 +61,7 @@ function createMockPrisma(): MockPrisma {
 function profile(overrides: Partial<BusinessProfile> = {}): BusinessProfile {
   return {
     id: 1,
+    firmId: 1,
     legalName: 'Legal Name',
     displayName: 'Display Name',
     gstin: null,
@@ -139,21 +144,24 @@ describe('settings repositories', () => {
   });
 
   it('returns the singleton business profile and creates defaults when missing', async () => {
-    db.businessProfile.findFirst.mockResolvedValueOnce(null);
+    db.businessProfile.findUnique.mockResolvedValueOnce(null);
+    db.firm.findFirst.mockResolvedValueOnce({ id: 1, name: 'Buminex', slug: 'buminex' });
     db.businessProfile.create.mockResolvedValueOnce(profile());
 
     const repository = new BusinessProfileRepository(asPrisma(db));
-    await expect(repository.getBusinessProfile()).resolves.toMatchObject({ id: 1 });
-    expect(db.businessProfile.create).toHaveBeenCalledOnce();
+    await expect(repository.getBusinessProfile(1)).resolves.toMatchObject({ id: 1 });
+    expect(db.businessProfile.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ firmId: 1, legalName: 'Buminex', displayName: 'Buminex' }),
+    });
   });
 
   it('updates only provided business profile fields and writes audit metadata', async () => {
-    db.businessProfile.findFirst.mockResolvedValueOnce(profile({ displayName: 'Old' }));
+    db.businessProfile.findUnique.mockResolvedValueOnce(profile({ displayName: 'Old' }));
     db.businessProfile.update.mockResolvedValueOnce(profile({ displayName: 'New' }));
     db.auditLog.create.mockResolvedValueOnce({ id: 1 });
 
     const repository = new BusinessProfileRepository(asPrisma(db));
-    const result = await repository.updateBusinessProfile({ displayName: 'New' }, { userId: 1 });
+    const result = await repository.updateBusinessProfile(1, { displayName: 'New' }, { userId: 1, firmId: 1 });
 
     expect(result.displayName).toBe('New');
     expect(db.businessProfile.update).toHaveBeenCalledWith({
@@ -169,12 +177,13 @@ describe('settings repositories', () => {
   });
 
   it('creates default quotation settings when missing and serialises decimals', async () => {
-    db.businessProfile.findFirst.mockResolvedValueOnce(profile());
+    db.businessProfile.findUnique.mockResolvedValueOnce(profile());
     db.quotationSetting.findUnique.mockResolvedValueOnce(null);
+    db.firm.findFirst.mockResolvedValueOnce({ id: 1, name: 'Buminex', slug: 'buminex' });
     db.quotationSetting.create.mockResolvedValueOnce(settings());
 
     const repository = new QuotationSettingsRepository(asPrisma(db));
-    const result = await repository.getQuotationSettings();
+    const result = await repository.getQuotationSettings(1);
 
     expect(result.defaultGstRate).toBe('18.00');
     expect(db.quotationSetting.create).toHaveBeenCalledWith({
@@ -183,27 +192,32 @@ describe('settings repositories', () => {
   });
 
   it('updates quotation settings with Prisma Decimal values', async () => {
-    db.businessProfile.findFirst.mockResolvedValueOnce(profile());
+    db.businessProfile.findUnique.mockResolvedValueOnce(profile());
     db.quotationSetting.findUnique.mockResolvedValueOnce(settings());
     db.quotationSetting.update.mockResolvedValueOnce(settings({ defaultGstRate: new Prisma.Decimal('12.50') }));
     db.auditLog.create.mockResolvedValueOnce({ id: 1 });
 
     const repository = new QuotationSettingsRepository(asPrisma(db));
-    const result = await repository.updateQuotationSettings({ defaultGstRate: '12.50' }, { userId: 1 });
+    const result = await repository.updateQuotationSettings(
+      1,
+      { defaultGstRate: '12.50' },
+      { userId: 1, firmId: 1 },
+    );
 
     expect(result.defaultGstRate).toBe('12.50');
     expect(db.quotationSetting.update.mock.calls[0]?.[0].data.defaultGstRate).toBeInstanceOf(Prisma.Decimal);
   });
 
   it('creates a bank detail and unsets the previous default transactionally', async () => {
-    db.businessProfile.findFirst.mockResolvedValueOnce(profile());
+    db.businessProfile.findUnique.mockResolvedValueOnce(profile());
     db.bankDetail.create.mockResolvedValueOnce(bank({ isDefault: true }));
     db.auditLog.create.mockResolvedValueOnce({ id: 1 });
 
     const repository = new BankDetailsRepository(asPrisma(db));
     const result = await repository.createBankDetail(
+      1,
       { bankName: 'HDFC Bank', accountName: 'Buminex', accountNumber: '1234567890', isDefault: true },
-      { userId: 1 },
+      { userId: 1, firmId: 1 },
     );
 
     expect(result.accountNumber).toBe('1234567890');
@@ -215,13 +229,13 @@ describe('settings repositories', () => {
   });
 
   it('sets default bank detail transactionally and masks audit account numbers', async () => {
-    db.businessProfile.findFirst.mockResolvedValueOnce(profile());
+    db.businessProfile.findUnique.mockResolvedValueOnce(profile());
     db.bankDetail.findFirst.mockResolvedValueOnce(bank({ accountNumber: '1234567890' }));
     db.bankDetail.update.mockResolvedValueOnce(bank({ isDefault: true, accountNumber: '1234567890' }));
     db.auditLog.create.mockResolvedValueOnce({ id: 1 });
 
     const repository = new BankDetailsRepository(asPrisma(db));
-    await repository.setDefaultBankDetail(1, { userId: 1 });
+    await repository.setDefaultBankDetail(1, 1, { userId: 1, firmId: 1 });
 
     expect(db.$transaction).toHaveBeenCalledOnce();
     const auditCall = db.auditLog.create.mock.calls[0]?.[0];
@@ -230,7 +244,7 @@ describe('settings repositories', () => {
   });
 
   it('soft deletes default bank records and promotes a replacement when available', async () => {
-    db.businessProfile.findFirst.mockResolvedValueOnce(profile());
+    db.businessProfile.findUnique.mockResolvedValueOnce(profile());
     db.bankDetail.findFirst
       .mockResolvedValueOnce(bank({ id: 1, isDefault: true }))
       .mockResolvedValueOnce(bank({ id: 2, isDefault: false }));
@@ -238,7 +252,7 @@ describe('settings repositories', () => {
     db.auditLog.create.mockResolvedValueOnce({ id: 1 });
 
     const repository = new BankDetailsRepository(asPrisma(db));
-    await repository.deleteBankDetail(1, { userId: 1 });
+    await repository.deleteBankDetail(1, 1, { userId: 1, firmId: 1 });
 
     expect(db.bankDetail.update).toHaveBeenCalledWith({
       where: { id: 1 },
@@ -251,11 +265,11 @@ describe('settings repositories', () => {
   });
 
   it('returns 404 for missing bank records', async () => {
-    db.businessProfile.findFirst.mockResolvedValueOnce(profile());
+    db.businessProfile.findUnique.mockResolvedValueOnce(profile());
     db.bankDetail.findFirst.mockResolvedValueOnce(null);
 
     const repository = new BankDetailsRepository(asPrisma(db));
-    await expect(repository.setDefaultBankDetail(999, { userId: 1 })).rejects.toMatchObject({
+    await expect(repository.setDefaultBankDetail(1, 999, { userId: 1, firmId: 1 })).rejects.toMatchObject({
       statusCode: 404,
     });
   });

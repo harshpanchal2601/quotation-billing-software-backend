@@ -3,12 +3,11 @@ import path from 'node:path';
 
 import multer from 'multer';
 
-import { storageConfig } from '../../../config/storage.config.js';
+import { firmPublicAssetDirectory, storageConfig } from '../../../config/storage.config.js';
 import { AppError } from '../../../core/errors/AppError.js';
 import {
   deleteStorageFile,
   ensureStorageDirectory,
-  publicAssetPath,
   resolveStoragePath,
 } from '../../../integrations/storage/index.js';
 
@@ -37,9 +36,13 @@ export const uploadBrandingAsset = multer({
           callback(new AppError('Unsupported branding asset type', 404), '');
           return;
         }
-        const directory = brandingAssetConfig[assetType].directory;
+        if (req.firmId === undefined) {
+          callback(new AppError('Firm context is required', 500), '');
+          return;
+        }
+        const directory = firmPublicAssetDirectory(req.firmId, brandingAssetConfig[assetType].directory);
         await ensureStorageDirectory(directory);
-        callback(null, publicAssetPath(directory));
+        callback(null, resolveStoragePath(directory));
       } catch (error) {
         callback(error as Error, '');
       }
@@ -102,8 +105,8 @@ export async function removeStoredBrandingAsset(relativePath: string | null) {
   }
 }
 
-export function toBrandingRelativePath(assetType: BrandingAssetType, filename: string) {
-  return `${brandingAssetConfig[assetType].directory}/${path.basename(filename)}`;
+export function toBrandingRelativePath(firmId: number, assetType: BrandingAssetType, filename: string) {
+  return `${firmPublicAssetDirectory(firmId, brandingAssetConfig[assetType].directory)}/${path.basename(filename)}`;
 }
 
 export function resolveBrandingPath(relativePath: string) {

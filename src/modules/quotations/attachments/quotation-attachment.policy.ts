@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import multer from 'multer';
 
-import { storageConfig } from '../../../config/storage.config.js';
+import { firmProtectedDirectory, storageConfig } from '../../../config/storage.config.js';
 import { AppError } from '../../../core/errors/AppError.js';
 import { storageService } from '../../../integrations/storage/index.js';
 
@@ -29,8 +29,11 @@ export const PREVIEWABLE_MIME_TYPES = new Set([
   'text/plain',
 ]);
 
-export function getAttachmentStorageDirectory() {
-  return storageService.resolveStoragePath(storageConfig.quotationAttachmentDirectory);
+export function getAttachmentStorageDirectory(firmId?: number) {
+  const directory = firmId === undefined
+    ? storageConfig.quotationAttachmentDirectory
+    : firmProtectedDirectory(storageConfig.quotationAttachmentDirectory, firmId);
+  return storageService.resolveStoragePath(directory);
 }
 
 export function getFileCategory(mimeType: string): string {
@@ -66,10 +69,15 @@ export function validateAttachmentFile(file: Express.Multer.File): AppError | nu
 
 export const uploadQuotationAttachment = multer({
   storage: multer.diskStorage({
-    destination: async (_req, _file, callback) => {
+    destination: async (req, _file, callback) => {
       try {
-        await storageService.ensureStorageDirectory(storageConfig.quotationAttachmentDirectory);
-        callback(null, getAttachmentStorageDirectory());
+        if (req.firmId === undefined) {
+          callback(new AppError('Firm context is required', 500), '');
+          return;
+        }
+        const directory = firmProtectedDirectory(storageConfig.quotationAttachmentDirectory, req.firmId);
+        await storageService.ensureStorageDirectory(directory);
+        callback(null, getAttachmentStorageDirectory(req.firmId));
       } catch (error) {
         callback(error as Error, '');
       }
@@ -95,8 +103,8 @@ export const uploadQuotationAttachment = multer({
   },
 });
 
-export function resolveAttachmentRelativePath(storedFilename: string) {
-  return `storage/${storageConfig.quotationAttachmentDirectory}/${storedFilename}`;
+export function resolveAttachmentRelativePath(firmId: number, storedFilename: string) {
+  return `storage/${firmProtectedDirectory(storageConfig.quotationAttachmentDirectory, firmId)}/${storedFilename}`;
 }
 
 export function resolveAttachmentAbsolutePath(relativePath: string) {

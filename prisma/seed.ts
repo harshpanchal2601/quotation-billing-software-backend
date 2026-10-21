@@ -1,13 +1,15 @@
 import { pathToFileURL } from 'node:url';
 
 import bcrypt from 'bcrypt';
-import { UserRole, UserStatus } from '@prisma/client';
+import { AccountType, FirmStatus, UserRole, UserStatus } from '@prisma/client';
 
 import { env } from '../src/config/env.js';
 import { prisma } from '../src/core/database/prisma.js';
 import {
   initialAdminSeedSchema,
+  platformAdminSeedSchema,
   type InitialAdminSeedInput,
+  type PlatformAdminSeedInput,
 } from '../src/modules/auth/auth.schema.js';
 import {
   defaultBusinessProfileData,
@@ -30,8 +32,26 @@ export const defaultMeasurementUnits = [
   { name: 'Job', symbol: 'JOB', allowDecimal: false },
 ] as const;
 
+export const initialFirm = {
+  name: 'Buminex Pharmtech Solutions Pvt. Ltd.',
+  slug: 'buminex',
+  userLimit: 4,
+} as const;
+
 type InitialAdminSeedResult = 'created' | 'already-existed';
 type SingletonSeedResult = 'created' | 'already-existed';
+
+export async function seedInitialFirm() {
+  const existingFirm = await prisma.firm.findUnique({ where: { slug: initialFirm.slug } });
+  if (existingFirm !== null) return existingFirm;
+
+  return prisma.firm.create({
+    data: {
+      ...initialFirm,
+      status: FirmStatus.ACTIVE,
+    },
+  });
+}
 
 export function getInitialAdminSeedInput(environment: NodeJS.ProcessEnv): InitialAdminSeedInput {
   return initialAdminSeedSchema.parse({
@@ -42,8 +62,49 @@ export function getInitialAdminSeedInput(environment: NodeJS.ProcessEnv): Initia
   });
 }
 
+export function getPlatformAdminSeedInput(environment: NodeJS.ProcessEnv): PlatformAdminSeedInput | null {
+  const values = {
+    name: environment.PLATFORM_ADMIN_NAME,
+    email: environment.PLATFORM_ADMIN_EMAIL,
+    username: environment.PLATFORM_ADMIN_USERNAME,
+    password: environment.PLATFORM_ADMIN_PASSWORD,
+  };
+  if (Object.values(values).every((value) => value === undefined || value.trim() === '')) return null;
+  return platformAdminSeedSchema.parse(values);
+}
+
+export async function seedPlatformAdmin(input: PlatformAdminSeedInput | null): Promise<InitialAdminSeedResult> {
+  if (input === null) return 'already-existed';
+  const email = input.email.trim().toLowerCase();
+  const username = input.username.trim().toLowerCase();
+  const existingUser = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });
+  if (existingUser !== null) {
+    if (existingUser.accountType !== AccountType.SUPER_ADMIN) {
+      throw new Error('Platform administrator email or username belongs to a non-platform account.');
+    }
+    console.info('Platform administrator already exists.');
+    return 'already-existed';
+  }
+  const passwordHash = await bcrypt.hash(input.password, env.BCRYPT_SALT_ROUNDS);
+  await prisma.user.create({
+    data: {
+      name: input.name.trim(),
+      email,
+      username,
+      passwordHash,
+      role: UserRole.ADMIN,
+      accountType: AccountType.SUPER_ADMIN,
+      status: UserStatus.ACTIVE,
+      passwordChangedAt: new Date(),
+    },
+  });
+  console.info('Platform administrator created.');
+  return 'created';
+}
+
 export async function seedInitialAdmin(
   input: InitialAdminSeedInput,
+  firmId: number,
 ): Promise<InitialAdminSeedResult> {
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
@@ -69,6 +130,8 @@ export async function seedInitialAdmin(
       username,
       passwordHash,
       role: UserRole.ADMIN,
+      accountType: AccountType.FIRM_ADMIN,
+      firmId,
       status: UserStatus.ACTIVE,
       passwordChangedAt: new Date(),
     },
@@ -78,8 +141,8 @@ export async function seedInitialAdmin(
   return 'created';
 }
 
-export async function seedDefaultBusinessProfile(): Promise<SingletonSeedResult> {
-  const existingProfile = await prisma.businessProfile.findFirst({ orderBy: { id: 'asc' } });
+export async function seedDefaultBusinessProfile(firmId: number): Promise<SingletonSeedResult> {
+  const existingProfile = await prisma.businessProfile.findUnique({ where: { firmId } });
 
   if (existingProfile !== null) {
     console.info('Default business profile already exists.');
@@ -87,18 +150,18 @@ export async function seedDefaultBusinessProfile(): Promise<SingletonSeedResult>
   }
 
   await prisma.businessProfile.create({
-    data: defaultBusinessProfileData,
+    data: { firmId, ...defaultBusinessProfileData },
   });
   console.info('Default business profile created.');
   return 'created';
 }
 
-export async function seedDefaultQuotationSettings(): Promise<SingletonSeedResult> {
-  let businessProfile = await prisma.businessProfile.findFirst({ orderBy: { id: 'asc' } });
+export async function seedDefaultQuotationSettings(firmId: number): Promise<SingletonSeedResult> {
+  let businessProfile = await prisma.businessProfile.findUnique({ where: { firmId } });
 
   if (businessProfile === null) {
     businessProfile = await prisma.businessProfile.create({
-      data: defaultBusinessProfileData,
+      data: { firmId, ...defaultBusinessProfileData },
     });
     console.info('Default business profile created.');
   }
@@ -123,35 +186,49 @@ export async function seedDefaultQuotationSettings(): Promise<SingletonSeedResul
 }
 
 export async function seed() {
+  const firm = await seedInitialFirm();
+
+  await seedPlatformAdmin(getPlatformAdminSeedInput(process.env));
+
   await prisma.itemCategory.upsert({
-    where: { slug: defaultItemCategory.slug },
+    where: {
+      firmId_slug: {
+        firmId: firm.id,
+        slug: defaultItemCategory.slug,
+      },
+    },
     update: {
       name: defaultItemCategory.name,
       description: defaultItemCategory.description,
       isActive: true,
       deletedAt: null,
     },
-    create: defaultItemCategory,
+    create: { firmId: firm.id, ...defaultItemCategory },
   });
 
   await Promise.all(
     defaultMeasurementUnits.map((unit) =>
       prisma.measurementUnit.upsert({
-        where: { symbol: unit.symbol },
+        where: {
+          firmId_symbol: {
+            firmId: firm.id,
+            symbol: unit.symbol,
+          },
+        },
         update: {
           name: unit.name,
           allowDecimal: unit.allowDecimal,
           isActive: true,
           deletedAt: null,
         },
-        create: unit,
+        create: { firmId: firm.id, ...unit },
       }),
     ),
   );
 
-  await seedInitialAdmin(getInitialAdminSeedInput(process.env));
-  await seedDefaultBusinessProfile();
-  await seedDefaultQuotationSettings();
+  await seedInitialAdmin(getInitialAdminSeedInput(process.env), firm.id);
+  await seedDefaultBusinessProfile(firm.id);
+  await seedDefaultQuotationSettings(firm.id);
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {

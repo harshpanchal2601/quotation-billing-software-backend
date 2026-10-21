@@ -53,8 +53,9 @@ export type CompanyDetailRecord = Prisma.CompanyGetPayload<{
 export class CompaniesRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async listCompanies(query: CompanyListQuery) {
+  async listCompanies(firmId: number, query: CompanyListQuery) {
     const where: Prisma.CompanyWhereInput = {
+      firmId,
       deletedAt: null,
       ...(query.isActive === undefined ? {} : { isActive: query.isActive }),
       ...(query.search === undefined ? {} : createCompanySearchFilter(query.search)),
@@ -93,15 +94,16 @@ export class CompaniesRepository {
     };
   }
 
-  async createCompany(input: CompanyCreateInput, metadata: RequestMetadata) {
+  async createCompany(firmId: number, input: CompanyCreateInput, metadata: RequestMetadata) {
     let lastUniqueConflict = false;
 
     for (let attempt = 0; attempt < MAX_COMPANY_CODE_RETRIES; attempt += 1) {
       try {
         const created = await this.db.$transaction(async (tx) => {
-          const companyCode = await this.generateNextCompanyCode(tx);
+          const companyCode = await this.generateNextCompanyCode(tx, firmId);
           const company = await tx.company.create({
             data: {
+              firmId,
               companyCode,
               name: input.name,
               legalName: input.legalName ?? null,
@@ -121,7 +123,7 @@ export class CompaniesRepository {
         });
 
         await this.auditCompany(AuditAction.CREATE, created, metadata);
-        return this.getCompany(created.id);
+        return this.getCompany(firmId, created.id);
       } catch (error) {
         if (isUniqueConflict(error)) {
           lastUniqueConflict = true;
@@ -137,47 +139,47 @@ export class CompaniesRepository {
     throw new AppError('Company could not be created', 500);
   }
 
-  async getCompany(id: number) {
-    const company = await this.findCompanyDetailById(id);
+  async getCompany(firmId: number, id: number) {
+    const company = await this.findCompanyDetailById(firmId, id);
     if (company === null) {
       throw new AppError('Company not found', 404);
     }
-    const quotationSummary = await this.getQuotationSummary(id);
+    const quotationSummary = await this.getQuotationSummary(firmId, id);
     return serialiseCompanyDetail(company, quotationSummary);
   }
 
-  async findCompanyDetailById(id: number): Promise<CompanyDetailRecord | null> {
+  async findCompanyDetailById(firmId: number, id: number): Promise<CompanyDetailRecord | null> {
     return this.db.company.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, firmId, deletedAt: null },
       include: companyDetailInclude,
     });
   }
 
-  async findActiveCompanyRecord(id: number) {
-    return this.db.company.findFirst({ where: { id, deletedAt: null } });
+  async findActiveCompanyRecord(firmId: number, id: number) {
+    return this.db.company.findFirst({ where: { id, firmId, deletedAt: null } });
   }
 
-  async findDeletedCompanyById(id: number) {
+  async findDeletedCompanyById(firmId: number, id: number) {
     return this.db.company.findFirst({
-      where: { id, deletedAt: { not: null } },
+      where: { id, firmId, deletedAt: { not: null } },
     });
   }
 
-  async countActiveQuotations(companyId: number) {
+  async countActiveQuotations(firmId: number, companyId: number) {
     return this.db.quotation.count({
-      where: { companyId, deletedAt: null },
+      where: { firmId, companyId, deletedAt: null },
     });
   }
 
-  async updateCompany(id: number, input: CompanyUpdateInput, metadata: RequestMetadata) {
-    const existing = await this.findActiveCompanyRecord(id);
+  async updateCompany(firmId: number, id: number, input: CompanyUpdateInput, metadata: RequestMetadata) {
+    const existing = await this.findActiveCompanyRecord(firmId, id);
     if (existing === null) {
       throw new AppError('Company not found', 404);
     }
     const data = toCompanyUpdateData(input);
 
     if (Object.keys(data).length === 0 || !hasCompanyChanges(existing, data)) {
-      return this.getCompany(id);
+      return this.getCompany(firmId, id);
     }
 
     const updated = await this.db.company.update({
@@ -189,16 +191,16 @@ export class CompaniesRepository {
     });
 
     await this.auditCompany(AuditAction.UPDATE, updated, metadata, existing);
-    return this.getCompany(id);
+    return this.getCompany(firmId, id);
   }
 
-  async updateCompanyStatus(id: number, isActive: boolean, metadata: RequestMetadata) {
-    const existing = await this.findActiveCompanyRecord(id);
+  async updateCompanyStatus(firmId: number, id: number, isActive: boolean, metadata: RequestMetadata) {
+    const existing = await this.findActiveCompanyRecord(firmId, id);
     if (existing === null) {
       throw new AppError('Company not found', 404);
     }
     if (existing.isActive === isActive) {
-      return this.getCompany(id);
+      return this.getCompany(firmId, id);
     }
 
     const updated = await this.db.company.update({
@@ -209,15 +211,15 @@ export class CompaniesRepository {
     await this.auditCompany(AuditAction.STATUS_CHANGE, updated, metadata, existing, {
       statusChanged: true,
     });
-    return this.getCompany(id);
+    return this.getCompany(firmId, id);
   }
 
-  async deleteCompany(id: number, metadata: RequestMetadata) {
-    const existing = await this.findActiveCompanyRecord(id);
+  async deleteCompany(firmId: number, id: number, metadata: RequestMetadata) {
+    const existing = await this.findActiveCompanyRecord(firmId, id);
     if (existing === null) {
       throw new AppError('Company not found', 404);
     }
-    const quotationCount = await this.countActiveQuotations(id);
+    const quotationCount = await this.countActiveQuotations(firmId, id);
 
     if (quotationCount > 0) {
       throw new AppError('Company cannot be deleted because quotations are linked to it.', 409);
@@ -249,8 +251,8 @@ export class CompaniesRepository {
     });
   }
 
-  async restoreCompany(id: number, metadata: RequestMetadata) {
-    const existing = await this.findDeletedCompanyById(id);
+  async restoreCompany(firmId: number, id: number, metadata: RequestMetadata) {
+    const existing = await this.findDeletedCompanyById(firmId, id);
 
     if (existing === null) {
       throw new AppError('Company not found', 404);
@@ -268,15 +270,16 @@ export class CompaniesRepository {
     await this.auditCompany(AuditAction.RESTORE, restored, metadata, existing, {
       restoreNote: 'Company restored only. Contacts and addresses may require administrator review.',
     });
-    return this.getCompany(id);
+    return this.getCompany(firmId, id);
   }
 
-  async listCompanyQuotations(id: number, query: QuotationHistoryQuery) {
-    const company = await this.findActiveCompanyRecord(id);
+  async listCompanyQuotations(firmId: number, id: number, query: QuotationHistoryQuery) {
+    const company = await this.findActiveCompanyRecord(firmId, id);
     if (company === null) {
       throw new AppError('Company not found', 404);
     }
     const where: Prisma.QuotationWhereInput = {
+      firmId,
       companyId: id,
       deletedAt: null,
       isLatestRevision: true,
@@ -318,10 +321,10 @@ export class CompaniesRepository {
     };
   }
 
-  async getQuotationSummary(companyId: number) {
+  async getQuotationSummary(firmId: number, companyId: number) {
     const grouped = await this.db.quotation.groupBy({
       by: ['status'],
-      where: { companyId, deletedAt: null, isLatestRevision: true },
+      where: { firmId, companyId, deletedAt: null, isLatestRevision: true },
       _count: { _all: true },
     });
 
@@ -337,9 +340,10 @@ export class CompaniesRepository {
     };
   }
 
-  async generateNextCompanyCode(tx: Prisma.TransactionClient) {
+  async generateNextCompanyCode(tx: Prisma.TransactionClient, firmId: number) {
     const latestCompanies = await tx.company.findMany({
       where: {
+        firmId,
         companyCode: {
           startsWith: 'COMP-',
         },

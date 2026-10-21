@@ -9,7 +9,7 @@ export const healthRouter = Router();
 healthRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
-    return sendSuccess(res, 200, 'Buminex API is running', {
+    return sendSuccess(res, 200, 'ERP API is running', {
       status: 'healthy',
     });
   }),

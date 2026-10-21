@@ -9,7 +9,14 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   void _next;
 
   if (error instanceof ZodError) {
-    return sendError(res, 400, 'Validation failed', error.flatten());
+    const flattenedError = error.flatten();
+    const validationMessage = error.issues.find((issue) => issue.message.trim().length > 0)?.message;
+    return sendError(
+      res,
+      400,
+      validationMessage ?? 'Please review the entered information and try again.',
+      flattenedError,
+    );
   }
 
   if (error instanceof AppError) {

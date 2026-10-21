@@ -15,10 +15,10 @@ import {
 export class BrandingRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async replaceAsset(assetType: BrandingAssetType, file: Express.Multer.File, metadata: RequestMetadata) {
-    const profile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
+  async replaceAsset(firmId: number, assetType: BrandingAssetType, file: Express.Multer.File, metadata: RequestMetadata) {
+    const profile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile(firmId);
     const config = brandingAssetConfig[assetType];
-    const relativePath = toBrandingRelativePath(assetType, file.filename);
+    const relativePath = toBrandingRelativePath(firmId, assetType, file.filename);
     const previousPath = profile[config.profileField];
 
     try {
@@ -44,8 +44,8 @@ export class BrandingRepository {
     }
   }
 
-  async deleteAsset(assetType: BrandingAssetType, metadata: RequestMetadata) {
-    const profile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
+  async deleteAsset(firmId: number, assetType: BrandingAssetType, metadata: RequestMetadata) {
+    const profile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile(firmId);
     const config = brandingAssetConfig[assetType];
     const previousPath = profile[config.profileField];
 

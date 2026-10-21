@@ -3,7 +3,7 @@ import path from 'node:path';
 import { AuditAction, DocumentType, type PrismaClient } from '@prisma/client';
 
 import { prisma } from '../../../core/database/prisma.js';
-import { storageConfig } from '../../../config/storage.config.js';
+import { firmPublicAssetDirectory, storageConfig } from '../../../config/storage.config.js';
 import { createAuditLog, type RequestMetadata } from '../../../core/audit/audit-log.service.js';
 import {
   brandingAssetConfig,
@@ -14,22 +14,37 @@ import { storageService } from '../../../integrations/storage/index.js';
 import type { QuotationPdfViewModel } from './quotation-documents.types.js';
 
 export async function getBrandingFileDataUrl(
+  firmId: number,
   assetType: BrandingAssetType,
   relativePath: string | null | undefined,
 ): Promise<string | null> {
   if (!relativePath) return null;
 
   try {
-    const normalizedPath = relativePath.replace(/^\/?storage\//, '');
+    const normalizedPath = relativePath.replace(/^\/?storage\//, '').replace(/\\/g, '/');
     const expectedDirectory = brandingAssetConfig[assetType].directory;
-    const relativeDirectory = normalizedPath.split(/[\\/]/)[0];
+    const fullPath = resolveBrandingPath(normalizedPath);
+    const allowedDirectories = [
+      firmPublicAssetDirectory(firmId, expectedDirectory),
+      expectedDirectory,
+    ];
 
-    if (relativeDirectory !== expectedDirectory) {
+    const isAllowedPath = allowedDirectories.some((directory) => {
+      const absoluteDirectory = resolveBrandingPath(directory);
+      const relativeToDirectory = path.relative(absoluteDirectory, fullPath);
+      return (
+        relativeToDirectory.length > 0 &&
+        relativeToDirectory !== '..' &&
+        !relativeToDirectory.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relativeToDirectory)
+      );
+    });
+
+    if (!isAllowedPath) {
       console.warn(`Configured ${assetType} branding asset is outside its storage area.`);
       return null;
     }
 
-    const fullPath = resolveBrandingPath(normalizedPath);
     const fileBuffer = await storageService.readStorageFile(
       path.relative(storageConfig.root, fullPath).replace(/\\/g, '/'),
     );
@@ -229,9 +244,9 @@ export function buildQuotationPdfViewModel(
 export class QuotationDocumentsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async findQuotationForPdf(quotationId: number) {
+  async findQuotationForPdf(firmId: number, quotationId: number) {
     return this.db.quotation.findFirst({
-      where: { id: quotationId, deletedAt: null },
+      where: { id: quotationId, firmId, deletedAt: null },
       include: {
         items: { orderBy: { sortOrder: 'asc' } },
       },
@@ -292,14 +307,15 @@ export class QuotationDocumentsRepository {
     });
   }
 
-  async findDocumentForQuotation(quotationId: number, documentId: number) {
+  async findDocumentForQuotation(firmId: number, quotationId: number, documentId: number) {
     return this.db.generatedDocument.findFirst({
-      where: { id: documentId, quotationId },
+      where: { id: documentId, quotationId, quotation: { firmId } },
       include: { quotation: true },
     });
   }
 
   async listDocumentHistory(
+    firmId: number,
     quotationId: number,
     query: { page: number; limit: number; sortOrder: 'asc' | 'desc' },
   ) {
@@ -307,9 +323,9 @@ export class QuotationDocumentsRepository {
     const skip = (page - 1) * limit;
 
     const [total, documents] = await Promise.all([
-      this.db.generatedDocument.count({ where: { quotationId } }),
+      this.db.generatedDocument.count({ where: { quotationId, quotation: { firmId } } }),
       this.db.generatedDocument.findMany({
-        where: { quotationId },
+        where: { quotationId, quotation: { firmId } },
         orderBy: { generatedAt: sortOrder },
         skip,
         take: limit,

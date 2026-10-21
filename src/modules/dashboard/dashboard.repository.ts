@@ -115,7 +115,7 @@ export function resolveDashboardDateRange(
 export class DashboardRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async getDashboardOverview(query: DashboardOverviewQuery): Promise<DashboardOverviewData> {
+  async getDashboardOverview(firmId: number, query: DashboardOverviewQuery): Promise<DashboardOverviewData> {
     const range = resolveDashboardDateRange(query.period, query.dateFrom, query.dateTo);
 
     const startBound = new Date(`${range.dateFrom}T00:00:00.000Z`);
@@ -125,6 +125,7 @@ export class DashboardRepository {
       await Promise.all([
         this.db.quotation.findMany({
           where: {
+            firmId,
             deletedAt: null,
             isLatestRevision: true,
             quotationDate: {
@@ -149,8 +150,8 @@ export class DashboardRepository {
           },
           orderBy: { createdAt: 'desc' },
         }),
-        this.db.company.count({ where: { isActive: true, deletedAt: null } }),
-        this.db.item.count({ where: { isActive: true, deletedAt: null } }),
+        this.db.company.count({ where: { firmId, isActive: true, deletedAt: null } }),
+        this.db.item.count({ where: { firmId, isActive: true, deletedAt: null } }),
         (() => {
           const today = new Date();
           const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
@@ -158,6 +159,7 @@ export class DashboardRepository {
 
           return this.db.quotation.findMany({
             where: {
+              firmId,
               deletedAt: null,
               isLatestRevision: true,
               status: { in: OPEN_STATUSES },
@@ -178,7 +180,7 @@ export class DashboardRepository {
             orderBy: { validUntil: 'asc' },
           });
         })(),
-        this.db.businessProfile.findFirst({ select: { defaultCurrency: true } }),
+        this.db.businessProfile.findUnique({ where: { firmId }, select: { defaultCurrency: true } }),
       ]);
 
     const defaultCurrency = businessProfile?.defaultCurrency || 'INR';

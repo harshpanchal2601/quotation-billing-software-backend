@@ -28,8 +28,9 @@ const unitDetailInclude = {
 export class MeasurementUnitsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async listMeasurementUnits(query: MeasurementUnitListQuery) {
+  async listMeasurementUnits(firmId: number, query: MeasurementUnitListQuery) {
     const where: Prisma.MeasurementUnitWhereInput = {
+      firmId,
       deletedAt: null,
       ...(query.isActive === undefined ? {} : { isActive: query.isActive }),
       ...(query.allowDecimal === undefined ? {} : { allowDecimal: query.allowDecimal }),
@@ -53,9 +54,10 @@ export class MeasurementUnitsRepository {
     };
   }
 
-  async getMeasurementUnitOptions() {
+  async getMeasurementUnitOptions(firmId: number) {
     const measurementUnits = await this.db.measurementUnit.findMany({
       where: {
+        firmId,
         deletedAt: null,
         isActive: true,
       },
@@ -67,31 +69,33 @@ export class MeasurementUnitsRepository {
     };
   }
 
-  async findDuplicateMeasurementUnit(name: string, symbol: string, excludeId?: number) {
+  async findDuplicateMeasurementUnit(firmId: number, name: string, symbol: string, excludeId?: number) {
     return this.db.measurementUnit.findFirst({
       where: {
+        firmId,
         OR: [{ name }, { symbol }],
         ...(excludeId === undefined ? {} : { NOT: { id: excludeId } }),
       },
     });
   }
 
-  async findMeasurementUnitById(id: number): Promise<MeasurementUnitWithItemCount | null> {
+  async findMeasurementUnitById(firmId: number, id: number): Promise<MeasurementUnitWithItemCount | null> {
     return this.db.measurementUnit.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, firmId, deletedAt: null },
       include: unitDetailInclude,
     });
   }
 
-  async findDeletedMeasurementUnitById(id: number) {
+  async findDeletedMeasurementUnitById(firmId: number, id: number) {
     return this.db.measurementUnit.findFirst({
-      where: { id, deletedAt: { not: null } },
+      where: { id, firmId, deletedAt: { not: null } },
     });
   }
 
-  async findRestoreConflict(id: number, name: string, symbol: string) {
+  async findRestoreConflict(firmId: number, id: number, name: string, symbol: string) {
     return this.db.measurementUnit.findFirst({
       where: {
+        firmId,
         OR: [{ name }, { symbol }],
         deletedAt: null,
         NOT: { id },
@@ -99,18 +103,20 @@ export class MeasurementUnitsRepository {
     });
   }
 
-  async countLinkedItems(id: number) {
+  async countLinkedItems(firmId: number, id: number) {
     return this.db.item.count({
-      where: { measurementUnitId: id, deletedAt: null },
+      where: { firmId, measurementUnitId: id, deletedAt: null },
     });
   }
 
   async createMeasurementUnit(
+    firmId: number,
     input: MeasurementUnitCreateInput,
     metadata: RequestMetadata,
   ) {
     const unit = await this.db.measurementUnit.create({
       data: {
+        firmId,
         name: input.name,
         symbol: input.symbol,
         allowDecimal: input.allowDecimal,
