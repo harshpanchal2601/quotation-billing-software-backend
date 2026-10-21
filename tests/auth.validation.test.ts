@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { initialAdminSeedSchema, passwordPolicySchema } from '../src/modules/auth/auth.validation.js';
+import { initialAdminSeedSchema, passwordPolicySchema } from '../src/modules/auth/auth.schema.js';
 
 describe('passwordPolicySchema', () => {
   it('accepts a strong password', () => {

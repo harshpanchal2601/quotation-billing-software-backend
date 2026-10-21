@@ -4,15 +4,15 @@ import bcrypt from 'bcrypt';
 import { UserRole, UserStatus } from '@prisma/client';
 
 import { env } from '../src/config/env.js';
-import { prisma } from '../src/config/database.js';
+import { prisma } from '../src/core/database/prisma.js';
 import {
   initialAdminSeedSchema,
   type InitialAdminSeedInput,
-} from '../src/modules/auth/auth.validation.js';
+} from '../src/modules/auth/auth.schema.js';
 import {
   defaultBusinessProfileData,
   defaultQuotationSettingsData,
-} from '../src/modules/business-settings/business-settings.defaults.js';
+} from '../src/modules/settings/index.js';
 
 export const defaultItemCategory = {
   name: 'Uncategorised',

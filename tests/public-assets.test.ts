@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { publicAssetDirectories, publicAssetPath, setPublicAssetHeaders } from '../src/public-assets.js';
+import { publicAssetDirectories, publicAssetPath, setPublicAssetHeaders } from '../src/integrations/storage/index.js';
 
 describe('public asset static configuration', () => {
   it('only exposes approved public image storage directories', () => {

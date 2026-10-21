@@ -1,4 +1,4 @@
-import { AppError } from '../../utils/AppError.js';
+import { AppError } from '../../core/errors/AppError.js';
 import type { ItemSpecification } from './items.types.js';
 
 export function validateAndCleanSpecifications(rawSpecs: unknown): ItemSpecification[] {
