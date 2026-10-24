@@ -15,7 +15,6 @@ import { quotationAttachmentsRepository } from './quotation-attachments.reposito
 export const quotationAttachmentsRouter = Router({ mergeParams: true });
 
 quotationAttachmentsRouter.use(requireAuthentication);
-quotationAttachmentsRouter.use(requirePermission(PERMISSIONS.QUOTATIONS_ATTACHMENTS));
 
 function parseId(param: string | undefined, paramName: string): number {
   const parsed = Number(param);
@@ -36,6 +35,7 @@ function metadata(req: Request) {
 
 quotationAttachmentsRouter.get(
   '/:quotationId/attachments',
+  requirePermission(PERMISSIONS.QUOTATIONS_ATTACHMENTS),
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = parseId(req.params.quotationId, 'quotation ID');
     const result = await quotationAttachmentsRepository.listAttachments(getFirmId(req), quotationId);
@@ -49,6 +49,7 @@ quotationAttachmentsRouter.get(
 
 quotationAttachmentsRouter.post(
   '/:quotationId/attachments',
+  requirePermission(PERMISSIONS.QUOTATIONS_ATTACHMENTS),
   (req: Request, res: Response) => {
     return uploadQuotationAttachment.single('file')(req, res, async (multerError) => {
       if (multerError) {
@@ -109,6 +110,7 @@ quotationAttachmentsRouter.post(
 
 quotationAttachmentsRouter.get(
   '/:quotationId/attachments/:attachmentId/preview',
+  requirePermission(PERMISSIONS.QUOTATIONS_ATTACHMENTS),
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = parseId(req.params.quotationId, 'quotation ID');
     const attachmentId = parseId(req.params.attachmentId, 'attachment ID');
@@ -132,6 +134,7 @@ quotationAttachmentsRouter.get(
 
 quotationAttachmentsRouter.get(
   '/:quotationId/attachments/:attachmentId/download',
+  requirePermission(PERMISSIONS.QUOTATIONS_ATTACHMENTS),
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = parseId(req.params.quotationId, 'quotation ID');
     const attachmentId = parseId(req.params.attachmentId, 'attachment ID');
@@ -155,6 +158,7 @@ quotationAttachmentsRouter.get(
 
 quotationAttachmentsRouter.delete(
   '/:quotationId/attachments/:attachmentId',
+  requirePermission(PERMISSIONS.QUOTATIONS_ATTACHMENTS),
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = parseId(req.params.quotationId, 'quotation ID');
     const attachmentId = parseId(req.params.attachmentId, 'attachment ID');

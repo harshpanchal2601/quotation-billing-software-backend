@@ -182,6 +182,14 @@ export class PlatformRepository {
             mustChangePassword: true,
           },
         });
+        await createAuditLog(tx, {
+          metadata: { ...metadata, firmId: undefined },
+          entityType: 'Firm',
+          entityId: String(firm.id),
+          action: AuditAction.CREATE,
+          policy: 'REQUIRED',
+          newValues: { name: input.name, slug: input.slug, userLimit: DEFAULT_USER_LIMIT },
+        });
         return firm.id;
       });
     } catch (error) {
@@ -191,13 +199,6 @@ export class PlatformRepository {
       throw error;
     }
 
-    await createAuditLog(this.db, {
-      metadata: { ...metadata, firmId },
-      entityType: 'Firm',
-      entityId: String(firmId),
-      action: AuditAction.CREATE,
-      newValues: { name: input.name, slug: input.slug, userLimit: DEFAULT_USER_LIMIT },
-    });
     return this.getFirm(firmId);
   }
 
@@ -207,14 +208,17 @@ export class PlatformRepository {
       const conflict = await this.db.firm.findUnique({ where: { slug: input.slug } });
       if (conflict !== null) throw new AppError('Firm slug already exists', 409);
     }
-    const updated = await this.db.firm.update({ where: { id }, data: input });
-    const changes = pickChangedFields(existing, updated, ['name', 'slug']);
-    await createAuditLog(this.db, {
-      metadata: { ...metadata, firmId: id },
-      entityType: 'Firm',
-      entityId: String(id),
-      action: AuditAction.UPDATE,
-      ...changes,
+    await this.db.$transaction(async (tx) => {
+      const updated = await tx.firm.update({ where: { id }, data: input });
+      const changes = pickChangedFields(existing, updated, ['name', 'slug']);
+      await createAuditLog(tx, {
+        metadata: { ...metadata, firmId: undefined },
+        entityType: 'Firm',
+        entityId: String(id),
+        action: AuditAction.UPDATE,
+        policy: 'REQUIRED',
+        ...changes,
+      });
     });
     return this.getFirm(id);
   }
@@ -231,14 +235,15 @@ export class PlatformRepository {
           data: { revokedAt: new Date() },
         });
       }
-    });
-    await createAuditLog(this.db, {
-      metadata: { ...metadata, firmId: id },
-      entityType: 'Firm',
-      entityId: String(id),
-      action: AuditAction.STATUS_CHANGE,
-      oldValues: { status: existing.status },
-      newValues: { status },
+      await createAuditLog(tx, {
+        metadata: { ...metadata, firmId: undefined },
+        entityType: 'Firm',
+        entityId: String(id),
+        action: AuditAction.STATUS_CHANGE,
+        policy: 'REQUIRED',
+        oldValues: { status: existing.status },
+        newValues: { status },
+      });
     });
     return this.getFirm(id);
   }
@@ -251,22 +256,23 @@ export class PlatformRepository {
     });
     if (administrator === null) throw new AppError('Firm administrator not found', 404);
     const passwordHash = await bcrypt.hash(temporaryPassword, env.BCRYPT_SALT_ROUNDS);
-    await this.db.$transaction([
-      this.db.user.update({
+    await this.db.$transaction(async (tx) => {
+      await tx.user.update({
         where: { id: administrator.id },
         data: { passwordHash, passwordChangedAt: new Date(), mustChangePassword: true, status: UserStatus.ACTIVE },
-      }),
-      this.db.authSession.updateMany({
+      });
+      await tx.authSession.updateMany({
         where: { userId: administrator.id, revokedAt: null },
         data: { revokedAt: new Date() },
-      }),
-    ]);
-    await createAuditLog(this.db, {
-      metadata: { ...metadata, firmId: id },
-      entityType: 'User',
-      entityId: String(administrator.id),
-      action: AuditAction.PASSWORD_CHANGE,
-      newValues: { passwordResetByPlatformAdministrator: true },
+      });
+      await createAuditLog(tx, {
+        metadata: { ...metadata, firmId: undefined },
+        entityType: 'User',
+        entityId: String(administrator.id),
+        action: AuditAction.PASSWORD_CHANGE,
+        policy: 'REQUIRED',
+        newValues: { passwordResetByPlatformAdministrator: true, targetFirmId: id },
+      });
     });
   }
 

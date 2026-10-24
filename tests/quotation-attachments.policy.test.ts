@@ -9,6 +9,7 @@ import {
   MAX_FILE_SIZE_BYTES,
   PREVIEWABLE_MIME_TYPES,
   resolveAttachmentRelativePath,
+  resolveAttachmentAbsolutePath,
   validateAttachmentFile,
 } from '../src/modules/quotations/attachments/quotation-attachment.policy';
 
@@ -83,5 +84,23 @@ describe('Quotation Attachment Security and Storage Validation', () => {
       `storage/quotation-attachments/7/${storedFilename}`,
     );
     expect(getAttachmentStorageDirectory(7)).toMatch(/storage[/\\]quotation-attachments[/\\]7$/);
+  });
+
+  it.each([
+    'storage/quotation-attachments-other/private.pdf',
+    'storage/quotation-attachments/../quotation-documents/private.pdf',
+    'storage/quotation-attachments',
+    'storage/../../etc/passwd',
+  ])('rejects an attachment path outside its directory: %s', (filePath) => {
+    expect(() => resolveAttachmentAbsolutePath(filePath)).toThrow();
+  });
+
+  it('resolves both legacy and firm-owned persisted attachment paths', () => {
+    expect(resolveAttachmentAbsolutePath('storage/quotation-attachments/legacy.pdf')).toBe(
+      path.join(getAttachmentStorageDirectory(), 'legacy.pdf'),
+    );
+    expect(resolveAttachmentAbsolutePath('storage/quotation-attachments/7/private.pdf')).toBe(
+      path.join(getAttachmentStorageDirectory(7), 'private.pdf'),
+    );
   });
 });

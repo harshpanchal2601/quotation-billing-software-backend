@@ -1,0 +1,2057 @@
+{
+  "scope": "Wave01 static route and trust-boundary matrix; runtime verification pending",
+  "checkout": {
+    "backend": {
+      "branch": "feat/wave2",
+      "commit": "99eac65a296642179c6a87579575093e5b3029a4"
+    },
+    "frontend": {
+      "branch": "feat/wave2",
+      "commit": "7e1786d03601dbcceb6cf3f99c57d594a0fac3ae"
+    }
+  },
+  "git_status_and_diff": "NOT_RUN_USER_RESTRICTION",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/v1/administration/permissions",
+      "source": "src/modules/administration/administration.routes.ts",
+      "line": 112,
+      "declared_permissions": [
+        "ROLES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ROLES_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/administration/roles",
+      "source": "src/modules/administration/administration.routes.ts",
+      "line": 117,
+      "declared_permissions": [
+        "ROLES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ROLES_MANAGE"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/administration/roles",
+      "source": "src/modules/administration/administration.routes.ts",
+      "line": 118,
+      "declared_permissions": [
+        "ROLES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ROLES_MANAGE"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/administration/roles/:id",
+      "source": "src/modules/administration/administration.routes.ts",
+      "line": 119,
+      "declared_permissions": [
+        "ROLES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ROLES_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/administration/roles/:id",
+      "source": "src/modules/administration/administration.routes.ts",
+      "line": 120,
+      "declared_permissions": [
+        "ROLES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ROLES_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/administration/users",
+      "source": "src/modules/administration/administration.routes.ts",
+      "line": 121,
+      "declared_permissions": [
+        "USERS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "USERS_MANAGE"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/administration/users",
+      "source": "src/modules/administration/administration.routes.ts",
+      "line": 122,
+      "declared_permissions": [
+        "USERS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "USERS_MANAGE"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/administration/users/:id",
+      "source": "src/modules/administration/administration.routes.ts",
+      "line": 123,
+      "declared_permissions": [
+        "USERS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "USERS_MANAGE"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/administration/users/:id/reset-password",
+      "source": "src/modules/administration/administration.routes.ts",
+      "line": 124,
+      "declared_permissions": [
+        "USERS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "USERS_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/administration/users/:id",
+      "source": "src/modules/administration/administration.routes.ts",
+      "line": 129,
+      "declared_permissions": [
+        "USERS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "USERS_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/audit-logs",
+      "source": "src/modules/audit-logs/audit-logs.routes.ts",
+      "line": 19,
+      "declared_permissions": [],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [
+        "AUDIT_VIEW"
+      ],
+      "required_permissions": [
+        "AUDIT_VIEW"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "source": "src/modules/auth/auth.routes.ts",
+      "line": 201,
+      "declared_permissions": [],
+      "scope": "IDENTITY",
+      "lifecycle_evidence": "EXISTING_TESTS_OR_PUBLIC",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/refresh",
+      "source": "src/modules/auth/auth.routes.ts",
+      "line": 202,
+      "declared_permissions": [],
+      "scope": "IDENTITY",
+      "lifecycle_evidence": "EXISTING_TESTS_OR_PUBLIC",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "source": "src/modules/auth/auth.routes.ts",
+      "line": 203,
+      "declared_permissions": [],
+      "scope": "IDENTITY",
+      "lifecycle_evidence": "EXISTING_TESTS_OR_PUBLIC",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "source": "src/modules/auth/auth.routes.ts",
+      "line": 204,
+      "declared_permissions": [],
+      "scope": "IDENTITY",
+      "lifecycle_evidence": "EXISTING_TESTS_OR_PUBLIC",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/change-password",
+      "source": "src/modules/auth/auth.routes.ts",
+      "line": 205,
+      "declared_permissions": [],
+      "scope": "IDENTITY",
+      "lifecycle_evidence": "EXISTING_TESTS_OR_PUBLIC",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/categories",
+      "source": "src/modules/categories/categories.routes.ts",
+      "line": 167,
+      "declared_permissions": [
+        "CATALOG_VIEW"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_VIEW"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/categories/options",
+      "source": "src/modules/categories/categories.routes.ts",
+      "line": 168,
+      "declared_permissions": [
+        "CATALOG_VIEW",
+        "ITEMS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_VIEW",
+        "ITEMS_MANAGE"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/categories",
+      "source": "src/modules/categories/categories.routes.ts",
+      "line": 173,
+      "declared_permissions": [
+        "CATALOG_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/categories/:id",
+      "source": "src/modules/categories/categories.routes.ts",
+      "line": 174,
+      "declared_permissions": [
+        "CATALOG_VIEW"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_VIEW"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/categories/:id",
+      "source": "src/modules/categories/categories.routes.ts",
+      "line": 175,
+      "declared_permissions": [
+        "CATALOG_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_MANAGE"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/categories/:id/status",
+      "source": "src/modules/categories/categories.routes.ts",
+      "line": 176,
+      "declared_permissions": [
+        "CATALOG_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/categories/:id",
+      "source": "src/modules/categories/categories.routes.ts",
+      "line": 177,
+      "declared_permissions": [
+        "CATALOG_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_MANAGE"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/categories/:id/restore",
+      "source": "src/modules/categories/categories.routes.ts",
+      "line": 178,
+      "declared_permissions": [
+        "CATALOG_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/companies",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 143,
+      "declared_permissions": [
+        "COMPANIES_VIEW",
+        "QUOTATIONS_CREATE",
+        "QUOTATIONS_EDIT"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_VIEW",
+        "QUOTATIONS_CREATE",
+        "QUOTATIONS_EDIT"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/companies",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 148,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/companies/:id",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 149,
+      "declared_permissions": [
+        "COMPANIES_VIEW",
+        "QUOTATIONS_CREATE",
+        "QUOTATIONS_EDIT"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_VIEW",
+        "QUOTATIONS_CREATE",
+        "QUOTATIONS_EDIT"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/companies/:id",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 154,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/companies/:id/status",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 155,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/companies/:id",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 156,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/companies/:id/restore",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 157,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/companies/:id/quotations",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 158,
+      "declared_permissions": [
+        "COMPANIES_VIEW"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_VIEW"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/companies/:companyId/contacts",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 160,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/companies/:companyId/contacts/:contactId",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 161,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/companies/:companyId/contacts/:contactId",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 162,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/companies/:companyId/contacts/:contactId/primary",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 163,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/companies/:companyId/addresses",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 165,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/companies/:companyId/addresses/:addressId",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 166,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/companies/:companyId/addresses/:addressId",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 167,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/companies/:companyId/addresses/:addressId/primary",
+      "source": "src/modules/companies/companies.routes.ts",
+      "line": 168,
+      "declared_permissions": [
+        "COMPANIES_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "COMPANIES_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/dashboard/overview",
+      "source": "src/modules/dashboard/dashboard.routes.ts",
+      "line": 25,
+      "declared_permissions": [],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [
+        "DASHBOARD_VIEW"
+      ],
+      "required_permissions": [
+        "DASHBOARD_VIEW"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/items",
+      "source": "src/modules/items/items.routes.ts",
+      "line": 98,
+      "declared_permissions": [
+        "ITEMS_VIEW"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ITEMS_VIEW"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/items/options",
+      "source": "src/modules/items/items.routes.ts",
+      "line": 99,
+      "declared_permissions": [
+        "ITEMS_VIEW",
+        "QUOTATIONS_CREATE",
+        "QUOTATIONS_EDIT"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ITEMS_VIEW",
+        "QUOTATIONS_CREATE",
+        "QUOTATIONS_EDIT"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/items",
+      "source": "src/modules/items/items.routes.ts",
+      "line": 104,
+      "declared_permissions": [
+        "ITEMS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ITEMS_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/items/:id",
+      "source": "src/modules/items/items.routes.ts",
+      "line": 105,
+      "declared_permissions": [
+        "ITEMS_VIEW",
+        "QUOTATIONS_CREATE",
+        "QUOTATIONS_EDIT"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ITEMS_VIEW",
+        "QUOTATIONS_CREATE",
+        "QUOTATIONS_EDIT"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/items/:id",
+      "source": "src/modules/items/items.routes.ts",
+      "line": 110,
+      "declared_permissions": [
+        "ITEMS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ITEMS_MANAGE"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/items/:id/status",
+      "source": "src/modules/items/items.routes.ts",
+      "line": 111,
+      "declared_permissions": [
+        "ITEMS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ITEMS_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/items/:id",
+      "source": "src/modules/items/items.routes.ts",
+      "line": 112,
+      "declared_permissions": [
+        "ITEMS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ITEMS_MANAGE"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/items/:id/restore",
+      "source": "src/modules/items/items.routes.ts",
+      "line": 113,
+      "declared_permissions": [
+        "ITEMS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ITEMS_MANAGE"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/items/:id/image",
+      "source": "src/modules/items/items.routes.ts",
+      "line": 115,
+      "declared_permissions": [
+        "ITEMS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ITEMS_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/items/:id/image",
+      "source": "src/modules/items/items.routes.ts",
+      "line": 125,
+      "declared_permissions": [
+        "ITEMS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "ITEMS_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/measurement-units",
+      "source": "src/modules/measurement-units/measurement-units.routes.ts",
+      "line": 173,
+      "declared_permissions": [
+        "CATALOG_VIEW"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_VIEW"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/measurement-units/options",
+      "source": "src/modules/measurement-units/measurement-units.routes.ts",
+      "line": 174,
+      "declared_permissions": [
+        "CATALOG_VIEW",
+        "ITEMS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_VIEW",
+        "ITEMS_MANAGE"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/measurement-units",
+      "source": "src/modules/measurement-units/measurement-units.routes.ts",
+      "line": 179,
+      "declared_permissions": [
+        "CATALOG_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/measurement-units/:id",
+      "source": "src/modules/measurement-units/measurement-units.routes.ts",
+      "line": 180,
+      "declared_permissions": [
+        "CATALOG_VIEW"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_VIEW"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/measurement-units/:id",
+      "source": "src/modules/measurement-units/measurement-units.routes.ts",
+      "line": 181,
+      "declared_permissions": [
+        "CATALOG_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_MANAGE"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/measurement-units/:id/status",
+      "source": "src/modules/measurement-units/measurement-units.routes.ts",
+      "line": 182,
+      "declared_permissions": [
+        "CATALOG_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/measurement-units/:id",
+      "source": "src/modules/measurement-units/measurement-units.routes.ts",
+      "line": 183,
+      "declared_permissions": [
+        "CATALOG_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_MANAGE"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/measurement-units/:id/restore",
+      "source": "src/modules/measurement-units/measurement-units.routes.ts",
+      "line": 184,
+      "declared_permissions": [
+        "CATALOG_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "CATALOG_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/platform/firms",
+      "source": "src/modules/platform/platform.routes.ts",
+      "line": 66,
+      "declared_permissions": [],
+      "scope": "PLATFORM",
+      "lifecycle_evidence": "tests/auth.middleware.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/platform/firms",
+      "source": "src/modules/platform/platform.routes.ts",
+      "line": 67,
+      "declared_permissions": [],
+      "scope": "PLATFORM",
+      "lifecycle_evidence": "tests/auth.middleware.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/platform/firms/:id",
+      "source": "src/modules/platform/platform.routes.ts",
+      "line": 68,
+      "declared_permissions": [],
+      "scope": "PLATFORM",
+      "lifecycle_evidence": "tests/auth.middleware.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/platform/firms/:id",
+      "source": "src/modules/platform/platform.routes.ts",
+      "line": 69,
+      "declared_permissions": [],
+      "scope": "PLATFORM",
+      "lifecycle_evidence": "tests/auth.middleware.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/platform/firms/:id/status",
+      "source": "src/modules/platform/platform.routes.ts",
+      "line": 70,
+      "declared_permissions": [],
+      "scope": "PLATFORM",
+      "lifecycle_evidence": "tests/auth.middleware.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/platform/firms/:id/administrator/reset-password",
+      "source": "src/modules/platform/platform.routes.ts",
+      "line": 71,
+      "declared_permissions": [],
+      "scope": "PLATFORM",
+      "lifecycle_evidence": "tests/auth.middleware.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/quotations/:quotationId/attachments",
+      "source": "src/modules/quotations/attachments/quotation-attachments.routes.ts",
+      "line": 36,
+      "declared_permissions": [
+        "QUOTATIONS_ATTACHMENTS"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_ATTACHMENTS"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/quotations/:quotationId/attachments",
+      "source": "src/modules/quotations/attachments/quotation-attachments.routes.ts",
+      "line": 50,
+      "declared_permissions": [
+        "QUOTATIONS_ATTACHMENTS"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_ATTACHMENTS"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/quotations/:quotationId/attachments/:attachmentId/preview",
+      "source": "src/modules/quotations/attachments/quotation-attachments.routes.ts",
+      "line": 111,
+      "declared_permissions": [
+        "QUOTATIONS_ATTACHMENTS"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_ATTACHMENTS"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/quotations/:quotationId/attachments/:attachmentId/download",
+      "source": "src/modules/quotations/attachments/quotation-attachments.routes.ts",
+      "line": 135,
+      "declared_permissions": [
+        "QUOTATIONS_ATTACHMENTS"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_ATTACHMENTS"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/quotations/:quotationId/attachments/:attachmentId",
+      "source": "src/modules/quotations/attachments/quotation-attachments.routes.ts",
+      "line": 159,
+      "declared_permissions": [
+        "QUOTATIONS_ATTACHMENTS"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_ATTACHMENTS"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/quotations/:id/pdf",
+      "source": "src/modules/quotations/documents/quotation-documents.routes.ts",
+      "line": 29,
+      "declared_permissions": [
+        "QUOTATIONS_DOCUMENTS"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_DOCUMENTS"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/quotations/:id/pdf/:documentId/preview",
+      "source": "src/modules/quotations/documents/quotation-documents.routes.ts",
+      "line": 165,
+      "declared_permissions": [
+        "QUOTATIONS_DOCUMENTS"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_DOCUMENTS"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/quotations/:id/pdf/:documentId/download",
+      "source": "src/modules/quotations/documents/quotation-documents.routes.ts",
+      "line": 169,
+      "declared_permissions": [
+        "QUOTATIONS_DOCUMENTS"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_DOCUMENTS"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/quotations/:quotationId/documents",
+      "source": "src/modules/quotations/email/quotation-email.routes.ts",
+      "line": 34,
+      "declared_permissions": [
+        "QUOTATIONS_DOCUMENTS",
+        "QUOTATIONS_EMAIL"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_DOCUMENTS",
+        "QUOTATIONS_EMAIL"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/quotations/:quotationId/communications",
+      "source": "src/modules/quotations/email/quotation-email.routes.ts",
+      "line": 52,
+      "declared_permissions": [
+        "QUOTATIONS_EMAIL"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_EMAIL"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/quotations/:quotationId/email",
+      "source": "src/modules/quotations/email/quotation-email.routes.ts",
+      "line": 70,
+      "declared_permissions": [
+        "QUOTATIONS_EMAIL"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_EMAIL"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/quotations",
+      "source": "src/modules/quotations/quotations.routes.ts",
+      "line": 40,
+      "declared_permissions": [
+        "QUOTATIONS_VIEW"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_VIEW"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/quotations/calculate",
+      "source": "src/modules/quotations/quotations.routes.ts",
+      "line": 50,
+      "declared_permissions": [
+        "QUOTATIONS_CREATE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_CREATE"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/quotations",
+      "source": "src/modules/quotations/quotations.routes.ts",
+      "line": 60,
+      "declared_permissions": [
+        "QUOTATIONS_CREATE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_CREATE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/quotations/:id",
+      "source": "src/modules/quotations/quotations.routes.ts",
+      "line": 72,
+      "declared_permissions": [
+        "QUOTATIONS_VIEW"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_VIEW"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/quotations/:id/revisions",
+      "source": "src/modules/quotations/quotations.routes.ts",
+      "line": 82,
+      "declared_permissions": [
+        "QUOTATIONS_EDIT"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_EDIT"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/quotations/:id",
+      "source": "src/modules/quotations/quotations.routes.ts",
+      "line": 94,
+      "declared_permissions": [
+        "QUOTATIONS_EDIT"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_EDIT"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/quotations/:id/status",
+      "source": "src/modules/quotations/quotations.routes.ts",
+      "line": 107,
+      "declared_permissions": [
+        "QUOTATIONS_STATUS"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_STATUS"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/quotations/:id",
+      "source": "src/modules/quotations/quotations.routes.ts",
+      "line": 120,
+      "declared_permissions": [
+        "QUOTATIONS_DELETE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATIONS_DELETE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/settings/branding",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 131,
+      "declared_permissions": [],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/settings/business-profile",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 132,
+      "declared_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/settings/business-profile",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 133,
+      "declared_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/settings/business-profile/logo",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 136,
+      "declared_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/settings/business-profile/signature",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 136,
+      "declared_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/settings/business-profile/stamp",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 136,
+      "declared_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/settings/business-profile/logo",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 149,
+      "declared_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/settings/business-profile/signature",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 149,
+      "declared_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/settings/business-profile/stamp",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 149,
+      "declared_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "FIRM_PROFILE_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/settings/quotation",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 155,
+      "declared_permissions": [
+        "QUOTATION_SETTINGS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATION_SETTINGS_MANAGE"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/settings/quotation",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 156,
+      "declared_permissions": [
+        "QUOTATION_SETTINGS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "QUOTATION_SETTINGS_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/settings/bank-details",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 158,
+      "declared_permissions": [
+        "BANK_DETAILS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "BANK_DETAILS_MANAGE"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/settings/bank-details",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 159,
+      "declared_permissions": [
+        "BANK_DETAILS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "BANK_DETAILS_MANAGE"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/settings/bank-details/:id",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 160,
+      "declared_permissions": [
+        "BANK_DETAILS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "BANK_DETAILS_MANAGE"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/settings/bank-details/:id",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 161,
+      "declared_permissions": [
+        "BANK_DETAILS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "BANK_DETAILS_MANAGE"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/settings/bank-details/:id/default",
+      "source": "src/modules/settings/settings.routes.ts",
+      "line": 162,
+      "declared_permissions": [
+        "BANK_DETAILS_MANAGE"
+      ],
+      "scope": "FIRM",
+      "lifecycle_evidence": "tests/tenant-isolation.mysql.test.ts",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": [
+        "BANK_DETAILS_MANAGE"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/health",
+      "source": "src/routes/health.routes.ts",
+      "line": 9,
+      "declared_permissions": [],
+      "scope": "PUBLIC_HEALTH",
+      "lifecycle_evidence": "EXISTING_TESTS_OR_PUBLIC",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/health/database",
+      "source": "src/routes/health.routes.ts",
+      "line": 18,
+      "declared_permissions": [],
+      "scope": "PUBLIC_HEALTH",
+      "lifecycle_evidence": "EXISTING_TESTS_OR_PUBLIC",
+      "runtime_status": "NOT_RUN_USER_RESTRICTION",
+      "router_permissions": [],
+      "required_permissions": []
+    }
+  ],
+  "models": [
+    {
+      "model": "User",
+      "relations": [
+        {
+          "relation": "firm",
+          "foreign_keys": "firmId",
+          "references": "id"
+        },
+        {
+          "relation": "firmRole",
+          "foreign_keys": "firmRoleId, firmId",
+          "references": "id, firmId"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "Firm",
+      "relations": [],
+      "unique_constraints": []
+    },
+    {
+      "model": "FirmRole",
+      "relations": [
+        {
+          "relation": "firm",
+          "foreign_keys": "firmId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": [
+        "firmId, name",
+        "id, firmId"
+      ]
+    },
+    {
+      "model": "AuthSession",
+      "relations": [
+        {
+          "relation": "user",
+          "foreign_keys": "userId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "BusinessProfile",
+      "relations": [
+        {
+          "relation": "firm",
+          "foreign_keys": "firmId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "BankDetail",
+      "relations": [
+        {
+          "relation": "businessProfile",
+          "foreign_keys": "businessProfileId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "QuotationSetting",
+      "relations": [
+        {
+          "relation": "businessProfile",
+          "foreign_keys": "businessProfileId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "Company",
+      "relations": [
+        {
+          "relation": "createdBy",
+          "foreign_keys": "createdById",
+          "references": "id"
+        },
+        {
+          "relation": "updatedBy",
+          "foreign_keys": "updatedById",
+          "references": "id"
+        },
+        {
+          "relation": "firm",
+          "foreign_keys": "firmId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": [
+        "firmId, companyCode"
+      ]
+    },
+    {
+      "model": "CompanyContact",
+      "relations": [
+        {
+          "relation": "company",
+          "foreign_keys": "companyId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "CompanyAddress",
+      "relations": [
+        {
+          "relation": "company",
+          "foreign_keys": "companyId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "ItemCategory",
+      "relations": [
+        {
+          "relation": "firm",
+          "foreign_keys": "firmId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": [
+        "firmId, name",
+        "firmId, slug"
+      ]
+    },
+    {
+      "model": "MeasurementUnit",
+      "relations": [
+        {
+          "relation": "firm",
+          "foreign_keys": "firmId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": [
+        "firmId, name",
+        "firmId, symbol"
+      ]
+    },
+    {
+      "model": "Item",
+      "relations": [
+        {
+          "relation": "category",
+          "foreign_keys": "categoryId",
+          "references": "id"
+        },
+        {
+          "relation": "measurementUnit",
+          "foreign_keys": "measurementUnitId",
+          "references": "id"
+        },
+        {
+          "relation": "createdBy",
+          "foreign_keys": "createdById",
+          "references": "id"
+        },
+        {
+          "relation": "updatedBy",
+          "foreign_keys": "updatedById",
+          "references": "id"
+        },
+        {
+          "relation": "firm",
+          "foreign_keys": "firmId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": [
+        "firmId, itemCode"
+      ]
+    },
+    {
+      "model": "Quotation",
+      "relations": [
+        {
+          "relation": "company",
+          "foreign_keys": "companyId",
+          "references": "id"
+        },
+        {
+          "relation": "companyContact",
+          "foreign_keys": "companyContactId",
+          "references": "id"
+        },
+        {
+          "relation": "billingAddress",
+          "foreign_keys": "billingAddressId",
+          "references": "id"
+        },
+        {
+          "relation": "shippingAddress",
+          "foreign_keys": "shippingAddressId",
+          "references": "id"
+        },
+        {
+          "relation": "createdBy",
+          "foreign_keys": "createdById",
+          "references": "id"
+        },
+        {
+          "relation": "updatedBy",
+          "foreign_keys": "updatedById",
+          "references": "id"
+        },
+        {
+          "relation": "firm",
+          "foreign_keys": "firmId",
+          "references": "id"
+        },
+        {
+          "relation": "rootQuotation",
+          "foreign_keys": "rootQuotationId",
+          "references": "id"
+        },
+        {
+          "relation": "previousRevision",
+          "foreign_keys": "previousRevisionId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": [
+        "firmId, quotationNumber, revisionNumber",
+        "firmId, rootQuotationId, revisionNumber"
+      ]
+    },
+    {
+      "model": "QuotationItem",
+      "relations": [
+        {
+          "relation": "quotation",
+          "foreign_keys": "quotationId",
+          "references": "id"
+        },
+        {
+          "relation": "item",
+          "foreign_keys": "itemId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": [
+        "quotationId, lineNumber"
+      ]
+    },
+    {
+      "model": "QuotationStatusHistory",
+      "relations": [
+        {
+          "relation": "quotation",
+          "foreign_keys": "quotationId",
+          "references": "id"
+        },
+        {
+          "relation": "changedBy",
+          "foreign_keys": "changedById",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "QuotationVersion",
+      "relations": [
+        {
+          "relation": "quotation",
+          "foreign_keys": "quotationId",
+          "references": "id"
+        },
+        {
+          "relation": "createdBy",
+          "foreign_keys": "createdById",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": [
+        "quotationId, versionNumber"
+      ]
+    },
+    {
+      "model": "QuotationAttachment",
+      "relations": [
+        {
+          "relation": "quotation",
+          "foreign_keys": "quotationId",
+          "references": "id"
+        },
+        {
+          "relation": "uploadedBy",
+          "foreign_keys": "uploadedById",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "GeneratedDocument",
+      "relations": [
+        {
+          "relation": "quotation",
+          "foreign_keys": "quotationId",
+          "references": "id"
+        },
+        {
+          "relation": "generatedBy",
+          "foreign_keys": "generatedById",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "QuotationCommunication",
+      "relations": [
+        {
+          "relation": "quotation",
+          "foreign_keys": "quotationId",
+          "references": "id"
+        },
+        {
+          "relation": "generatedDocument",
+          "foreign_keys": "generatedDocumentId",
+          "references": "id"
+        },
+        {
+          "relation": "sender",
+          "foreign_keys": "senderUserId",
+          "references": "id"
+        },
+        {
+          "relation": "previousAttempt",
+          "foreign_keys": "previousAttemptId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "TermsTemplate",
+      "relations": [
+        {
+          "relation": "firm",
+          "foreign_keys": "firmId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "ImportBatch",
+      "relations": [
+        {
+          "relation": "startedBy",
+          "foreign_keys": "startedById",
+          "references": "id"
+        },
+        {
+          "relation": "firm",
+          "foreign_keys": "firmId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "ImportRow",
+      "relations": [
+        {
+          "relation": "importBatch",
+          "foreign_keys": "importBatchId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    },
+    {
+      "model": "AuditLog",
+      "relations": [
+        {
+          "relation": "user",
+          "foreign_keys": "userId",
+          "references": "id"
+        },
+        {
+          "relation": "firm",
+          "foreign_keys": "firmId",
+          "references": "id"
+        }
+      ],
+      "unique_constraints": []
+    }
+  ],
+  "trust_boundaries": [
+    {
+      "boundary": "Client to firm API",
+      "authority": "Verified cookie + live session/user + active server-resolved firm + route permissions",
+      "untrusted": [
+        "body.firmId",
+        "ordinary-user x-firm-id",
+        "direct and nested IDs"
+      ]
+    },
+    {
+      "boundary": "Platform support to firm API",
+      "authority": "SUPER_ADMIN + explicit active selected firm + required PlatformFirmAccess append before context",
+      "scope": "AuditLog.firmId IS NULL; immutable snapshot with actor/session/selected-firm IDs"
+    },
+    {
+      "boundary": "Private document access",
+      "authority": "Persisted document/attachment association to a firm-owned quotation before file resolution",
+      "public": false
+    },
+    {
+      "boundary": "Branding and catalog images",
+      "authority": "Explicitly public storage directories approved by user",
+      "public": true
+    },
+    {
+      "boundary": "Future worker/AI command",
+      "authority": "Server-issued actor/session/firm context; revalidate at execution; never reconstruct from an unsigned job payload",
+      "implementation": "CONTRACT_ONLY_NO_CURRENT_WORKER_OR_AI_ROUTE"
+    }
+  ],
+  "migration_files": [
+    "prisma/migrations/20260725153357_init_database_schema/migration.sql",
+    "prisma/migrations/20260726230000_quotation_revision_families/migration.sql",
+    "prisma/migrations/20260726233000_quotation_communications/migration.sql",
+    "prisma/migrations/20261007120000_add_multi_firm_foundation/migration.sql",
+    "prisma/migrations/20261022090000_wave01_identity_boundaries/migration.sql"
+  ]
+}

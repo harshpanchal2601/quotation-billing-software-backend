@@ -25,10 +25,10 @@ import type { GeneratedDocumentDto } from './quotation-documents.types.js';
 export const quotationDocumentsRouter = Router({ mergeParams: true });
 
 quotationDocumentsRouter.use(requireAuthentication);
-quotationDocumentsRouter.use(requirePermission(PERMISSIONS.QUOTATIONS_DOCUMENTS));
 
 quotationDocumentsRouter.post(
   '/:id/pdf',
+  requirePermission(PERMISSIONS.QUOTATIONS_DOCUMENTS),
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = Number(req.params.id);
     if (!Number.isInteger(quotationId) || quotationId <= 0) {
@@ -162,10 +162,10 @@ async function streamPdfDocument(req: Request, res: Response, disposition: 'inli
   fileStream.pipe(res);
 }
 
-quotationDocumentsRouter.get('/:id/pdf/:documentId/preview', asyncHandler(async (req, res) => {
+quotationDocumentsRouter.get('/:id/pdf/:documentId/preview', requirePermission(PERMISSIONS.QUOTATIONS_DOCUMENTS), asyncHandler(async (req, res) => {
   await streamPdfDocument(req, res, 'inline');
 }));
 
-quotationDocumentsRouter.get('/:id/pdf/:documentId/download', asyncHandler(async (req, res) => {
+quotationDocumentsRouter.get('/:id/pdf/:documentId/download', requirePermission(PERMISSIONS.QUOTATIONS_DOCUMENTS), asyncHandler(async (req, res) => {
   await streamPdfDocument(req, res, 'attachment');
 }));

@@ -17,12 +17,18 @@ export const requireAuthentication: RequestHandler = async (req, _res, next) => 
     }
 
     const payload = verifyAccessToken(token);
-    const user = await authRepository.findUserById(Number(payload.sub));
+    const session = await authRepository.findSessionWithUserById(payload.sessionId);
 
-    if (user === null) {
+    if (
+      session === null ||
+      session.revokedAt !== null ||
+      session.expiresAt.getTime() <= Date.now() ||
+      session.userId !== Number(payload.sub)
+    ) {
       throw new AppError(AUTHENTICATION_REQUIRED_MESSAGE, 401);
     }
 
+    const user = session.user;
     assertActiveUser(user);
     assertFirmAccess(user);
 

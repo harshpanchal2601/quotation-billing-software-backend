@@ -24,7 +24,7 @@ export class AuditLogsRepository {
     const [auditLogs, total] = await this.db.$transaction([
       this.db.auditLog.findMany({
         where,
-        include: { user: { select: { id: true, name: true, email: true } } },
+        include: { user: { select: { id: true, firmId: true, name: true, email: true } } },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -32,7 +32,10 @@ export class AuditLogsRepository {
       this.db.auditLog.count({ where }),
     ]);
     return {
-      auditLogs,
+      auditLogs: auditLogs.map(({ user, ...entry }) => ({
+        ...entry,
+        user: user?.firmId === firmId ? { id: user.id, name: user.name, email: user.email } : null,
+      })),
       pagination: {
         page: query.page,
         limit: query.limit,

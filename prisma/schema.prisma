@@ -144,7 +144,7 @@ model User {
   updatedAt         DateTime                 @updatedAt @map("updated_at")
   deletedAt         DateTime?                @map("deleted_at")
   firm              Firm?                    @relation(fields: [firmId], references: [id], onDelete: Restrict)
-  firmRole          FirmRole?                @relation(fields: [firmRoleId], references: [id], onDelete: Restrict)
+  firmRole          FirmRole?                @relation(fields: [firmRoleId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
   authSessions      AuthSession[]
   companiesCreated  Company[]                @relation("CompanyCreatedBy")
   companiesUpdated  Company[]                @relation("CompanyUpdatedBy")
@@ -162,6 +162,7 @@ model User {
 
   @@index([firmId])
   @@index([firmRoleId])
+  @@index([firmRoleId, firmId])
   @@index([accountType])
   @@index([status])
   @@index([deletedAt])
@@ -208,6 +209,7 @@ model FirmRole {
   users       User[]
 
   @@unique([firmId, name])
+  @@unique([id, firmId])
   @@index([firmId, deletedAt])
   @@map("firm_roles")
 }

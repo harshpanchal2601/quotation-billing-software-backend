@@ -13,7 +13,7 @@ process.env.JWT_REFRESH_EXPIRES_IN = '7d';
 
 vi.mock('../src/core/database/prisma.js', () => ({
   prisma: {
-    user: {
+    authSession: {
       findUnique: vi.fn(),
     },
   },
@@ -60,6 +60,20 @@ function createNext() {
   return vi.fn() as NextFunction;
 }
 
+function createSession(user = createUser()) {
+  return {
+    id: 5,
+    userId: user.id,
+    refreshTokenHash: 'hash',
+    ipAddress: null,
+    userAgent: null,
+    createdAt: new Date(),
+    expiresAt: new Date(Date.now() + 60_000),
+    revokedAt: null,
+    user,
+  };
+}
+
 describe('requireAuthentication', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -78,7 +92,7 @@ describe('requireAuthentication', () => {
     const token = generateAccessToken({ userId: 1, role: UserRole.ADMIN, sessionId: 5 });
     const req = { cookies: { [ACCESS_TOKEN_COOKIE_NAME]: token } } as unknown as Request;
     const next = createNext();
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(createUser());
+    vi.mocked(prisma.authSession.findUnique).mockResolvedValueOnce(createSession());
 
     await requireAuthentication(req, {} as Response, next);
 
@@ -99,19 +113,70 @@ describe('requireAuthentication', () => {
       sessionId: 5,
     });
     expect(req.user).not.toHaveProperty('passwordHash');
+    expect(prisma.authSession.findUnique).toHaveBeenCalledWith({
+      where: { id: 5 },
+      include: { user: { include: { firm: true, firmRole: true } } },
+    });
   });
 
   it('rejects access tokens issued before passwordChangedAt', async () => {
     const token = generateAccessToken({ userId: 1, role: UserRole.ADMIN, sessionId: 5 });
     const req = { cookies: { [ACCESS_TOKEN_COOKIE_NAME]: token } } as unknown as Request;
     const next = createNext();
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(
-      createUser(new Date(Date.now() + 1_000)),
+    vi.mocked(prisma.authSession.findUnique).mockResolvedValueOnce(
+      createSession(createUser(new Date(Date.now() + 1_000))),
     );
 
     await requireAuthentication(req, {} as Response, next);
 
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401 }));
+  });
+
+  it.each([
+    ['missing', () => null],
+    ['revoked', () => ({ ...createSession(), revokedAt: new Date() })],
+    ['expired', () => ({ ...createSession(), expiresAt: new Date(0) })],
+    ['owned by another user', () => ({ ...createSession(), userId: 2 })],
+  ])('rejects a %s session even with a valid access token', async (_label, session) => {
+    const token = generateAccessToken({ userId: 1, role: UserRole.ADMIN, sessionId: 5 });
+    const req = { cookies: { [ACCESS_TOKEN_COOKIE_NAME]: token } } as unknown as Request;
+    const next = createNext();
+    vi.mocked(prisma.authSession.findUnique).mockResolvedValueOnce(session() as never);
+
+    await requireAuthentication(req, {} as Response, next);
+
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401 }));
+    expect(req.user).toBeUndefined();
+  });
+
+  it.each([
+    ['locked user', { status: UserStatus.LOCKED }, 403],
+    ['inactive user', { status: UserStatus.INACTIVE }, 403],
+    ['deleted user', { deletedAt: new Date() }, 401],
+    ['suspended firm', { firm: { ...createUser().firm, status: FirmStatus.SUSPENDED } }, 403],
+    ['deleted firm', { firm: { ...createUser().firm, deletedAt: new Date() } }, 403],
+    ['missing firm', { firm: null }, 403],
+    ['missing role', { accountType: AccountType.FIRM_USER }, 403],
+    ['foreign role', {
+      accountType: AccountType.FIRM_USER,
+      firmRole: { id: 9, firmId: 2, deletedAt: null, permissions: ['quotations.view'] },
+    }, 403],
+    ['deleted role', {
+      accountType: AccountType.FIRM_USER,
+      firmRole: { id: 9, firmId: 1, deletedAt: new Date(), permissions: ['quotations.view'] },
+    }, 403],
+  ])('rejects a %s on an authenticated request', async (_label, overrides, statusCode) => {
+    const token = generateAccessToken({ userId: 1, role: UserRole.ADMIN, sessionId: 5 });
+    const req = { cookies: { [ACCESS_TOKEN_COOKIE_NAME]: token } } as unknown as Request;
+    const next = createNext();
+    vi.mocked(prisma.authSession.findUnique).mockResolvedValueOnce({
+      ...createSession(), user: { ...createUser(), ...overrides },
+    } as never);
+
+    await requireAuthentication(req, {} as Response, next);
+
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode }));
+    expect(req.user).toBeUndefined();
   });
 });
 

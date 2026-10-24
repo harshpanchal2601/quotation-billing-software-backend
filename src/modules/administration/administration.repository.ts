@@ -168,11 +168,11 @@ export class AdministrationRepository {
 
   async updateUser(firmId: number, id: number, input: FirmUserUpdateInput, metadata: RequestMetadata) {
     const existing = await this.findUser(firmId, id);
-    if (input.roleId !== undefined) await this.assertRole(this.db, firmId, input.roleId);
 
     let updated;
     try {
       updated = await this.db.$transaction(async (tx) => {
+        if (input.roleId !== undefined) await this.assertRole(tx, firmId, input.roleId);
         const user = await tx.user.update({
           where: { id },
           data: {

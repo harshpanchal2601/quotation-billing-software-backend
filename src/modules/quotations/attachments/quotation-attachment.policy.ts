@@ -111,7 +111,9 @@ export function resolveAttachmentAbsolutePath(relativePath: string) {
   const normalised = relativePath.replace(/^\/?storage\//, '');
   const absolutePath = storageService.resolveStoragePath(normalised);
   const attachmentRoot = getAttachmentStorageDirectory();
-  if (!absolutePath.startsWith(attachmentRoot)) {
+  const relativeToAttachments = path.relative(attachmentRoot, absolutePath);
+  if (relativeToAttachments === '' || relativeToAttachments === '..' ||
+      relativeToAttachments.startsWith(`..${path.sep}`) || path.isAbsolute(relativeToAttachments)) {
     throw new AppError('Invalid attachment path', 403);
   }
   return absolutePath;
