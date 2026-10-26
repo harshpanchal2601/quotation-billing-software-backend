@@ -19,7 +19,10 @@ vi.mock('../src/core/database/prisma.js', () => ({
   },
 }));
 
-const { requireAuthentication, requireRole } = await import('../src/modules/auth/auth.middleware.js');
+vi.mock('../src/modules/entitlements/index.js', () => ({ assertFeatureEntitlements: vi.fn() }));
+
+const { requireAuthentication, requirePermission, requireRole } = await import('../src/modules/auth/auth.middleware.js');
+const { assertFeatureEntitlements } = await import('../src/modules/entitlements/index.js');
 const { ACCESS_TOKEN_COOKIE_NAME } = await import('../src/modules/auth/auth.constants.js');
 const { generateAccessToken } = await import('../src/modules/auth/security/auth.tokens.js');
 const { prisma } = await import('../src/core/database/prisma.js');
@@ -73,6 +76,33 @@ function createSession(user = createUser()) {
     user,
   };
 }
+
+describe('permission and entitlement composition', () => {
+  beforeEach(() => vi.clearAllMocks());
+  const request = (permissions: string[]) => ({ firmId: 1, user: { id: 1, permissions, mustChangePassword: false } }) as unknown as Request;
+
+  it('denies an authorized role when the subscription denies the action', async () => {
+    vi.mocked(assertFeatureEntitlements).mockRejectedValueOnce(new Error('plan denied'));
+    const next = createNext();
+    await requirePermission('items.view')(request(['items.view']), {} as Response, next);
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ message: 'plan denied' }));
+  });
+
+  it('denies missing RBAC independently and does not evaluate unrelated grants', async () => {
+    const next = createNext();
+    await requirePermission('items.view')(request(['companies.view']), {} as Response, next);
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 403 }));
+    expect(assertFeatureEntitlements).not.toHaveBeenCalled();
+  });
+
+  it('passes only RBAC-authorized alternatives into entitlement evaluation', async () => {
+    vi.mocked(assertFeatureEntitlements).mockResolvedValueOnce(undefined);
+    const next = createNext();
+    await requirePermission('items.view', 'companies.view')(request(['items.view']), {} as Response, next);
+    expect(assertFeatureEntitlements).toHaveBeenCalledWith(1, ['items.view']);
+    expect(next).toHaveBeenCalledWith();
+  });
+});
 
 describe('requireAuthentication', () => {
   beforeEach(() => {

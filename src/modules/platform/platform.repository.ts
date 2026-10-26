@@ -13,6 +13,7 @@ import { env } from '../../config/env.js';
 import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
 import { AppError } from '../../core/errors/AppError.js';
+import { initializeLegacySubscription, loadEntitlements } from '../entitlements/index.js';
 import type {
   PlatformFirmCreateInput,
   PlatformFirmListQuery,
@@ -86,19 +87,19 @@ export class PlatformRepository {
     ]);
 
     return {
-      firms: firms.map((firm) => ({
+      firms: await Promise.all(firms.map(async (firm) => ({
         id: firm.id,
         name: firm.name,
         slug: firm.slug,
         status: firm.status,
-        userLimit: firm.userLimit,
+        userLimit: Number((await loadEntitlements(this.db, firm.id)).limits.users),
         userCount: firm._count.users,
         displayName: firm.businessProfile?.displayName ?? firm.name,
         primaryEmail: firm.businessProfile?.primaryEmail ?? null,
         administratorEmail: firm.users[0]?.email ?? null,
         createdAt: firm.createdAt,
         updatedAt: firm.updatedAt,
-      })),
+      }))),
       pagination: {
         page: query.page,
         limit: query.limit,
@@ -116,6 +117,7 @@ export class PlatformRepository {
     if (firm === null) throw new AppError('Firm not found', 404);
     return {
       ...firm,
+      userLimit: Number((await loadEntitlements(this.db, id)).limits.users),
       displayName: firm.businessProfile?.displayName ?? firm.name,
       primaryEmail: firm.businessProfile?.primaryEmail ?? null,
       administratorEmail:
@@ -182,6 +184,7 @@ export class PlatformRepository {
             mustChangePassword: true,
           },
         });
+        await initializeLegacySubscription(tx, firm.id, metadata.userId ?? 0);
         await createAuditLog(tx, {
           metadata: { ...metadata, firmId: undefined },
           entityType: 'Firm',

@@ -7,6 +7,7 @@ import { assertActiveUser, assertFirmAccess, sanitiseUser } from './auth.helpers
 import { authRepository } from './auth.repository.js';
 import type { Permission } from './permissions.js';
 import { verifyAccessToken } from './security/auth.tokens.js';
+import { assertFeatureEntitlements } from '../entitlements/index.js';
 
 export const requireAuthentication: RequestHandler = async (req, _res, next) => {
   try {
@@ -64,7 +65,7 @@ export function requireRole(...roles: UserRole[]): RequestHandler {
 }
 
 export function requirePermission(...permissions: Permission[]): RequestHandler {
-  return (req, _res, next) => {
+  return async (req, _res, next) => {
     if (req.user === undefined) {
       next(new AppError(AUTHENTICATION_REQUIRED_MESSAGE, 401));
       return;
@@ -80,7 +81,13 @@ export function requirePermission(...permissions: Permission[]): RequestHandler 
       return;
     }
 
-    next();
+    try {
+      if (req.firmId === undefined) throw new AppError('Firm context is required', 500);
+      await assertFeatureEntitlements(req.firmId, permissions.filter((permission) => req.user?.permissions.includes(permission)));
+      next();
+    } catch (error) {
+      next(error);
+    }
   };
 }
 

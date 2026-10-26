@@ -4,6 +4,7 @@ import { AppError } from '../../../core/errors/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../../core/audit/audit-log.service.js';
 import { prisma } from '../../../core/database/prisma.js';
 import { storageService } from '../../../integrations/storage/index.js';
+import { assertTransactionFeature, prepareStorageUsage, recordStorageReplacement, recordUsage, withFirmEntitlementTransaction } from '../../entitlements/index.js';
 import {
   getFileCategory,
   MAX_ATTACHMENTS_PER_QUOTATION,
@@ -70,29 +71,21 @@ export class QuotationAttachmentsRepository {
   ): Promise<QuotationAttachmentDto> {
     const quotation = await this.assertQuotationExists(firmId, quotationId);
 
-    const activeCount = await this.db.quotationAttachment.count({
-      where: { quotationId, deletedAt: null },
-    });
-
-    if (activeCount >= MAX_ATTACHMENTS_PER_QUOTATION) {
-      throw new AppError(`Maximum ${MAX_ATTACHMENTS_PER_QUOTATION} attachments reached for this quotation`, 409);
-    }
-
     const relativePath = resolveAttachmentRelativePath(firmId, file.filename);
-
-    const attachment = await this.db.quotationAttachment.create({
-      data: {
-        quotationId,
-        originalFilename: file.originalname,
-        storedFilename: file.filename,
-        filePath: relativePath,
-        mimeType: file.mimetype,
-        fileSize: BigInt(file.size),
-        uploadedById: userId,
-      },
-      include: {
-        uploadedBy: { select: { id: true, name: true } },
-      },
+    const attachment = await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      await assertTransactionFeature(tx, firmId, 'quotations.attachments');
+      const activeCount = await tx.quotationAttachment.count({ where: { quotationId, deletedAt: null } });
+      if (activeCount >= MAX_ATTACHMENTS_PER_QUOTATION) {
+        throw new AppError(`Maximum ${MAX_ATTACHMENTS_PER_QUOTATION} attachments reached for this quotation`, 409);
+      }
+      await recordUsage(tx, firmId, 'storageBytes', BigInt(file.size), `attachment:${relativePath}`);
+      return tx.quotationAttachment.create({
+        data: {
+          quotationId, originalFilename: file.originalname, storedFilename: file.filename,
+          filePath: relativePath, mimeType: file.mimetype, fileSize: BigInt(file.size), uploadedById: userId,
+        },
+        include: { uploadedBy: { select: { id: true, name: true } } },
+      });
     });
 
     await createAuditLog(this.db, {
@@ -167,13 +160,16 @@ export class QuotationAttachmentsRepository {
       throw new AppError('Attachment not found', 404);
     }
 
-    await this.db.quotationAttachment.update({
-      where: { id: attachmentId },
-      data: { deletedAt: new Date() },
+    const removePrevious = await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      const current = await tx.quotationAttachment.findFirst({ where: { id: attachmentId, quotationId, quotation: { firmId }, deletedAt: null } });
+      if (current === null) throw new AppError('Attachment not found', 404);
+      await prepareStorageUsage(tx, firmId);
+      await tx.quotationAttachment.update({ where: { id: attachmentId }, data: { deletedAt: new Date() } });
+      return recordStorageReplacement(tx, firmId, 0n, current.filePath, `attachment:delete:${attachmentId}`);
     });
 
     const relativePath = attachment.filePath.replace(/^\/?storage\//, '');
-    await storageService.deleteStorageFile(relativePath).catch(() => {});
+    if (removePrevious) await storageService.deleteStorageFile(relativePath).catch(() => {});
 
     await createAuditLog(this.db, {
       metadata: { ...metadata, userId },

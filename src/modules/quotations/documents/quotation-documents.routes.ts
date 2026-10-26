@@ -76,19 +76,20 @@ quotationDocumentsRouter.post(
     }
 
     const fileHash = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
-    const documentVersionNumber = await quotationDocumentsRepository.getNextDocumentVersionNumber(quotation.id);
 
     let generatedDoc;
     try {
       generatedDoc = await quotationDocumentsRepository.createGeneratedDocument({
+        firmId,
         quotationId: quotation.id,
-        versionNumber: documentVersionNumber,
+        fileSize: pdfBuffer.length,
         filePath: relativeFilePath,
         fileHash,
         generatedById: userId,
       });
-    } catch {
+    } catch (error) {
       await storageService.deleteStorageFile(relativeFilePath).catch(() => {});
+      if (error instanceof AppError) throw error;
       throw new AppError('Failed to record generated document metadata', 500);
     }
 

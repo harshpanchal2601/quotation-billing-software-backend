@@ -11,6 +11,8 @@ import {
   type BrandingAssetType,
 } from '../../settings/index.js';
 import { storageService } from '../../../integrations/storage/index.js';
+import { AppError } from '../../../core/errors/AppError.js';
+import { assertTransactionFeature, recordUsage, withFirmEntitlementTransaction } from '../../entitlements/index.js';
 import type { QuotationPdfViewModel } from './quotation-documents.types.js';
 
 export async function getBrandingFileDataUrl(
@@ -253,32 +255,32 @@ export class QuotationDocumentsRepository {
     });
   }
 
-  async getNextDocumentVersionNumber(quotationId: number) {
-    const count = await this.db.generatedDocument.count({
-      where: {
-        quotationId,
-        documentType: DocumentType.QUOTATION_PDF,
-      },
-    });
-    return count + 1;
-  }
-
   async createGeneratedDocument(data: {
+    firmId: number;
     quotationId: number;
-    versionNumber: number;
+    fileSize: number;
     filePath: string;
     fileHash: string;
     generatedById: number;
   }) {
-    return this.db.generatedDocument.create({
-      data: {
-        quotationId: data.quotationId,
-        versionNumber: data.versionNumber,
-        documentType: DocumentType.QUOTATION_PDF,
-        filePath: data.filePath,
-        fileHash: data.fileHash,
-        generatedById: data.generatedById,
-      },
+    return withFirmEntitlementTransaction(this.db, data.firmId, async (tx) => {
+      const quotation = await tx.quotation.findFirst({ where: { id: data.quotationId, firmId: data.firmId, deletedAt: null } });
+      if (quotation === null) throw new AppError('Quotation not found', 404);
+      await assertTransactionFeature(tx, data.firmId, 'quotations.documents');
+      const existing = await tx.generatedDocument.findFirst({ where: { quotationId: data.quotationId, filePath: data.filePath } });
+      if (existing !== null) {
+        if (existing.fileHash !== data.fileHash || existing.generatedById !== data.generatedById) throw new AppError('Document event conflicts with existing metadata', 409);
+        return existing;
+      }
+      await recordUsage(tx, data.firmId, 'documents', 1n, `document:${data.filePath}`);
+      await recordUsage(tx, data.firmId, 'storageBytes', BigInt(data.fileSize), `document:${data.filePath}`);
+      const versionNumber = await tx.generatedDocument.count({ where: { quotationId: data.quotationId, documentType: DocumentType.QUOTATION_PDF } }) + 1;
+      return tx.generatedDocument.create({
+        data: {
+          quotationId: data.quotationId, versionNumber, documentType: DocumentType.QUOTATION_PDF,
+          filePath: data.filePath, fileHash: data.fileHash, generatedById: data.generatedById,
+        },
+      });
     });
   }
 

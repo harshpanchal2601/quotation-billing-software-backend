@@ -92,13 +92,13 @@ describe('health endpoints', () => {
     vi.clearAllMocks();
   });
 
-  it('returns the original API health response', async () => {
+  it('returns the current API health response', async () => {
     const response = await callHandler(getRouteHandler('/'));
 
     expect(response.statusCode).toBe(200);
     expect(response.body).toEqual({
       success: true,
-      message: 'Buminex API is running',
+      message: 'ERP API is running',
       data: {
         status: 'healthy',
       },

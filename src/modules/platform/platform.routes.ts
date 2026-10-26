@@ -5,6 +5,7 @@ import { sendSuccess } from '../../core/http/apiResponse.js';
 import { asyncHandler } from '../../core/http/asyncHandler.js';
 import { requireAccountType, requireAuthentication } from '../auth/auth.middleware.js';
 import { platformRepository } from './platform.repository.js';
+import { platformSubscriptionsRouter } from './platform-subscriptions.routes.js';
 import {
   platformFirmCreateSchema,
   platformFirmIdSchema,
@@ -63,6 +64,7 @@ async function resetFirmAdministratorPassword(req: Request, res: Response) {
 }
 
 platformRouter.use(requireAuthentication, requireAccountType(AccountType.SUPER_ADMIN));
+platformRouter.use(platformSubscriptionsRouter);
 platformRouter.get('/firms', asyncHandler(listFirms));
 platformRouter.post('/firms', asyncHandler(createFirm));
 platformRouter.get('/firms/:id', asyncHandler(getFirm));

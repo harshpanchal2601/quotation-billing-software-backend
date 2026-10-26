@@ -2,6 +2,9 @@ import type { PrismaClient } from '@prisma/client';
 import { AuditAction } from '@prisma/client';
 
 import { prisma } from '../../../core/database/prisma.js';
+import { randomUUID } from 'node:crypto';
+import { AppError } from '../../../core/errors/AppError.js';
+import { assertTransactionFeature, prepareStorageUsage, recordStorageReplacement, withFirmEntitlementTransaction } from '../../entitlements/index.js';
 import { BusinessProfileRepository } from '../business-profile/business-profile.repository.js';
 import { createSettingsAuditLog, type RequestMetadata } from '../settings.audit.js';
 import { serialiseBusinessProfile, toAssetUrl } from '../settings.serializers.js';
@@ -19,15 +22,24 @@ export class BrandingRepository {
     const profile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile(firmId);
     const config = brandingAssetConfig[assetType];
     const relativePath = toBrandingRelativePath(firmId, assetType, file.filename);
-    const previousPath = profile[config.profileField];
+    let previousPath: string | null = null;
+    let removePrevious = false;
 
     try {
-      const updated = await this.db.businessProfile.update({
-        where: { id: profile.id },
-        data: { [config.profileField]: relativePath },
+      const updated = await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+        const current = await tx.businessProfile.findUnique({ where: { firmId } });
+        if (current === null) throw new AppError('Business profile not found', 404);
+        previousPath = current[config.profileField];
+        await assertTransactionFeature(tx, firmId, 'firm.core');
+        await prepareStorageUsage(tx, firmId);
+        const updated = await tx.businessProfile.update({
+          where: { id: profile.id }, data: { [config.profileField]: relativePath },
+        });
+        removePrevious = await recordStorageReplacement(tx, firmId, BigInt(file.size), previousPath, `branding:${relativePath}`);
+        return updated;
       });
 
-      await removeStoredBrandingAsset(previousPath);
+      if (removePrevious) await removeStoredBrandingAsset(previousPath);
       await createSettingsAuditLog(this.db, {
         metadata,
         entityType: 'BusinessProfile',
@@ -47,18 +59,26 @@ export class BrandingRepository {
   async deleteAsset(firmId: number, assetType: BrandingAssetType, metadata: RequestMetadata) {
     const profile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile(firmId);
     const config = brandingAssetConfig[assetType];
-    const previousPath = profile[config.profileField];
+    let previousPath = profile[config.profileField];
+    let removePrevious = false;
 
     if (previousPath === null) {
       return serialiseBusinessProfile(profile);
     }
 
-    const updated = await this.db.businessProfile.update({
-      where: { id: profile.id },
-      data: { [config.profileField]: null },
+    const updated = await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      const current = await tx.businessProfile.findUnique({ where: { firmId } });
+      if (current === null) throw new AppError('Business profile not found', 404);
+      previousPath = current[config.profileField];
+      await prepareStorageUsage(tx, firmId);
+      const updated = await tx.businessProfile.update({
+        where: { id: profile.id }, data: { [config.profileField]: null },
+      });
+      removePrevious = await recordStorageReplacement(tx, firmId, 0n, previousPath, `branding:delete:${randomUUID()}`);
+      return updated;
     });
 
-    await removeStoredBrandingAsset(previousPath);
+    if (removePrevious) await removeStoredBrandingAsset(previousPath);
     await createSettingsAuditLog(this.db, {
       metadata,
       entityType: 'BusinessProfile',

@@ -1,4 +1,6 @@
 import bcrypt from 'bcrypt';
+import { randomUUID } from 'node:crypto';
+import { loadEntitlements, recordUsage, withFirmEntitlementTransaction } from '../entitlements/index.js';
 import {
   AccountType,
   AuditAction,
@@ -115,7 +117,8 @@ export class AdministrationRepository {
       select: userListSelect,
       orderBy: [{ accountType: 'asc' }, { createdAt: 'asc' }],
     });
-    return { users, userLimit: firm.userLimit, userCount: users.length };
+    const { limits } = await loadEntitlements(this.db, firmId);
+    return { users, userLimit: Number(limits.users), userCount: users.length };
   }
 
   async createUser(firmId: number, input: FirmUserCreateInput, metadata: RequestMetadata) {
@@ -123,15 +126,12 @@ export class AdministrationRepository {
 
     let userId: number;
     try {
-      userId = await this.db.$transaction(
+      userId = await withFirmEntitlementTransaction(this.db, firmId,
         async (tx) => {
           const firm = await tx.firm.findFirst({ where: { id: firmId, deletedAt: null } });
           if (firm === null) throw new AppError('Firm not found', 404);
-          const userCount = await tx.user.count({ where: { firmId, deletedAt: null } });
-          if (userCount >= firm.userLimit) {
-            throw new AppError(`Firm user limit of ${firm.userLimit} has been reached`, 409);
-          }
           await this.assertRole(tx, firmId, input.roleId);
+          await recordUsage(tx, firmId, 'users', 1n, `user:create:${randomUUID()}`);
           const user = await tx.user.create({
             data: {
               firmId,
@@ -148,7 +148,6 @@ export class AdministrationRepository {
           });
           return user.id;
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
       if (isUniqueConflict(error)) throw new AppError('Email or username already exists', 409);
@@ -229,13 +228,16 @@ export class AdministrationRepository {
 
   async deleteUser(firmId: number, id: number, metadata: RequestMetadata) {
     const existing = await this.findUser(firmId, id);
-    await this.db.$transaction([
-      this.db.user.update({
+    await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      const current = await tx.user.findFirst({ where: { id, firmId, accountType: AccountType.FIRM_USER, deletedAt: null } });
+      if (current === null) throw new AppError('Firm user not found', 404);
+      await recordUsage(tx, firmId, 'users', -1n, `user:delete:${id}`);
+      await tx.user.update({
         where: { id },
         data: { deletedAt: new Date(), status: UserStatus.INACTIVE },
-      }),
-      this.db.authSession.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } }),
-    ]);
+      });
+      await tx.authSession.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+    });
     await createAuditLog(this.db, {
       metadata,
       entityType: 'User',

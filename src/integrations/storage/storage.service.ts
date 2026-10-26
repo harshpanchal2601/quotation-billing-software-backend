@@ -54,6 +54,17 @@ export async function fileExists(relativePath: string) {
   }
 }
 
+export async function storageFileSize(relativePath: string) {
+  try {
+    const stat = await fs.stat(resolveStoragePath(relativePath));
+    if (!stat.isFile() || !Number.isSafeInteger(stat.size)) throw new AppError('Invalid managed storage file', 409);
+    return stat.size;
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return 0;
+    throw error;
+  }
+}
+
 export function publicAssetPath(directory: PublicAssetDirectory) {
   return path.resolve(storageConfig.root, directory);
 }
@@ -79,6 +90,7 @@ export const storageService = {
   writeStorageFile,
   deleteStorageFile,
   fileExists,
+  storageFileSize,
   publicAssetPath,
   createPublicAssetStaticMiddleware,
 };

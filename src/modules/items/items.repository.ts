@@ -3,6 +3,7 @@ import { AuditAction, ItemSourceType, Prisma, type Item, type PrismaClient } fro
 import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
+import { assertTransactionFeature, prepareStorageUsage, recordStorageReplacement, withFirmEntitlementTransaction } from '../entitlements/index.js';
 import { formatItemCode, findLatestItemCodeSequence } from './code/item-code.js';
 import { removeStoredItemImage, toItemRelativePath } from './images/item-image.policy.js';
 import {
@@ -272,19 +273,26 @@ export class ItemsRepository {
     }
 
     const newRelativePath = toItemRelativePath(firmId, file.filename);
-    const oldRelativePath = existing.imagePath;
+    let oldRelativePath: string | null = null;
+    let removePrevious = false;
 
     try {
-      const updated = await this.db.item.update({
-        where: { id },
-        data: {
-          imagePath: newRelativePath,
-          updatedById: metadata.userId ?? null,
-        },
-        include: itemDetailInclude,
+      const updated = await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+        const current = await tx.item.findFirst({ where: { id, firmId, deletedAt: null } });
+        if (current === null) throw new AppError('Item not found', 404);
+        oldRelativePath = current.imagePath;
+        await assertTransactionFeature(tx, firmId, 'items');
+        await prepareStorageUsage(tx, firmId);
+        const item = await tx.item.update({
+          where: { id },
+          data: { imagePath: newRelativePath, updatedById: metadata.userId ?? null },
+          include: itemDetailInclude,
+        });
+        removePrevious = await recordStorageReplacement(tx, firmId, BigInt(file.size), oldRelativePath, `image:${newRelativePath}`);
+        return item;
       });
 
-      if (oldRelativePath) {
+      if (removePrevious && oldRelativePath) {
         await removeStoredItemImage(oldRelativePath);
       }
 
@@ -310,18 +318,24 @@ export class ItemsRepository {
       return serialiseItemDetail(existing);
     }
 
-    const oldRelativePath = existing.imagePath;
-
-    const updated = await this.db.item.update({
-      where: { id },
-      data: {
-        imagePath: null,
-        updatedById: metadata.userId ?? null,
-      },
-      include: itemDetailInclude,
+    let oldRelativePath: string | null = null;
+    let removePrevious = false;
+    const updated = await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      const current = await tx.item.findFirst({ where: { id, firmId, deletedAt: null }, include: itemDetailInclude });
+      if (current === null) throw new AppError('Item not found', 404);
+      if (current.imagePath === null) return current;
+      oldRelativePath = current.imagePath;
+      await prepareStorageUsage(tx, firmId);
+      const item = await tx.item.update({
+        where: { id },
+        data: { imagePath: null, updatedById: metadata.userId ?? null },
+        include: itemDetailInclude,
+      });
+      removePrevious = await recordStorageReplacement(tx, firmId, 0n, oldRelativePath, `image:delete:${id}:${current.updatedAt.toISOString()}`);
+      return item;
     });
 
-    await removeStoredItemImage(oldRelativePath);
+    if (removePrevious) await removeStoredItemImage(oldRelativePath);
 
     await createAuditLog(this.db, {
       metadata,

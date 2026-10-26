@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { AccountType, AddressType, PrismaClient } from '@prisma/client';
 import { expect } from 'vitest';
 
-export function assertDisposableTenantDatabase(value: string) {
+export function assertDisposableTenantDatabase(value: string, wave: '01' | '02' = '01') {
   const url = new URL(value);
   if (url.protocol !== 'mysql:' ||
       !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
-      !/^\/wave01_test_[a-zA-Z0-9_]+$/.test(url.pathname)) {
-    throw new Error('Use a local disposable MySQL database named wave01_test_<suffix>');
+      !new RegExp(`^/wave${wave}_test_[a-zA-Z0-9_]+$`).test(url.pathname)) {
+    throw new Error(`Use a local disposable MySQL database named wave${wave}_test_<suffix>`);
   }
 }
 
@@ -18,7 +18,7 @@ export type TenantFixture = Awaited<ReturnType<TwoFirmFixture['createTenant']>>;
 export class TwoFirmFixture {
   readonly firmIds: number[] = [];
   readonly platformUserIds: number[] = [];
-  constructor(readonly db: PrismaClient) {}
+  constructor(readonly db: PrismaClient, private readonly options: { platformLedger?: boolean } = {}) {}
 
   async createActor(firmId: number | null, accountType: AccountType, firmRoleId?: number) {
     const unique = randomUUID();
@@ -67,6 +67,9 @@ export class TwoFirmFixture {
   async cleanup() {
     const firmId = { in: this.firmIds };
     const quotation = { firmId };
+    const ledgerFirmIds = this.options.platformLedger
+      ? (await this.db.platformCharge.findMany({ where: { firmId }, select: { firmId: true }, distinct: ['firmId'] })).map((charge) => charge.firmId)
+      : [];
     // Immutable platform events intentionally survive fixture actor deletion.
     // Their scalar snapshots remain evidence; no production or shared data is removed.
     await this.db.$transaction(async (tx) => {
@@ -94,7 +97,9 @@ export class TwoFirmFixture {
       } });
       await tx.user.deleteMany({ where: { OR: [{ firmId }, { id: { in: this.platformUserIds } }] } });
       await tx.firmRole.deleteMany({ where: { firmId } });
-      await tx.firm.deleteMany({ where: { id: firmId } });
+      await tx.firm.deleteMany({ where: { id: { in: this.firmIds.filter((id) => !ledgerFirmIds.includes(id)) } } });
+      // Retain owned tombstones when append-only platform charges reference them.
+      await tx.firm.updateMany({ where: { id: { in: ledgerFirmIds } }, data: { deletedAt: new Date(), status: 'SUSPENDED' } });
     }, { timeout: 30_000 });
   }
 }
