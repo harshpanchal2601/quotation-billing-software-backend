@@ -22,7 +22,7 @@ export const quotationSettingsUpdateSchema = z
       .regex(/^[A-Z0-9_-]+$/)
       .optional(),
     financialYearFormat: z.literal('YYYY-YY').optional(),
-    nextSequenceNumber: z.number().int().positive().optional(),
+    nextSequenceNumber: z.number().int().positive().max(2147483647).optional(),
     sequenceResetRule: z.nativeEnum(SequenceResetRule).optional(),
     defaultValidityDays: z.number().int().min(1).max(365).optional(),
     defaultTaxMode: z.nativeEnum(TaxMode).optional(),

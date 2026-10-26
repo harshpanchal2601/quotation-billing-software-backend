@@ -7,6 +7,9 @@ import { QuotationsRepository } from '../src/modules/quotations/quotations.repos
 import { calculationPreviewSchema, quotationCreateSchema } from '../src/modules/quotations/quotations.schema.js';
 
 type MockPrisma = {
+  documentSequence: { findUniqueOrThrow: ReturnType<typeof vi.fn> };
+  $queryRaw: ReturnType<typeof vi.fn>;
+  $executeRaw: ReturnType<typeof vi.fn>;
   quotation: {
     findFirst: ReturnType<typeof vi.fn>;
     findMany: ReturnType<typeof vi.fn>;
@@ -27,6 +30,7 @@ type MockPrisma = {
     create: ReturnType<typeof vi.fn>;
   };
   quotationSetting: {
+    findUniqueOrThrow: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
@@ -59,6 +63,9 @@ function asPrisma(db: MockPrisma): PrismaClient {
 
 function createMockPrisma(): MockPrisma {
   const db: MockPrisma = {
+    documentSequence: { findUniqueOrThrow: vi.fn().mockResolvedValue({ nextValue: 2n }) },
+    $queryRaw: vi.fn().mockResolvedValue([{ id: 1 }]),
+    $executeRaw: vi.fn().mockResolvedValue(1),
     quotation: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -79,6 +86,7 @@ function createMockPrisma(): MockPrisma {
       create: vi.fn(),
     },
     quotationSetting: {
+      findUniqueOrThrow: vi.fn().mockResolvedValue({ nextSequenceNumber: 1, quotationPrefix: 'BUMINEX', financialYearFormat: 'YYYY-YY' }),
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -652,6 +660,7 @@ describe('quotations repository', () => {
         rootQuotationId: 1,
         previousRevisionId: 1,
         status: QuotationStatus.DRAFT,
+        financialPolicySnapshot: { version: 1, calculator: 'quotation-legacy-unversioned', currency: 'INR', taxMode: TaxMode.CGST_SGST, taxRateSource: 'quotation-item-snapshots' },
       }),
     });
     expect(db.quotationItem.createMany).toHaveBeenCalledWith({

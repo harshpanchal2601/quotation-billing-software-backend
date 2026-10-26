@@ -36,6 +36,8 @@ const envSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM_EMAIL: z.string().optional(),
   SMTP_FROM_NAME: z.string().optional(),
+  OUTBOX_WORKER_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(100).max(60_000).default(1000),
 });
 
 export type Env = z.infer<typeof envSchema>;

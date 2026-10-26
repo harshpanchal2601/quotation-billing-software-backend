@@ -10,20 +10,25 @@ describe('quotation sequence reservation', () => {
   });
   it('uses the atomically reserved sequence and skips occupied legacy numbers', async () => {
     const tx = {
-      quotationSetting: { update: vi.fn()
-        .mockResolvedValueOnce({ nextSequenceNumber: 42, quotationPrefix: 'ERP', financialYearFormat: 'YYYY-YY' })
-        .mockResolvedValueOnce({ nextSequenceNumber: 43, quotationPrefix: 'ERP', financialYearFormat: 'YYYY-YY' }) },
+      $queryRaw: vi.fn().mockResolvedValue([{ id: 2 }]),
+      $executeRaw: vi.fn().mockResolvedValue(1),
+      quotationSetting: { findUniqueOrThrow: vi.fn().mockResolvedValue({ nextSequenceNumber: 1, quotationPrefix: 'ERP', financialYearFormat: 'YYYY-YY' }) },
+      documentSequence: { findUniqueOrThrow: vi.fn().mockResolvedValueOnce({ nextValue: 42n }).mockResolvedValueOnce({ nextValue: 43n }) },
       quotation: { findFirst: vi.fn().mockResolvedValueOnce({ id: 9 }).mockResolvedValueOnce(null) },
     };
     await expect(generateUniqueQuotationNumber(
       tx as unknown as Prisma.TransactionClient, 2, 1,
       new Date('2026-10-21T00:00:00Z'),
     )).resolves.toBe('ERP/2026-27/000042');
-    expect(tx.quotationSetting.update).toHaveBeenCalledWith({
-      where: { id: 2 }, data: { nextSequenceNumber: { increment: 1 } },
-    });
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
+    expect(tx.documentSequence.findUniqueOrThrow).toHaveBeenCalledWith({ where: { firmId_documentType_period: { firmId: 1, documentType: 'QUOTATION', period: 'LEGACY' } } });
     expect(tx.quotation.findFirst).toHaveBeenLastCalledWith({
       where: { firmId: 1, quotationNumber: 'ERP/2026-27/000042' }, select: { id: true },
     });
+  });
+  it('denies settings belonging to another firm before reserving a number', async () => {
+    const tx = { $queryRaw: vi.fn().mockResolvedValue([]), $executeRaw: vi.fn() };
+    await expect(generateUniqueQuotationNumber(tx as unknown as Prisma.TransactionClient, 2, 1)).rejects.toMatchObject({ statusCode: 404 });
+    expect(tx.$executeRaw).not.toHaveBeenCalled();
   });
 });

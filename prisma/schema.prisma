@@ -126,6 +126,110 @@ enum AuditAction {
   IMPORT
 }
 
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  DEAD
+  RECONCILE
+}
+
+model DocumentSequence {
+  id           Int      @id @default(autoincrement())
+  firmId       Int      @map("firm_id")
+  documentType String   @map("document_type") @db.VarChar(32)
+  period       String   @db.VarChar(32)
+  nextValue    BigInt   @default(1) @map("next_value")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  firm         Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict)
+
+  @@unique([firmId, documentType, period])
+  @@map("document_sequences")
+}
+
+model FirmBusinessPolicy {
+  id        Int      @id @default(autoincrement())
+  firmId    Int      @map("firm_id")
+  version   Int
+  policy    Json
+  actorId   Int      @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  firm      Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict)
+
+  @@unique([firmId, version])
+  @@map("firm_business_policies")
+}
+
+model OutboxEvent {
+  id             String       @id @db.VarChar(36)
+  firmId         Int          @map("firm_id")
+  actorId        Int          @map("actor_id")
+  kind           String       @db.VarChar(100)
+  sourceEventId  String       @map("source_event_id") @db.VarChar(191)
+  idempotencyKey String       @map("idempotency_key") @db.VarChar(191)
+  payload        Json
+  status         OutboxStatus @default(PENDING)
+  attempts       Int          @default(0)
+  maxAttempts    Int          @default(5) @map("max_attempts")
+  availableAt    DateTime     @default(now()) @map("available_at")
+  lockedUntil    DateTime?    @map("locked_until")
+  lockToken      String?      @map("lock_token") @db.VarChar(36)
+  completedAt    DateTime?    @map("completed_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  firm           Firm         @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  jobAttempts    JobAttempt[]
+  notifications NotificationDelivery[]
+
+  @@unique([firmId, idempotencyKey])
+  @@unique([id, firmId])
+  @@index([status, availableAt])
+  @@index([status, lockedUntil])
+  @@map("outbox_events")
+}
+
+model JobAttempt {
+  id           Int         @id @default(autoincrement())
+  eventId      String      @map("event_id") @db.VarChar(36)
+  attempt      Int
+  workerId     String      @map("worker_id") @db.VarChar(100)
+  startedAt    DateTime    @default(now()) @map("started_at")
+  finishedAt   DateTime?   @map("finished_at")
+  outcome      String?     @db.VarChar(32)
+  errorCode    String?     @map("error_code") @db.VarChar(100)
+  event        OutboxEvent @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  @@unique([eventId, attempt])
+  @@map("job_attempts")
+}
+
+model NotificationPreference {
+  id        Int     @id @default(autoincrement())
+  firmId    Int     @map("firm_id")
+  channel   String  @db.VarChar(20)
+  enabled   Boolean @default(true)
+  firm      Firm    @relation(fields: [firmId], references: [id], onDelete: Restrict)
+
+  @@unique([firmId, channel])
+  @@map("notification_preferences")
+}
+
+model NotificationDelivery {
+  id          Int         @id @default(autoincrement())
+  firmId      Int         @map("firm_id")
+  eventId     String      @map("event_id") @db.VarChar(36)
+  recipientId Int         @map("recipient_id")
+  title       String      @db.VarChar(191)
+  body        String      @db.Text
+  createdAt   DateTime    @default(now()) @map("created_at")
+  firm        Firm        @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  event       OutboxEvent @relation(fields: [eventId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([eventId, recipientId])
+  @@index([firmId, recipientId, createdAt])
+  @@map("notification_deliveries")
+}
+
 model User {
   id                Int                      @id @default(autoincrement())
   firmId            Int?                     @map("firm_id")
@@ -195,6 +299,11 @@ model Firm {
   featureOverrides  FirmFeatureOverride[]
   usageCounters     UsageCounter[]
   platformCharges   PlatformCharge[]
+  documentSequences DocumentSequence[]
+  outboxEvents      OutboxEvent[]
+  businessPolicies  FirmBusinessPolicy[]
+  notificationPreferences NotificationPreference[]
+  notificationDeliveries NotificationDelivery[]
 
   @@index([status])
   @@index([deletedAt])
@@ -496,6 +605,7 @@ model Quotation {
   internalReference       String?                  @map("internal_reference") @db.VarChar(191)
   status                  QuotationStatus          @default(DRAFT)
   currency                String                   @default("INR") @db.VarChar(3)
+  financialPolicySnapshot Json?                    @map("financial_policy_snapshot")
   taxMode                 TaxMode                  @default(CGST_SGST) @map("tax_mode")
   subtotal                Decimal                  @default(0.00) @db.Decimal(15, 2)
   itemDiscountAmount      Decimal                  @default(0.00) @map("item_discount_amount") @db.Decimal(15, 2)

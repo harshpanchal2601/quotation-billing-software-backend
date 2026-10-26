@@ -1,4 +1,5 @@
 import type { QuotationPdfViewModel } from './quotation-documents.types.js';
+import { Prisma } from '@prisma/client';
 
 export function escapeHtml(str: string | null | undefined): string {
   if (str === null || str === undefined) return '';
@@ -11,9 +12,12 @@ export function escapeHtml(str: string | null | undefined): string {
 }
 
 export function formatCurrencyPdf(val: string | number, currency: string = 'INR'): string {
-  const num = Number(val);
-  if (!Number.isFinite(num)) return `${currency} 0.00`;
-  return `${currency} ${num.toFixed(2)}`;
+  try {
+    const amount = new Prisma.Decimal(String(val));
+    return `${currency} ${amount.isFinite() ? amount.toFixed(2, Prisma.Decimal.ROUND_HALF_UP) : '0.00'}`;
+  } catch {
+    return `${currency} 0.00`;
+  }
 }
 
 export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string {

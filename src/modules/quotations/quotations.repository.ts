@@ -5,6 +5,7 @@ import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log
 import { prisma } from '../../core/database/prisma.js';
 import { getOrCreateQuotationSettings } from '../settings/index.js';
 import { calculateQuotationTotals } from './calculations/quotation-calculations.js';
+import { quotationPolicySnapshot } from './calculations/quotation-policy.js';
 import {
   isValidUntilBeforeQuotationDate,
   parseDateOnlyToUtcDate,
@@ -102,6 +103,7 @@ export class QuotationsRepository {
           internalReference: input.internalReference ?? null,
           status: QuotationStatus.DRAFT,
           currency: input.currency || 'INR',
+          financialPolicySnapshot: quotationPolicySnapshot(input.currency || 'INR', input.taxMode ?? 'CGST_SGST'),
           taxMode: input.taxMode ?? 'CGST_SGST',
           subtotal: new Prisma.Decimal(calculated.subtotal),
           itemDiscountAmount: new Prisma.Decimal(calculated.itemDiscountAmount),
@@ -437,6 +439,7 @@ export class QuotationsRepository {
           customerReference: input.customerReference !== undefined ? input.customerReference : existing.customerReference,
           internalReference: input.internalReference !== undefined ? input.internalReference : existing.internalReference,
           currency: input.currency ?? existing.currency,
+          financialPolicySnapshot: quotationPolicySnapshot(input.currency ?? existing.currency, input.taxMode ?? existing.taxMode),
           taxMode: input.taxMode ?? existing.taxMode,
           subtotal: new Prisma.Decimal(calculated.subtotal),
           itemDiscountAmount: new Prisma.Decimal(calculated.itemDiscountAmount),
@@ -587,6 +590,10 @@ export class QuotationsRepository {
             internalReference: latest.internalReference,
             status: QuotationStatus.DRAFT,
             currency: latest.currency,
+            financialPolicySnapshot: latest.financialPolicySnapshot ?? {
+              version: 1, calculator: 'quotation-legacy-unversioned', currency: latest.currency,
+              taxMode: latest.taxMode, taxRateSource: 'quotation-item-snapshots',
+            },
             taxMode: latest.taxMode,
             subtotal: latest.subtotal,
             itemDiscountAmount: latest.itemDiscountAmount,

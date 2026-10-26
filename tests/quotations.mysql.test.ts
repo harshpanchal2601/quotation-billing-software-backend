@@ -55,6 +55,7 @@ databaseSuite('quotation integrity against disposable MySQL', () => {
         await db.auditLog.deleteMany({ where: { firmId: firm.id } });
         await db.company.deleteMany({ where: { firmId: firm.id } });
         await db.quotationSetting.deleteMany({ where: { businessProfile: { firmId: firm.id } } });
+        await db.documentSequence.deleteMany({ where: { firmId: firm.id } });
         await db.businessProfile.deleteMany({ where: { firmId: firm.id } });
         await db.user.deleteMany({ where: { firmId: firm.id } });
         await db.firm.delete({ where: { id: firm.id } });
@@ -125,11 +126,10 @@ databaseSuite('quotation integrity against disposable MySQL', () => {
   it('rolls back a failed create and its sequence reservation together', async () => {
     const firm = firms[0]!;
     await create();
-    const where = { businessProfile: { firmId: firm.id } };
-    const before = await db.quotationSetting.findFirstOrThrow({ where });
+    const before = await db.documentSequence.findUniqueOrThrow({ where: { firmId_documentType_period: { firmId: firm.id, documentType: 'QUOTATION', period: 'LEGACY' } } });
     const countBefore = await db.quotation.count({ where: { firmId: firm.id } });
     await expect(create(firm, withFailure('auditLog'))).rejects.toThrow('injected persistence failure');
-    expect((await db.quotationSetting.findFirstOrThrow({ where })).nextSequenceNumber).toBe(before.nextSequenceNumber);
+    expect((await db.documentSequence.findUniqueOrThrow({ where: { firmId_documentType_period: { firmId: firm.id, documentType: 'QUOTATION', period: 'LEGACY' } } })).nextValue).toBe(before.nextValue);
     expect(await db.quotation.count({ where: { firmId: firm.id } })).toBe(countBefore);
   });
 

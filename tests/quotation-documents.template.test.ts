@@ -130,6 +130,12 @@ describe('quotation PDF template and document security', () => {
     expect(html).toContain('USD 1180.00');
   });
 
+  it('formats stored Decimal values without a floating-point conversion', () => {
+    expect(formatCurrencyPdf('9999999999999.99', 'INR')).toBe('INR 9999999999999.99');
+    expect(formatCurrencyPdf('1.005', 'USD')).toBe('USD 1.01');
+    expect(formatCurrencyPdf('invalid', 'USD')).toBe('USD 0.00');
+  });
+
   it('escapes special character ampersands in contact names and bank details', () => {
     const escapedName = escapeHtml('John & Jane');
     expect(escapedName).toBe('John &amp; Jane');

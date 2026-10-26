@@ -5,6 +5,7 @@ import { prisma } from '../../../core/database/prisma.js';
 import { BusinessProfileRepository } from '../business-profile/business-profile.repository.js';
 import { createSettingsAuditLog, pickChangedFields, type RequestMetadata } from '../settings.audit.js';
 import { serialiseQuotationSettings } from '../settings.serializers.js';
+import { AppError } from '../../../core/errors/AppError.js';
 import type { QuotationSettingsUpdateInput } from './quotation-settings.schema.js';
 
 const quotationSettingFields = [
@@ -57,7 +58,12 @@ export class QuotationSettingsRepository {
   }
 
   async getQuotationSettings(firmId: number) {
-    return serialiseQuotationSettings(await this.getOrCreateQuotationSettings(firmId));
+    const settings = await this.getOrCreateQuotationSettings(firmId);
+    const sequence = await this.db.documentSequence.findUnique({ where: {
+      firmId_documentType_period: { firmId, documentType: 'QUOTATION', period: 'LEGACY' },
+    } });
+    if (sequence !== null && sequence.nextValue > BigInt(Number.MAX_SAFE_INTEGER)) throw new AppError('Quotation sequence exceeds supported settings precision', 409);
+    return serialiseQuotationSettings({ ...settings, nextSequenceNumber: sequence === null ? settings.nextSequenceNumber : Number(sequence.nextValue) });
   }
 
   async updateQuotationSettings(firmId: number, input: QuotationSettingsUpdateInput, metadata: RequestMetadata) {
@@ -71,31 +77,48 @@ export class QuotationSettingsRepository {
         ]),
     );
 
-    const updated = await this.db.quotationSetting.update({
-      where: { id: settings.id },
-      data,
+    return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM quotation_settings WHERE id = ${settings.id} FOR UPDATE`;
+      const lockedSettings = await tx.quotationSetting.findUniqueOrThrow({ where: { id: settings.id } });
+      if (input.sequenceResetRule !== undefined && input.sequenceResetRule !== lockedSettings.sequenceResetRule) throw new AppError('Changing quotation reset behavior requires a separate numbering cutover', 409);
+      const sequence = await tx.documentSequence.findUnique({ where: { firmId_documentType_period: { firmId, documentType: 'QUOTATION', period: 'LEGACY' } } });
+      const currentNext = sequence?.nextValue ?? BigInt(lockedSettings.nextSequenceNumber);
+      if (currentNext > BigInt(Number.MAX_SAFE_INTEGER)) throw new AppError('Quotation sequence exceeds supported settings precision', 409);
+      if (input.nextSequenceNumber !== undefined && BigInt(input.nextSequenceNumber) < currentNext) throw new AppError('Sequence numbers cannot move backwards', 409);
+      if (input.nextSequenceNumber !== undefined) {
+        await tx.documentSequence.upsert({
+          where: { firmId_documentType_period: { firmId, documentType: 'QUOTATION', period: 'LEGACY' } },
+          create: { firmId, documentType: 'QUOTATION', period: 'LEGACY', nextValue: BigInt(input.nextSequenceNumber) },
+          update: { nextValue: BigInt(input.nextSequenceNumber) },
+        });
+      }
+      const updated = await tx.quotationSetting.update({
+        where: { id: settings.id },
+        data,
+      });
+
+      const before = {
+        ...lockedSettings, nextSequenceNumber: Number(currentNext),
+        defaultGstRate: lockedSettings.defaultGstRate.toFixed(2),
+      } as unknown as Record<string, unknown>;
+      const after = {
+        ...updated, nextSequenceNumber: input.nextSequenceNumber ?? Number(currentNext),
+        defaultGstRate: updated.defaultGstRate.toFixed(2),
+      } as unknown as Record<string, unknown>;
+      const { oldValues, newValues } = pickChangedFields(before, after, [...quotationSettingFields]);
+
+      await createSettingsAuditLog(tx, {
+        metadata,
+        entityType: 'QuotationSetting',
+        entityId: String(updated.id),
+        action: AuditAction.UPDATE,
+        policy: 'REQUIRED',
+        oldValues,
+        newValues,
+      });
+
+      return serialiseQuotationSettings({ ...updated, nextSequenceNumber: input.nextSequenceNumber ?? Number(currentNext) });
     });
-
-    const before = {
-      ...settings,
-      defaultGstRate: settings.defaultGstRate.toFixed(2),
-    } as unknown as Record<string, unknown>;
-    const after = {
-      ...updated,
-      defaultGstRate: updated.defaultGstRate.toFixed(2),
-    } as unknown as Record<string, unknown>;
-    const { oldValues, newValues } = pickChangedFields(before, after, [...quotationSettingFields]);
-
-    await createSettingsAuditLog(this.db, {
-      metadata,
-      entityType: 'QuotationSetting',
-      entityId: String(updated.id),
-      action: AuditAction.UPDATE,
-      oldValues,
-      newValues,
-    });
-
-    return serialiseQuotationSettings(updated);
   }
 
   private getBusinessProfileRepository() {

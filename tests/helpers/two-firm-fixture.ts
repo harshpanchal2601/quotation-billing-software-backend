@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { AccountType, AddressType, PrismaClient } from '@prisma/client';
 import { expect } from 'vitest';
 
-export function assertDisposableTenantDatabase(value: string, wave: '01' | '02' = '01') {
+export function assertDisposableTenantDatabase(value: string, wave: '01' | '02' | '03' = '01') {
   const url = new URL(value);
   if (url.protocol !== 'mysql:' ||
       !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
@@ -73,6 +73,12 @@ export class TwoFirmFixture {
     // Immutable platform events intentionally survive fixture actor deletion.
     // Their scalar snapshots remain evidence; no production or shared data is removed.
     await this.db.$transaction(async (tx) => {
+      await tx.notificationDelivery.deleteMany({ where: { firmId } });
+      await tx.jobAttempt.deleteMany({ where: { event: { firmId } } });
+      await tx.outboxEvent.deleteMany({ where: { firmId } });
+      await tx.notificationPreference.deleteMany({ where: { firmId } });
+      await tx.firmBusinessPolicy.deleteMany({ where: { firmId } });
+      await tx.documentSequence.deleteMany({ where: { firmId } });
       await tx.quotationCommunication.deleteMany({ where: { quotation } });
       await tx.generatedDocument.deleteMany({ where: { quotation } });
       await tx.quotationAttachment.deleteMany({ where: { quotation } });

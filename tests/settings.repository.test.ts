@@ -7,6 +7,8 @@ import { BusinessProfileRepository } from '../src/modules/settings/business-prof
 import { QuotationSettingsRepository } from '../src/modules/settings/quotation-settings/quotation-settings.repository.js';
 
 type MockPrisma = {
+  documentSequence: { findUnique: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> };
+  $queryRaw: ReturnType<typeof vi.fn>;
   firm: {
     findFirst: ReturnType<typeof vi.fn>;
   };
@@ -16,6 +18,7 @@ type MockPrisma = {
     update: ReturnType<typeof vi.fn>;
   };
   quotationSetting: {
+    findUniqueOrThrow: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
@@ -39,9 +42,11 @@ function asPrisma(db: MockPrisma): PrismaClient {
 
 function createMockPrisma(): MockPrisma {
   const db: MockPrisma = {
+    documentSequence: { findUnique: vi.fn().mockResolvedValue(null), upsert: vi.fn() },
+    $queryRaw: vi.fn().mockResolvedValue([{ id: 1 }]),
     firm: { findFirst: vi.fn() },
     businessProfile: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-    quotationSetting: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    quotationSetting: { findUniqueOrThrow: vi.fn().mockImplementation(async () => settings()), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     bankDetail: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -206,6 +211,34 @@ describe('settings repositories', () => {
 
     expect(result.defaultGstRate).toBe('12.50');
     expect(db.quotationSetting.update.mock.calls[0]?.[0].data.defaultGstRate).toBeInstanceOf(Prisma.Decimal);
+  });
+
+  it('reads the shared sequence instead of the legacy seed field', async () => {
+    db.businessProfile.findUnique.mockResolvedValueOnce(profile());
+    db.quotationSetting.findUnique.mockResolvedValueOnce(settings({ nextSequenceNumber: 1 }));
+    db.documentSequence.findUnique.mockResolvedValueOnce({ nextValue: 42n });
+    expect((await new QuotationSettingsRepository(asPrisma(db)).getQuotationSettings(1)).nextSequenceNumber).toBe(42);
+  });
+
+  it('rejects rewinding the shared sequence or changing legacy reset behavior', async () => {
+    for (const input of [{ nextSequenceNumber: 3 }, { sequenceResetRule: SequenceResetRule.CALENDAR_YEAR }]) {
+      db.businessProfile.findUnique.mockResolvedValueOnce(profile());
+      db.quotationSetting.findUnique.mockResolvedValueOnce(settings());
+      db.documentSequence.findUnique.mockResolvedValueOnce({ nextValue: 42n });
+      await expect(new QuotationSettingsRepository(asPrisma(db)).updateQuotationSettings(1, input, { userId: 1, firmId: 1 })).rejects.toMatchObject({ statusCode: 409 });
+    }
+    expect(db.quotationSetting.update).not.toHaveBeenCalled();
+    expect(db.documentSequence.upsert).not.toHaveBeenCalled();
+  });
+
+  it('advances the authoritative sequence and propagates required audit failures', async () => {
+    db.businessProfile.findUnique.mockResolvedValueOnce(profile());
+    db.quotationSetting.findUnique.mockResolvedValueOnce(settings());
+    db.documentSequence.findUnique.mockResolvedValueOnce({ nextValue: 42n });
+    db.quotationSetting.update.mockResolvedValueOnce(settings({ nextSequenceNumber: 50 }));
+    db.auditLog.create.mockRejectedValueOnce(new Error('audit unavailable'));
+    await expect(new QuotationSettingsRepository(asPrisma(db)).updateQuotationSettings(1, { nextSequenceNumber: 50 }, { userId: 1, firmId: 1 })).rejects.toThrow('audit unavailable');
+    expect(db.documentSequence.upsert).toHaveBeenCalledWith(expect.objectContaining({ update: { nextValue: 50n } }));
   });
 
   it('creates a bank detail and unsets the previous default transactionally', async () => {

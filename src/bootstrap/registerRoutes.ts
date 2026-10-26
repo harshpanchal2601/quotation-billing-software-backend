@@ -12,6 +12,7 @@ import { quotationsRouter } from '../modules/quotations/index.js';
 import { firmEntitlementsRouter, platformRouter } from '../modules/platform/index.js';
 import { administrationRouter } from '../modules/administration/index.js';
 import { auditLogsRouter } from '../modules/audit-logs/index.js';
+import { notificationsRouter } from '../modules/notifications/index.js';
 
 export const apiRouter = Router();
 
@@ -21,6 +22,7 @@ apiRouter.use('/entitlements', firmEntitlementsRouter);
 apiRouter.use('/administration', administrationRouter);
 apiRouter.use('/audit-logs', auditLogsRouter);
 apiRouter.use('/settings', settingsRouter);
+apiRouter.use('/notifications', notificationsRouter);
 apiRouter.use('/companies', companiesRouter);
 apiRouter.use('/categories', categoriesRouter);
 apiRouter.use('/measurement-units', measurementUnitsRouter);

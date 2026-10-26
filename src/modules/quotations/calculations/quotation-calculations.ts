@@ -1,4 +1,5 @@
 import { DiscountType, Prisma, TaxMode } from '@prisma/client';
+import { roundDecimal } from '../../../core/money/index.js';
 
 import type {
   CalculatedLineItem,
@@ -166,7 +167,7 @@ export function calculateQuotationTotals(
     .add(freightAmount)
     .add(otherCharges);
 
-  const roundedGrandTotal = preRoundTotal.round();
+  const roundedGrandTotal = new Prisma.Decimal(roundDecimal(preRoundTotal, 0, 'HALF_UP'));
   const roundOffAmount = roundedGrandTotal.sub(preRoundTotal);
 
   return {

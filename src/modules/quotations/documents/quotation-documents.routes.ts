@@ -6,7 +6,7 @@ import { firmProtectedDirectory, storageConfig } from '../../../config/storage.c
 import { AppError } from '../../../core/errors/AppError.js';
 import { asyncHandler } from '../../../core/http/asyncHandler.js';
 import { getFirmId } from '../../../core/tenancy/tenant-context.js';
-import { pdfService } from '../../../integrations/pdf/index.js';
+import { renderAndStorePdf } from '../../../integrations/documents/index.js';
 import { storageService } from '../../../integrations/storage/index.js';
 import { requireAuthentication, requirePermission } from '../../auth/auth.middleware.js';
 import { PERMISSIONS } from '../../auth/permissions.js';
@@ -63,28 +63,21 @@ quotationDocumentsRouter.post(
     );
 
     const html = renderQuotationHtmlTemplate(viewModel);
-    const pdfBuffer = await pdfService.generateBufferFromHtml(html);
 
     const fileUuid = crypto.randomUUID();
     const filename = `${fileUuid}.pdf`;
     const relativeFilePath = `${firmProtectedDirectory(storageConfig.quotationDocumentDirectory, firmId)}/${filename}`;
 
-    try {
-      await storageService.writeStorageFile(relativeFilePath, pdfBuffer);
-    } catch {
-      throw new AppError('Failed to save PDF file to disk', 500);
-    }
-
-    const fileHash = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
+    const rendered = await renderAndStorePdf(html, relativeFilePath);
 
     let generatedDoc;
     try {
       generatedDoc = await quotationDocumentsRepository.createGeneratedDocument({
         firmId,
         quotationId: quotation.id,
-        fileSize: pdfBuffer.length,
+        fileSize: rendered.fileSize,
         filePath: relativeFilePath,
-        fileHash,
+        fileHash: rendered.fileHash,
         generatedById: userId,
       });
     } catch (error) {
@@ -100,7 +93,7 @@ quotationDocumentsRouter.post(
         quotationId: quotation.id,
         quotationNumber: quotation.quotationNumber,
         revisionNumber: quotation.revisionNumber,
-        fileSize: pdfBuffer.length,
+        fileSize: rendered.fileSize,
       },
       {
         userId,

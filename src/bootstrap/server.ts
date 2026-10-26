@@ -1,15 +1,21 @@
 import { app } from './app.js';
 import { env } from '../config/env.js';
 import { prisma } from '../core/database/prisma.js';
+import { startConfiguredOutboxWorker } from './outbox-worker.js';
 
 const server = app.listen(env.PORT, () => {
   console.info(`ERP API listening on port ${env.PORT}`);
 });
+const worker = startConfiguredOutboxWorker();
+let shuttingDown = false;
 
 async function shutdown(signal: NodeJS.Signals) {
+  if (shuttingDown) return;
+  shuttingDown = true;
   console.info(`${signal} received. Closing ERP API server.`);
 
   server.close(async (error) => {
+    await worker.stop();
     await prisma.$disconnect();
 
     if (error) {

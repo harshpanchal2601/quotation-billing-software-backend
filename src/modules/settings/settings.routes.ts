@@ -23,6 +23,8 @@ import { businessProfileRepository } from './business-profile/business-profile.r
 import { businessProfileUpdateSchema } from './business-profile/business-profile.schema.js';
 import { quotationSettingsRepository } from './quotation-settings/quotation-settings.repository.js';
 import { quotationSettingsUpdateSchema } from './quotation-settings/quotation-settings.schema.js';
+import { businessPolicyRepository } from './business-policy/business-policy.repository.js';
+import { businessPolicyUpdateSchema } from './business-policy/business-policy.schema.js';
 
 export const settingsRouter = Router();
 
@@ -129,6 +131,15 @@ async function setDefaultBankDetail(req: Request, res: Response) {
 settingsRouter.use(requireAuthentication, requireFirmContext);
 
 settingsRouter.get('/branding', asyncHandler(getFirmBranding));
+settingsRouter.get('/business-policy', requirePermission(PERMISSIONS.FIRM_PROFILE_MANAGE), asyncHandler(async (req, res) => {
+  const configuration = await businessPolicyRepository.get(getFirmId(req));
+  return sendSuccess(res, 200, 'Business policy retrieved', { configuration });
+}));
+settingsRouter.put('/business-policy', requirePermission(PERMISSIONS.FIRM_PROFILE_MANAGE), asyncHandler(async (req, res) => {
+  const input = businessPolicyUpdateSchema.parse(req.body);
+  const configuration = await businessPolicyRepository.update(getFirmId(req), req.user!.id, input.expectedVersion, input.policy, metadata(req));
+  return sendSuccess(res, 200, 'Business policy saved', { configuration });
+}));
 settingsRouter.get('/business-profile', requirePermission(PERMISSIONS.FIRM_PROFILE_MANAGE), asyncHandler(getBusinessProfile));
 settingsRouter.put('/business-profile', requirePermission(PERMISSIONS.FIRM_PROFILE_MANAGE), asyncHandler(updateBusinessProfile));
 
