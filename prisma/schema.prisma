@@ -60,6 +60,19 @@ enum TaxMode {
   NONE
 }
 
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  VOID
+}
+
+enum BillingDocumentKind {
+  INVOICE
+  PROFORMA
+  CREDIT_NOTE
+  DEBIT_NOTE
+}
+
 enum DiscountType {
   NONE
   PERCENTAGE
@@ -264,6 +277,11 @@ model User {
   importBatches     ImportBatch[]            @relation("ImportBatchStartedBy")
   auditLogs         AuditLog[]
 
+  invoicesCreated   Invoice[]              @relation("InvoiceCreatedBy")
+  invoicesUpdated   Invoice[]              @relation("InvoiceUpdatedBy")
+  invoiceChanges    InvoiceStatusHistory[]
+  billingDocuments  InvoiceDocument[]
+
   @@index([firmId])
   @@index([firmRoleId])
   @@index([firmRoleId, firmId])
@@ -291,6 +309,8 @@ model Firm {
   measurementUnits  MeasurementUnit[]
   items             Item[]
   quotations        Quotation[]
+  invoices          Invoice[]
+  invoiceSetting    InvoiceSetting?
   termsTemplates    TermsTemplate[]
   importBatches     ImportBatch[]
   auditLogs         AuditLog[]
@@ -449,8 +469,10 @@ model Company {
   contacts    CompanyContact[]
   addresses   CompanyAddress[]
   quotations  Quotation[]
+  invoices    Invoice[]
 
   @@unique([firmId, companyCode])
+  @@unique([id, firmId])
   @@index([firmId, name])
   @@index([gstin])
   @@index([isActive])
@@ -568,8 +590,10 @@ model Item {
   updatedBy           User?           @relation("ItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   firm                Firm            @relation(fields: [firmId], references: [id], onDelete: Restrict)
   quotationItems      QuotationItem[]
+  invoiceLines        InvoiceLine[]
 
   @@unique([firmId, itemCode])
+  @@unique([id, firmId])
   @@index([firmId, name])
   @@index([categoryId])
   @@index([measurementUnitId])
@@ -577,6 +601,136 @@ model Item {
   @@index([isActive])
   @@index([deletedAt])
   @@map("items")
+}
+
+model Invoice {
+  id                      Int           @id @default(autoincrement())
+  firmId                  Int           @map("firm_id")
+  companyId               Int           @map("company_id")
+  status                  InvoiceStatus @default(DRAFT)
+  kind                    BillingDocumentKind @default(INVOICE)
+  documentNumber          String?       @map("document_number") @db.VarChar(16)
+  period                  String?       @db.VarChar(32)
+  version                 Int           @default(1)
+  invoiceDate             DateTime      @map("invoice_date") @db.Date
+  dueDate                 DateTime?     @map("due_date") @db.Date
+  customerReference       String?       @map("customer_reference") @db.VarChar(191)
+  paymentTerms            String?       @map("payment_terms") @db.Text
+  notes                   String?       @db.Text
+  currency                String        @db.VarChar(3)
+  buyerSnapshot           Json          @map("buyer_snapshot")
+  sellerSnapshot          Json?         @map("seller_snapshot")
+  bankSnapshot            Json?         @map("bank_snapshot")
+  customFieldSchema       Json          @map("custom_field_schema")
+  customFieldValues       Json          @map("custom_field_values")
+  presentationSnapshot    Json          @map("presentation_snapshot")
+  issueSnapshot           Json?         @map("issue_snapshot")
+  supplySnapshot          Json          @map("supply_snapshot")
+  sourceSnapshot          Json?         @map("source_snapshot")
+  sourceQuotationId       Int?          @map("source_quotation_id")
+  sourceProformaId        Int?          @map("source_proforma_id")
+  sourceInvoiceId         Int?          @map("source_invoice_id")
+  adjustmentReason        String?       @map("adjustment_reason") @db.Text
+  issuedAt                DateTime?     @map("issued_at")
+  voidedAt                DateTime?     @map("voided_at")
+  voidReason              String?       @map("void_reason") @db.Text
+  financialPolicySnapshot Json          @map("financial_policy_snapshot")
+  subtotal                Decimal       @db.Decimal(24, 3)
+  discountAmount          Decimal       @map("discount_amount") @db.Decimal(24, 3)
+  taxableAmount           Decimal       @map("taxable_amount") @db.Decimal(24, 3)
+  taxAmount               Decimal       @map("tax_amount") @db.Decimal(24, 3)
+  roundOffAmount          Decimal       @map("round_off_amount") @db.Decimal(24, 3)
+  grandTotal              Decimal       @map("grand_total") @db.Decimal(24, 3)
+  idempotencyKey          String        @map("idempotency_key") @db.VarChar(100)
+  requestHash             String        @map("request_hash") @db.Char(64)
+  createdById             Int           @map("created_by_id")
+  updatedById             Int           @map("updated_by_id")
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt @map("updated_at")
+  firm                    Firm          @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  company                 Company       @relation(fields: [companyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy               User          @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy               User          @relation("InvoiceUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  lines                   InvoiceLine[]
+  statusHistory           InvoiceStatusHistory[]
+  documents               InvoiceDocument[]
+  sourceQuotation         Quotation?    @relation(fields: [sourceQuotationId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  sourceProforma          Invoice?      @relation("ProformaConversion", fields: [sourceProformaId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  convertedInvoices       Invoice[]     @relation("ProformaConversion")
+  sourceInvoice           Invoice?      @relation("InvoiceAdjustments", fields: [sourceInvoiceId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  adjustments             Invoice[]     @relation("InvoiceAdjustments")
+
+  @@unique([id, firmId])
+  @@unique([firmId, idempotencyKey])
+  @@unique([firmId, documentNumber])
+  @@unique([firmId, sourceQuotationId])
+  @@unique([firmId, sourceProformaId])
+  @@index([sourceInvoiceId, firmId])
+  @@index([firmId, invoiceDate, id])
+  @@index([firmId, status, createdAt, id])
+  @@index([companyId, firmId])
+  @@map("invoices")
+}
+
+model InvoiceSetting {
+  id        Int      @id @default(autoincrement())
+  firmId    Int      @unique @map("firm_id")
+  version   Int      @default(1)
+  config    Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  firm      Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict)
+
+  @@map("invoice_settings")
+}
+
+model InvoiceDocument {
+  id            Int      @id @default(autoincrement())
+  firmId        Int      @map("firm_id")
+  invoiceId     Int      @map("invoice_id")
+  versionNumber Int      @map("version_number")
+  filePath      String   @map("file_path") @db.VarChar(191)
+  fileHash      String   @map("file_hash") @db.Char(64)
+  fileSize      Int      @map("file_size")
+  generatedById Int      @map("generated_by_id")
+  generatedAt   DateTime @default(now()) @map("generated_at")
+  invoice       Invoice  @relation(fields: [invoiceId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  generatedBy   User     @relation(fields: [generatedById], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, versionNumber])
+  @@index([firmId, generatedAt])
+  @@map("invoice_documents")
+}
+
+model InvoiceLine {
+  id         Int     @id @default(autoincrement())
+  firmId     Int     @map("firm_id")
+  invoiceId  Int     @map("invoice_id")
+  itemId     Int?    @map("item_id")
+  lineNumber Int     @map("line_number")
+  snapshot   Json
+  invoice    Invoice @relation(fields: [invoiceId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  item       Item?   @relation(fields: [itemId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([invoiceId, lineNumber])
+  @@index([itemId, firmId])
+  @@map("invoice_lines")
+}
+
+model InvoiceStatusHistory {
+  id          Int           @id @default(autoincrement())
+  firmId      Int           @map("firm_id")
+  invoiceId   Int           @map("invoice_id")
+  version     Int
+  fromStatus  InvoiceStatus? @map("from_status")
+  toStatus    InvoiceStatus  @map("to_status")
+  changedById Int           @map("changed_by_id")
+  changedAt   DateTime      @default(now()) @map("changed_at")
+  invoice     Invoice       @relation(fields: [invoiceId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  changedBy   User          @relation(fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, version])
+  @@index([firmId, changedAt])
+  @@map("invoice_status_history")
 }
 
 model Quotation {
@@ -658,8 +812,10 @@ model Quotation {
   attachments             QuotationAttachment[]
   generatedDocuments      GeneratedDocument[]
   communications          QuotationCommunication[]
+  invoices                Invoice[]
 
   @@unique([firmId, quotationNumber, revisionNumber])
+  @@unique([id, firmId])
   @@unique([firmId, rootQuotationId, revisionNumber])
   @@index([firmId, quotationDate])
   @@index([status])

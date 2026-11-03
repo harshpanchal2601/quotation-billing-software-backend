@@ -13,6 +13,7 @@ import { firmEntitlementsRouter, platformRouter } from '../modules/platform/inde
 import { administrationRouter } from '../modules/administration/index.js';
 import { auditLogsRouter } from '../modules/audit-logs/index.js';
 import { notificationsRouter } from '../modules/notifications/index.js';
+import { invoicesRouter, proformasRouter, billingAdjustmentsRouter, billingSettingsRouter } from '../modules/invoices/index.js';
 
 export const apiRouter = Router();
 
@@ -28,5 +29,9 @@ apiRouter.use('/categories', categoriesRouter);
 apiRouter.use('/measurement-units', measurementUnitsRouter);
 apiRouter.use('/items', itemsRouter);
 apiRouter.use('/quotations', quotationsRouter);
+apiRouter.use('/invoices', invoicesRouter);
+apiRouter.use('/proformas', proformasRouter);
+apiRouter.use('/billing-adjustments', billingAdjustmentsRouter);
+apiRouter.use('/billing-settings', billingSettingsRouter);
 apiRouter.use('/dashboard', dashboardRouter);
 apiRouter.use('/health', healthRouter);

@@ -1,15 +1,8 @@
 import type { QuotationPdfViewModel } from './quotation-documents.types.js';
 import { Prisma } from '@prisma/client';
 
-export function escapeHtml(str: string | null | undefined): string {
-  if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+import { escapeHtml } from '../../../core/html/escape-html.js';
+export { escapeHtml } from '../../../core/html/escape-html.js';
 
 export function formatCurrencyPdf(val: string | number, currency: string = 'INR'): string {
   try {

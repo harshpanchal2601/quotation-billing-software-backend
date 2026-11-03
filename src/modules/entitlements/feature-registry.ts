@@ -10,6 +10,9 @@ export const FEATURE_REGISTRY = Object.freeze({
   'quotations.email': { description: 'Quotation email delivery', module: 'Quotations', dependencies: ['quotations.documents'], required: false, legacy: true },
   'quotations.attachments': { description: 'Quotation attachment storage and access', module: 'Quotations', dependencies: ['quotations'], required: false, legacy: true },
   audit: { description: 'Firm business audit history', module: 'Audit', dependencies: [], required: false, legacy: true },
+  'billing.invoices': { description: 'Invoice drafts, issuance and document history', module: 'Billing', dependencies: ['companies'], required: false, legacy: false },
+  'billing.proforma': { description: 'Non-posting proforma documents', module: 'Billing', dependencies: ['billing.invoices'], required: false, legacy: false },
+  'billing.adjustments': { description: 'Traceable credit and debit notes', module: 'Billing', dependencies: ['billing.invoices'], required: false, legacy: false },
   'ai.credits': { description: 'Reserved entitlement for future AI operations', module: 'AI', dependencies: [], required: false, legacy: false },
 } as const);
 
@@ -32,6 +35,11 @@ export const PERMISSION_FEATURES: Readonly<Record<string, FeatureKey>> = Object.
   'quotations.edit': 'quotations', 'quotations.status': 'quotations', 'quotations.delete': 'quotations',
   'quotations.documents': 'quotations.documents', 'quotations.email': 'quotations.email',
   'quotations.attachments': 'quotations.attachments', 'audit.view': 'audit',
+  'invoices.view': 'billing.invoices', 'invoices.create': 'billing.invoices', 'invoices.edit': 'billing.invoices',
+  'invoices.issue': 'billing.invoices', 'invoices.void': 'billing.invoices', 'invoices.documents': 'billing.invoices',
+  'proformas.view': 'billing.proforma', 'proformas.manage': 'billing.proforma',
+  'billing-adjustments.view': 'billing.adjustments', 'billing-adjustments.manage': 'billing.adjustments',
+  'firm.invoice-fields.manage': 'billing.invoices', 'firm.billing-settings.manage': 'billing.invoices',
   'firm.profile.manage': 'firm.core', 'firm.quotation-settings.manage': 'firm.core',
   'firm.bank-details.manage': 'firm.core', 'firm.users.manage': 'firm.core', 'firm.roles.manage': 'firm.core',
 });

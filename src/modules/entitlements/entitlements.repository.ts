@@ -78,7 +78,7 @@ async function ensureCounter(tx: EntitlementTransaction, firmId: number, resourc
   const existing = await tx.usageCounter.findUnique({ where: { firmId_resource: { firmId, resource } } });
   if (existing !== null) return existing;
   const used = resource === 'users' ? BigInt(await tx.user.count({ where: { firmId, deletedAt: null } }))
-    : resource === 'documents' ? BigInt(await tx.generatedDocument.count({ where: { quotation: { firmId } } })) : 0n;
+    : resource === 'documents' ? BigInt(await tx.generatedDocument.count({ where: { quotation: { firmId } } })) + BigInt(await tx.invoiceDocument.count({ where: { firmId } })) : 0n;
   const counter = await tx.usageCounter.create({ data: { firmId, resource, used, ready: resource !== 'storageBytes' } });
   if (counter.ready) await tx.usageEvent.create({ data: { firmId, resource, eventId: 'system:counter-baseline', delta: used } });
   return counter;
@@ -86,7 +86,8 @@ async function ensureCounter(tx: EntitlementTransaction, firmId: number, resourc
 
 // Caller holds the firm's row lock and performs the resource write in this SAME transaction.
 // Event uniqueness, counter change and resource write either all commit or all roll back.
-export async function recordUsage(tx: EntitlementTransaction, firmId: number, resource: QuotaKey, delta: bigint, eventId: string) {
+export async function recordUsage(tx: EntitlementTransaction, firmId: number, resource: QuotaKey, delta: bigint, eventId: string, documentFeature?: FeatureKey) {
+  if (documentFeature !== undefined && (resource !== 'documents' || !['quotations.documents', 'billing.invoices', 'billing.proforma', 'billing.adjustments'].includes(documentFeature))) throw new Error('Invalid document quota feature');
   const existing = await tx.usageEvent.findUnique({ where: { firmId_resource_eventId: { firmId, resource, eventId } } });
   if (existing !== null) {
     if (existing.delta !== delta) throw new AppError('Usage event ID was reused with a different amount', 409);
@@ -96,7 +97,7 @@ export async function recordUsage(tx: EntitlementTransaction, firmId: number, re
   const snapshot = await loadEntitlements(tx, firmId);
   const limit = snapshot.limits[resource];
   if (delta > 0n) {
-    const decision = evaluateFeature(snapshot.context, featureForQuota(resource));
+    const decision = evaluateFeature(snapshot.context, documentFeature ?? featureForQuota(resource));
     if (!decision.allowed) throw new AppError('Subscription access is unavailable', 403, { code: decision.reason });
   }
   if (!counter.ready && limit !== null) throw new AppError('Reconcile storage usage before enforcing a storage limit', 409);
@@ -138,26 +139,27 @@ export async function recordStorageReplacement(tx: EntitlementTransaction, firmI
 }
 
 export async function reconcileFirmUsage(tx: EntitlementTransaction, firmId: number) {
-  const [users, documents, attachments, images, profile] = await Promise.all([
+  const [users, documents, attachments, images, profile, billingDocuments] = await Promise.all([
     tx.user.count({ where: { firmId, deletedAt: null } }),
     tx.generatedDocument.findMany({ where: { quotation: { firmId } }, select: { filePath: true } }),
     tx.quotationAttachment.findMany({ where: { quotation: { firmId }, deletedAt: null }, select: { filePath: true } }),
     tx.item.findMany({ where: { firmId, imagePath: { not: null } }, select: { imagePath: true } }),
     tx.businessProfile.findUnique({ where: { firmId }, select: { logoPath: true, signaturePath: true, stampPath: true } }),
+    tx.invoiceDocument.findMany({ where: { firmId }, select: { filePath: true } }),
   ]);
   const paths = new Set([
-    ...documents.map((entry) => entry.filePath), ...attachments.map((entry) => entry.filePath),
+    ...documents.map((entry) => entry.filePath), ...billingDocuments.map((entry) => entry.filePath), ...attachments.map((entry) => entry.filePath),
     ...images.map((entry) => entry.imagePath), profile?.logoPath, profile?.signaturePath, profile?.stampPath,
   ].filter((value): value is string => typeof value === 'string').map((value) => value.replace(/^\/?storage\//, '')));
   let bytes = 0n;
   for (const filePath of paths) bytes += await storageFileBytes(filePath);
-  for (const [resource, used] of [['users', BigInt(users)], ['documents', BigInt(documents.length)], ['storageBytes', bytes]] as const) {
+  for (const [resource, used] of [['users', BigInt(users)], ['documents', BigInt(documents.length + billingDocuments.length)], ['storageBytes', bytes]] as const) {
     const previous = await ensureCounter(tx, firmId, resource);
     const previousBalance = previous.ready ? previous.used : previous.pendingDelta;
     await tx.usageCounter.update({ where: { firmId_resource: { firmId, resource } }, data: { used, pendingDelta: 0n, ready: true } });
     await tx.usageEvent.create({ data: { firmId, resource, eventId: `reconcile:${randomUUID()}`, delta: used - previousBalance } });
   }
-  return { users: String(users), documents: String(documents.length), storageBytes: bytes.toString() };
+  return { users: String(users), documents: String(documents.length + billingDocuments.length), storageBytes: bytes.toString() };
 }
 
 export async function getFirmEntitlements(db: PrismaClient, firmId: number, permissions: readonly string[]) {
