@@ -11,6 +11,7 @@ import { invoiceDocumentsRepository as documentsRepository } from './documents/i
 import { adjustmentSchema, conversionSchema, customFieldValuesSchema, idSchema, invoiceDraftSchema, invoiceListSchema, invoiceUpdateSchema, issueSchema, optionQuerySchema, proformaConversionSchema, voidSchema } from './invoices.schema.js';
 import { fiscalSettingsUpdateSchema, invoiceFieldsUpdateSchema } from './invoice-settings.schema.js';
 import { INDIA_STATES } from './india-gst.js';
+import { orderInvoiceSchema } from './invoices.schema.js';
 
 function actor(req: Request) { if (!req.user) throw new AppError('Authentication required', 401); return req.user.id; }
 function metadata(req: Request) { return { firmId: getFirmId(req), userId: actor(req), ipAddress: req.ip, userAgent: req.get('user-agent') }; }
@@ -19,6 +20,11 @@ function createDocumentRouter(scope: DocumentScope) {
   const router = Router();
   const permissions = billingAccess[scope];
   router.use(requireAuthentication, requireFirmContext);
+  if (scope === 'INVOICE') router.post('/:id/cancel-order-draft', requirePermission(PERMISSIONS.INVOICES_VOID), asyncHandler(async (req, res) => {
+    const input = z.object({ expectedVersion: z.number().int().positive(), reason: z.string().trim().min(5).max(2000) }).strict().parse(req.body);
+    return sendSuccess(res, 200, 'Order invoice draft cancelled and quantities released', { document: await invoicesRepository.cancelOrderDraft(getFirmId(req), actor(req), idSchema.parse(req.params).id, input.expectedVersion, input.reason, metadata(req)) });
+  }));
+  if (scope === 'INVOICE') router.post('/from-sales-order', requirePermission(PERMISSIONS.INVOICES_CREATE), requirePermission(PERMISSIONS.SALES_ORDERS_VIEW), asyncHandler(async (req, res) => sendSuccess(res, 201, 'Completed order quantities reserved for invoice', { document: await invoicesRepository.fromSalesOrder(getFirmId(req), actor(req), orderInvoiceSchema.parse(req.body), metadata(req)) })));
   router.get('/', requirePermission(permissions.view), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Billing documents retrieved', await invoicesRepository.list(getFirmId(req), scope, invoiceListSchema.parse(req.query)))));
   if (scope !== 'ADJUSTMENT') {
     router.post('/calculate', requirePermission(permissions.create), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Draft totals calculated', await invoicesRepository.preview(getFirmId(req), actor(req), invoiceDraftSchema.parse(req.body), scope))));

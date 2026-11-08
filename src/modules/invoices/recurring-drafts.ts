@@ -14,7 +14,7 @@ export async function createRecurringDraft(tx: Prisma.TransactionClient, firmId:
 export async function readRecurringTemplate(tx: Prisma.TransactionClient, firmId: number, actorId: number, invoiceId: number) {
   await repository.authorize(tx, firmId, actorId, 'INVOICE', 'view');
   const record = await repository.find(tx, firmId, invoiceId, 'INVOICE');
-  if (record.status !== 'DRAFT' || record.sourceInvoiceId || record.sourceProformaId || record.sourceQuotationId) throw new AppError('Choose a manual invoice draft as the recurring template', 409);
+  if (record.status !== 'DRAFT' || record.sourceInvoiceId || record.sourceProformaId || record.sourceQuotationId || record.sourceSalesOrderId) throw new AppError('Choose a manual invoice draft as the recurring template', 409);
   const document = serialiseInvoice(record);
   const buyer = document.buyerSnapshot as { billingAddress: { id: number }; shippingAddress?: { id: number } | null };
   return invoiceDraftSchema.parse({

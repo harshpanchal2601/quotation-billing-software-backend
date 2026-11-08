@@ -89,6 +89,11 @@ export const invoiceListSchema = z.object({
 export const idSchema = z.object({ id: z.coerce.number().int().positive(), documentId: z.coerce.number().int().positive().optional() });
 export const optionQuerySchema = z.object({ search: z.string().trim().max(191).default(''), limit: z.coerce.number().int().min(1).max(100).default(30) });
 export type CustomFieldDefinition = z.infer<typeof customFieldDefinitionSchema>;
+export const orderInvoiceSchema = z.object({
+  salesOrderId: z.number().int().positive(), idempotencyKey: z.string().regex(/^[a-zA-Z0-9_-]{8,100}$/),
+  supply: supplySchema, customFieldValues: customFieldValuesSchema.default({}),
+  lines: z.array(z.object({ salesOrderLineId: z.number().int().positive(), quantity, hsnCode: z.string().regex(/^\d{4}(?:\d{2})?(?:\d{2})?$/).nullable(), supplyType: z.enum(['GOODS', 'SERVICE']) }).strict()).min(1).max(100),
+}).strict().refine((input) => new Set(input.lines.map((line) => line.salesOrderLineId)).size === input.lines.length, { path: ['lines'], message: 'Each order line must occur once' });
 export type InvoiceDraftInput = z.infer<typeof invoiceDraftSchema>;
 export type InvoiceUpdateInput = z.infer<typeof invoiceUpdateSchema>;
 export type InvoiceLineInput = z.infer<typeof invoiceLineSchema>;

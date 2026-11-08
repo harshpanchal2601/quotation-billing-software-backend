@@ -16,6 +16,9 @@ export const FEATURE_REGISTRY = Object.freeze({
   'payments.record': { description: 'Customer receipts, allocation and receivables', module: 'Payments', dependencies: ['billing.invoices'], required: false, legacy: false },
   'payments.manage': { description: 'Receipt reversals and confirmed refund tracking', module: 'Payments', dependencies: ['payments.record'], required: false, legacy: false },
   'billing.recurring': { description: 'Approved recurring invoice draft schedules', module: 'Billing', dependencies: ['billing.invoices'], required: false, legacy: false },
+  crm: { description: 'Leads, opportunities, activities and follow-ups', module: 'Sales', dependencies: ['companies'], required: false, legacy: false },
+  'sales.orders': { description: 'Accepted quotation orders and independent fulfillment', module: 'Sales', dependencies: ['quotations'], required: false, legacy: false },
+  'customer.portal': { description: 'Explicit contact invitations and document grants', module: 'Sales', dependencies: ['companies'], required: false, legacy: false },
   'ai.credits': { description: 'Reserved entitlement for future AI operations', module: 'AI', dependencies: [], required: false, legacy: false },
 } as const);
 
@@ -45,6 +48,9 @@ export const PERMISSION_FEATURES: Readonly<Record<string, FeatureKey>> = Object.
   'firm.invoice-fields.manage': 'billing.invoices', 'firm.billing-settings.manage': 'billing.invoices',
   'payments.view': 'payments.record', 'payments.record': 'payments.record', 'payments.manage': 'payments.manage',
   'billing.recurring': 'billing.recurring',
+  'crm.view': 'crm', 'crm.manage': 'crm', 'crm.view-all': 'crm',
+  'sales-orders.view': 'sales.orders', 'sales-orders.manage': 'sales.orders', 'fulfillments.manage': 'sales.orders',
+  'portal.manage': 'customer.portal',
   'firm.profile.manage': 'firm.core', 'firm.quotation-settings.manage': 'firm.core',
   'firm.bank-details.manage': 'firm.core', 'firm.users.manage': 'firm.core', 'firm.roles.manage': 'firm.core',
 });

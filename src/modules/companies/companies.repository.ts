@@ -99,28 +99,7 @@ export class CompaniesRepository {
 
     for (let attempt = 0; attempt < MAX_COMPANY_CODE_RETRIES; attempt += 1) {
       try {
-        const created = await this.db.$transaction(async (tx) => {
-          const companyCode = await this.generateNextCompanyCode(tx, firmId);
-          const company = await tx.company.create({
-            data: {
-              firmId,
-              companyCode,
-              name: input.name,
-              legalName: input.legalName ?? null,
-              gstin: input.gstin ?? null,
-              pan: input.pan ?? null,
-              website: input.website ?? null,
-              notes: input.notes ?? null,
-              isActive: input.isActive,
-              createdById: metadata.userId,
-              updatedById: metadata.userId,
-            },
-          });
-
-          await this.createNestedContacts(tx, company.id, input.contacts ?? []);
-          await this.createNestedAddresses(tx, company.id, input.addresses ?? []);
-          return company;
-        });
+        const created = await this.db.$transaction((tx) => this.createCompanyInTransaction(tx, firmId, input, metadata));
 
         await this.auditCompany(AuditAction.CREATE, created, metadata);
         return this.getCompany(firmId, created.id);
@@ -137,6 +116,31 @@ export class CompaniesRepository {
       throw new AppError('Company code could not be generated. Please try again.', 409);
     }
     throw new AppError('Company could not be created', 500);
+  }
+
+  // Caller owns the transaction and authorization. Lead conversion uses this
+  // same master workflow, including code allocation and nested records.
+  async createCompanyInTransaction(tx: Prisma.TransactionClient, firmId: number, input: CompanyCreateInput, metadata: RequestMetadata) {
+    const companyCode = await this.generateNextCompanyCode(tx, firmId);
+    const company = await tx.company.create({
+      data: {
+        firmId,
+        companyCode,
+        name: input.name,
+        legalName: input.legalName ?? null,
+        gstin: input.gstin ?? null,
+        pan: input.pan ?? null,
+        website: input.website ?? null,
+        notes: input.notes ?? null,
+        isActive: input.isActive,
+        createdById: metadata.userId,
+        updatedById: metadata.userId,
+      },
+    });
+
+    await this.createNestedContacts(tx, company.id, input.contacts ?? []);
+    await this.createNestedAddresses(tx, company.id, input.addresses ?? []);
+    return company;
   }
 
   async getCompany(firmId: number, id: number) {
@@ -485,3 +489,4 @@ function isUniqueConflict(error: unknown) {
 }
 
 export const companiesRepository = new CompaniesRepository(prisma);
+export const createCompanyForSales = (tx: Prisma.TransactionClient, firmId: number, input: CompanyCreateInput, metadata: RequestMetadata) => companiesRepository.createCompanyInTransaction(tx, firmId, input, metadata);

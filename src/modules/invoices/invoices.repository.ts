@@ -5,11 +5,15 @@ import { prisma } from '../../core/database/prisma.js';
 import { AppError } from '../../core/errors/AppError.js';
 import { currencyCode, decimal, money } from '../../core/money/index.js';
 import { reserveDocumentSequence } from '../../core/sequences/index.js';
+import { jsonObject } from '../../core/serialization/json.js';
 import { authorizeFirmJobActor } from '../auth/index.js';
 import { PERMISSIONS, type Permission } from '../auth/permissions.js';
 import { assertTransactionFeature, withFirmEntitlementTransaction, type FeatureKey } from '../entitlements/index.js';
 import { resolveBusinessPolicy } from '../settings/index.js';
-import { readAcceptedQuotationForBilling } from '../quotations/index.js';
+import { readAcceptedQuotationForBilling, customerQuotationSnapshot } from '../quotations/index.js';
+import { readOrderForInvoicing } from '../sales-orders/index.js';
+import { partialQuotationLine, quotationBillingLines } from './quotation-billing-lines.js';
+import type { orderInvoiceSchema } from './invoices.schema.js';
 import { calculateInvoiceLines, invoiceFinancialPolicySchema, lineSnapshotSchema, sumInvoiceLines, type InvoiceFinancialPolicy, type InvoiceLineSnapshot } from './invoice-calculations.js';
 import { validateCustomFieldValues } from './invoice-fields.js';
 import { readInvoiceSettings, InvoiceSettingsRepository } from './invoice-settings.repository.js';
@@ -28,7 +32,7 @@ export const billingAccess = {
 } as const satisfies Record<DocumentScope, { feature: FeatureKey; view: Permission; create: Permission; edit: Permission; issue: Permission; void: Permission; documents: Permission }>;
 export function kindsForScope(scope: DocumentScope): BillingDocumentKind[] { return scope === 'ADJUSTMENT' ? ['CREDIT_NOTE', 'DEBIT_NOTE'] : [scope]; }
 export function scopeForKind(kind: BillingDocumentKind): DocumentScope { return kind === 'CREDIT_NOTE' || kind === 'DEBIT_NOTE' ? 'ADJUSTMENT' : kind; }
-export function jsonObject(value: unknown): Prisma.InputJsonObject { return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonObject; }
+export { jsonObject } from '../../core/serialization/json.js';
 function requestHash(value: unknown) { return createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
 function dateOnly(value: Date | null) { return value?.toISOString().slice(0, 10) ?? null; }
 export function serialiseInvoice(record: InvoiceRecord) {
@@ -40,7 +44,7 @@ export function serialiseInvoice(record: InvoiceRecord) {
     currency: record.currency, buyerSnapshot: record.buyerSnapshot, sellerSnapshot: record.sellerSnapshot, bankSnapshot: record.bankSnapshot,
     financialPolicySnapshot: record.financialPolicySnapshot, supplySnapshot: record.supplySnapshot,
     customFieldSchema: record.customFieldSchema, customFieldValues: record.customFieldValues, presentationSnapshot: record.presentationSnapshot,
-    sourceSnapshot: record.sourceSnapshot, sourceQuotationId: record.sourceQuotationId, sourceProformaId: record.sourceProformaId, sourceInvoiceId: record.sourceInvoiceId,
+    sourceSnapshot: record.sourceSnapshot, sourceQuotationId: record.sourceQuotationId, sourceProformaId: record.sourceProformaId, sourceInvoiceId: record.sourceInvoiceId, sourceSalesOrderId: record.sourceSalesOrderId,
     adjustmentReason: record.adjustmentReason, issuedAt: record.issuedAt?.toISOString() ?? null, voidedAt: record.voidedAt?.toISOString() ?? null, voidReason: record.voidReason,
     subtotal: record.subtotal.toFixed(scale), discountAmount: record.discountAmount.toFixed(scale), taxableAmount: record.taxableAmount.toFixed(scale), taxAmount: record.taxAmount.toFixed(scale),
     roundOffAmount: record.roundOffAmount.toFixed(scale), grandTotal: record.grandTotal.toFixed(scale),
@@ -179,7 +183,7 @@ export class InvoicesRepository {
       await this.authorize(tx, firmId, actorId, scope, 'edit');
       const old = await this.find(tx, firmId, id, scope);
       if (old.status !== 'DRAFT' || old.version !== input.expectedVersion) throw new AppError('Only the current draft version can be edited; reload', 409);
-      if (old.sourceQuotationId || old.sourceProformaId || old.sourceInvoiceId) throw new AppError('Source-derived document values are locked; create a new manual draft for changes', 409);
+      if (old.sourceQuotationId || old.sourceProformaId || old.sourceInvoiceId || old.sourceSalesOrderId) throw new AppError('Source-derived document values are locked; create a new manual draft for changes', 409);
       const buyer = await this.buyer(tx, firmId, input);
       const { policy, settings } = await this.policy(tx, firmId, input.supply);
       const enriched = await this.enrichLines(tx, firmId, input.lines);
@@ -209,6 +213,11 @@ export class InvoicesRepository {
       if (old.status !== 'DRAFT' || old.version !== expectedVersion) throw new AppError('Only the current draft can be issued; reload', 409);
       if (!old.grandTotal.eq(confirmedTotal)) throw new AppError('Displayed total changed; reload before issuing', 409);
       if (old.sourceQuotationId) await readAcceptedQuotationForBilling(tx, firmId, old.sourceQuotationId);
+      if (old.sourceSalesOrderId) {
+        await assertTransactionFeature(tx, firmId, 'sales.orders');
+        await authorizeFirmJobActor(tx, firmId, actorId, PERMISSIONS.SALES_ORDERS_VIEW);
+        await readOrderForInvoicing(tx, firmId, old.sourceSalesOrderId);
+      }
       if (old.sourceProformaId && (await this.find(tx, firmId, old.sourceProformaId, 'PROFORMA')).status !== 'ISSUED') throw new AppError('Source proforma is no longer eligible', 409);
       const policy = invoiceFinancialPolicySchema.parse(old.financialPolicySnapshot);
       const lines = old.lines.map((line) => lineSnapshotSchema.parse(line.snapshot));
@@ -280,6 +289,20 @@ export class InvoicesRepository {
     const source = record.sourceSnapshot as Prisma.JsonObject | null;
     return typeof source?.extraCharges === 'string' ? source.extraCharges : '0';
   }
+  async cancelOrderDraft(firmId: number, actorId: number, id: number, expectedVersion: number, reason: string, metadata: RequestMetadata) {
+    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      await this.authorize(tx, firmId, actorId, 'INVOICE', 'void');
+      const old = await this.find(tx, firmId, id, 'INVOICE');
+      if (!old.sourceSalesOrderId) throw new AppError('This action requires an order-derived draft', 409);
+      if (old.status === 'VOID' && old.issuedAt === null && old.version === expectedVersion + 1 && old.voidReason === reason) return serialiseInvoice(old);
+      if (old.status !== 'DRAFT' || old.version !== expectedVersion) throw new AppError('Only the current order invoice draft can be cancelled', 409);
+      await tx.invoice.update({ where: { id }, data: { status: 'VOID', version: { increment: 1 }, voidedAt: new Date(), voidReason: reason, updatedById: actorId } });
+      await this.history(tx, firmId, id, old.version + 1, actorId, 'DRAFT', 'VOID');
+      const row = await this.find(tx, firmId, id, 'INVOICE');
+      await this.audit(tx, firmId, actorId, row, AuditAction.STATUS_CHANGE, metadata, old);
+      return serialiseInvoice(row);
+    });
+  }
   async void(firmId: number, actorId: number, id: number, expectedVersion: number, reason: string, scope: DocumentScope, metadata: RequestMetadata) {
     return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
       await this.authorize(tx, firmId, actorId, scope, 'void');
@@ -337,21 +360,13 @@ export class InvoicesRepository {
       const replay = await this.replay(tx, firmId, input.idempotencyKey, hash);
       if (replay) return replay;
       const source = await readAcceptedQuotationForBilling(tx, firmId, input.sourceRevisionId);
+      if (await tx.salesOrder.findFirst({ where: { firmId, sourceQuotationId: source.id, status: { not: 'CANCELLED' } } })) throw new AppError('This revision has an active order; invoice its completed quantities', 409);
       if (await tx.invoice.findUnique({ where: { firmId_sourceQuotationId: { firmId, sourceQuotationId: source.id } } })) throw new AppError('This accepted revision already has an invoice', 409);
       const { policy, settings } = await this.policy(tx, firmId, input.supply);
       if (policy.taxMode !== source.taxMode || (policy.registration === 'REGULAR' && source.currency !== 'INR')) throw new AppError('Accepted quotation tax mode is incompatible with the invoice registration/place of supply; review a new quotation revision', 409);
       if (!source.billingAddressSnapshot) throw new AppError('Accepted quotation has no billing address; review a new quotation revision', 409);
       currencyCode(source.currency);
-      const metadataByLine = new Map(input.lineMetadata.map((line) => [line.lineNumber, line]));
-      if (metadataByLine.size !== input.lineMetadata.length || input.lineMetadata.length !== source.items.length || source.items.some((line) => !metadataByLine.has(line.lineNumber))) throw new AppError('Provide HSN/SAC and goods/service metadata for each exact source line', 400);
-      const lines: InvoiceLineSnapshot[] = source.items.map((line) => {
-        const tax = source.taxMode === 'CGST_SGST' ? line.taxAmount.div(2).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP) : new Prisma.Decimal(0);
-        return { lineNumber: line.lineNumber, itemId: line.itemId, itemCode: line.itemCodeSnapshot, itemName: line.itemNameSnapshot, description: line.descriptionSnapshot,
-          hsnCode: metadataByLine.get(line.lineNumber)!.hsnCode, supplyType: metadataByLine.get(line.lineNumber)!.supplyType,
-          measurementUnit: line.measurementUnitSnapshot, quantity: line.quantity.toFixed(3), unitRate: line.unitRate.toFixed(2), discountType: line.discountType, discountValue: line.discountValue.toFixed(2),
-          taxRate: line.gstRate.toFixed(2), baseAmount: line.baseAmount.toFixed(2), discountAmount: line.discountAmount.toFixed(2), taxableAmount: line.taxableAmount.toFixed(2), taxAmount: line.taxAmount.toFixed(2),
-          cgstAmount: tax.toFixed(2), sgstAmount: source.taxMode === 'CGST_SGST' ? line.taxAmount.sub(tax).toFixed(2) : '0.00', igstAmount: source.taxMode === 'IGST' ? line.taxAmount.toFixed(2) : '0.00', lineTotal: line.lineTotal.toFixed(2) };
-      });
+      const lines = quotationBillingLines(customerQuotationSnapshot(source), input.lineMetadata);
       // Exact legacy quotation amounts and rounding are copied, not recalculated under new defaults.
       const financialPolicy: InvoiceFinancialPolicy = { ...policy, currency: source.currency, rounding: 'HALF_UP', grandTotal: 'WHOLE_UNIT' };
       const extraCharges = source.freightAmount.add(source.otherCharges).toFixed(2);
@@ -366,6 +381,78 @@ export class InvoicesRepository {
         sourceSnapshot: { quotationId: source.id, quotationNumber: source.quotationNumber, revisionNumber: source.revisionNumber, acceptedAt: source.acceptedAt?.toISOString() ?? null, extraCharges, quotationFinancialPolicy: source.financialPolicySnapshot, freightAmount: source.freightAmount.toFixed(2), otherCharges: source.otherCharges.toFixed(2), termsAndConditions: source.termsAndConditions, deliveryTerms: source.deliveryTerms, taxTerms: source.taxTerms },
         customerReference: source.customerReference, paymentTerms: source.paymentTerms, ...totals,
       }, lines, metadata);
+    });
+  }
+  async fromSalesOrder(firmId: number, actorId: number, input: z.infer<typeof orderInvoiceSchema>, metadata: RequestMetadata) {
+    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      await this.authorize(tx, firmId, actorId, 'INVOICE', 'create');
+      await authorizeFirmJobActor(tx, firmId, actorId, PERMISSIONS.SALES_ORDERS_VIEW);
+      await assertTransactionFeature(tx, firmId, 'sales.orders');
+      const hash = requestHash({ operation: 'sales-order', input });
+      const replay = await this.replay(tx, firmId, input.idempotencyKey, hash);
+      if (replay) return replay;
+      const order = await readOrderForInvoicing(tx, firmId, input.salesOrderId);
+      const source = order.snapshot as unknown as ReturnType<typeof customerQuotationSnapshot>;
+      const { settings, policy } = await this.policy(tx, firmId, input.supply);
+      const zeroTax = source.items.every((line) => decimal(line.taxAmount).isZero());
+      if ((policy.taxMode !== source.taxMode && !(policy.taxMode === 'NONE' && zeroTax)) || (policy.registration === 'REGULAR' && order.currency !== 'INR')) throw new AppError('Order tax policy is incompatible with the invoice supply', 409);
+      if (!source.billingAddress) throw new AppError('Order has no accepted billing address', 409);
+      const currency = currencyCode(order.currency);
+      const amount = (value: Prisma.Decimal) => money(value, currency, 'HALF_UP').amount;
+      for (const requested of input.lines) {
+        const line = order.lines.find((entry) => entry.id === requested.salesOrderLineId);
+        if (!line) throw new AppError('Order line unavailable', 404);
+        if (decimal(requested.quantity).gt(line.available)) throw new AppError('Invoice exceeds unreserved completed quantity', 409);
+      }
+      const fullLines = quotationBillingLines(source, order.lines.map((line) => {
+        const requested = input.lines.find((entry) => entry.salesOrderLineId === line.id);
+        return { lineNumber: line.lineNumber, hsnCode: requested?.hsnCode ?? null, supplyType: requested?.supplyType ?? 'GOODS' };
+      }));
+      const fullPolicy: InvoiceFinancialPolicy = { ...policy, currency, rounding: 'HALF_UP', grandTotal: 'WHOLE_UNIT' };
+      const acceptedExtras = decimal(source.freightAmount).add(source.otherCharges);
+      if (!decimal(sumInvoiceLines(fullLines, fullPolicy, acceptedExtras.toString()).grandTotal).eq(source.grandTotal)) throw new AppError('Accepted source totals are inconsistent; review a new quotation', 409);
+      const financialPolicy: InvoiceFinancialPolicy = { ...fullPolicy, grandTotal: 'MINOR_UNIT' };
+      const active = await tx.invoice.aggregate({ where: { firmId, sourceSalesOrderId: order.id, status: { not: 'VOID' } }, _sum: { taxableAmount: true, taxAmount: true, grandTotal: true } });
+      const components = await tx.$queryRaw<Array<{ lineNumber: number; baseAmount: Prisma.Decimal; discountAmount: Prisma.Decimal; cgstAmount: Prisma.Decimal; sgstAmount: Prisma.Decimal; igstAmount: Prisma.Decimal }>>`
+        SELECT l.line_number AS lineNumber,
+          SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(l.snapshot, '$.baseAmount')) AS DECIMAL(24,3))) AS baseAmount,
+          SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(l.snapshot, '$.discountAmount')) AS DECIMAL(24,3))) AS discountAmount,
+          SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(l.snapshot, '$.cgstAmount')) AS DECIMAL(24,3))) AS cgstAmount,
+          SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(l.snapshot, '$.sgstAmount')) AS DECIMAL(24,3))) AS sgstAmount,
+          SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(l.snapshot, '$.igstAmount')) AS DECIMAL(24,3))) AS igstAmount
+        FROM invoice_lines l JOIN invoices i ON i.id = l.invoice_id AND i.firm_id = l.firm_id
+        WHERE i.firm_id = ${firmId} AND i.source_sales_order_id = ${order.id} AND i.status <> 'VOID'
+        GROUP BY l.line_number`;
+      const lines = input.lines.map((requested) => {
+        const orderLine = order.lines.find((line) => line.id === requested.salesOrderLineId)!;
+        const full = fullLines.find((line) => line.lineNumber === orderLine.lineNumber)!;
+        const previous = components.find((line) => line.lineNumber === full.lineNumber);
+        const consumed = Object.fromEntries((['baseAmount', 'discountAmount', 'cgstAmount', 'sgstAmount', 'igstAmount'] as const).map((field) => [field, amount(previous?.[field] ?? decimal('0'))]));
+        return partialQuotationLine(full, orderLine.reserved.toFixed(3), requested.quantity, currency, consumed);
+      });
+      const fullRaw = fullLines.reduce((total, line) => total.add(line.lineTotal), decimal('0'));
+      const raw = lines.reduce((total, line) => total.add(line.lineTotal), decimal('0'));
+      const priorRaw = decimal(active._sum.taxableAmount ?? '0').add(active._sum.taxAmount ?? '0');
+      const priorExtra = decimal(active._sum.grandTotal ?? '0').sub(priorRaw);
+      const totalExtra = decimal(source.grandTotal).sub(fullRaw);
+      // Cumulative allocation includes source freight/charges and its rounding.
+      // This preserves the exact accepted total across partial invoices/retries.
+      const remainingWeight = fullRaw.isZero() ? order.lines.reduce((sum, line) => sum.add(line.quantity).sub(line.reserved), decimal('0')) : fullRaw.sub(priorRaw);
+      const newWeight = fullRaw.isZero() ? input.lines.reduce((sum, line) => sum.add(line.quantity), decimal('0')) : raw;
+      const extraCharges = remainingWeight.isZero() ? '0' : amount(totalExtra.sub(priorExtra).mul(newWeight).div(remainingWeight));
+      const totals = sumInvoiceLines(lines, financialPolicy, extraCharges);
+      if (decimal(totals.grandTotal).lt(0)) throw new AppError('Consolidate remaining quantities to preserve accepted rounding', 409);
+      const values = validateCustomFieldValues(settings.config.customFields, input.customFieldValues, false);
+      const document = await this.derivedDraft(tx, firmId, actorId, input.idempotencyKey, hash, {
+        kind: 'INVOICE', companyId: order.companyId, sourceSalesOrderId: order.id, invoiceDate: new Date(indiaToday()), currency,
+        buyerSnapshot: jsonObject({ name: source.companyName, legalName: source.companyName, gstin: source.gstin, pan: source.pan, billingAddress: source.billingAddress, shippingAddress: source.shippingAddress }),
+        financialPolicySnapshot: jsonObject(financialPolicy), supplySnapshot: jsonObject(input.supply), presentationSnapshot: jsonObject(settings.config),
+        customFieldSchema: settings.config.customFields, customFieldValues: values,
+        sourceSnapshot: { salesOrderId: order.id, orderNumber: order.orderNumber, sourceQuotationId: order.sourceQuotationId, revisionNumber: source.revisionNumber, snapshotHash: order.snapshotHash, extraCharges, invoicingPolicy: 'FULFILLED_QUANTITIES', termsAndConditions: source.termsAndConditions },
+        customerReference: source.customerReference, paymentTerms: source.paymentTerms, ...totals,
+      }, lines, metadata);
+      await tx.salesOrderInvoiceLine.createMany({ data: input.lines.map((line) => ({ firmId, salesOrderId: order.id, salesOrderLineId: line.salesOrderLineId, invoiceId: document.id, quantity: decimal(line.quantity) })) });
+      return document;
     });
   }
   async fromProforma(firmId: number, actorId: number, sourceId: number, idempotencyKey: string, metadata: RequestMetadata) {

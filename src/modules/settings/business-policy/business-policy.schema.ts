@@ -11,6 +11,7 @@ export const businessPolicySchema = z.object({
       rate: z.string().regex(/^(?:100(?:\.00?)?|\d{1,2}(?:\.\d{1,2})?)$/) }).strict(),
   ]),
   inAppNotifications: z.boolean(),
+  sales: z.object({ preset: z.enum(['SERVICE', 'TRADING', 'MIXED']), ordersEnabled: z.boolean(), portalEnabled: z.boolean() }).strict().optional(),
 }).strict().superRefine((policy, context) => {
   if (policy.tax.id === 'india-gst' && policy.currency !== 'INR') context.addIssue({ code: z.ZodIssueCode.custom, path: ['currency'], message: 'The India GST adapter currently supports INR only' });
 });

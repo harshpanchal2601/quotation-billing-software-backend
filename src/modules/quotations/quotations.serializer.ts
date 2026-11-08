@@ -142,6 +142,7 @@ export function serialiseQuotationStatusHistory(
     toStatus: history.toStatus,
     comment: history.comment,
     changedBy: serialiseUserSummary(history.changedBy),
+    portalActorName: history.portalActorName ?? null,
     changedAt: history.changedAt.toISOString(),
   };
 }

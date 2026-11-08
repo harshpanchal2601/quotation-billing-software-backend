@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { AccountType, AddressType, PrismaClient } from '@prisma/client';
 import { expect } from 'vitest';
 
-export function assertDisposableTenantDatabase(value: string, wave: '01' | '02' | '03' | '04' | '05' = '01') {
+export function assertDisposableTenantDatabase(value: string, wave: '01' | '02' | '03' | '04' | '05' | '06' = '01') {
   const url = new URL(value);
   if (url.protocol !== 'mysql:' ||
       !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
@@ -73,6 +73,22 @@ export class TwoFirmFixture {
     // Immutable platform events intentionally survive fixture actor deletion.
     // Their scalar snapshots remain evidence; no production or shared data is removed.
     await this.db.$transaction(async (tx) => {
+      await tx.documentAcceptance.deleteMany({ where: { firmId } });
+      await tx.portalGrant.deleteMany({ where: { firmId } });
+      await tx.portalSession.deleteMany({ where: { firmId } });
+      await tx.portalInvitation.deleteMany({ where: { firmId } });
+      await tx.portalIdentity.deleteMany({ where: { firmId } });
+      await tx.salesActivity.deleteMany({ where: { firmId } });
+      await tx.salesTask.deleteMany({ where: { firmId } });
+      await tx.opportunity.deleteMany({ where: { firmId } });
+      await tx.lead.deleteMany({ where: { firmId } });
+      await tx.salesOrderInvoiceLine.deleteMany({ where: { firmId } });
+      await tx.invoice.updateMany({ where: { firmId }, data: { sourceSalesOrderId: null } });
+      await tx.salesOrderHistory.deleteMany({ where: { firmId } });
+      await tx.fulfillmentLine.deleteMany({ where: { firmId } });
+      await tx.fulfillment.deleteMany({ where: { firmId } });
+      await tx.salesOrderLine.deleteMany({ where: { firmId } });
+      await tx.salesOrder.deleteMany({ where: { firmId } });
       await tx.billingScheduleRun.deleteMany({ where: { firmId } });
       await tx.billingScheduleVersion.deleteMany({ where: { firmId } });
       await tx.billingSchedule.deleteMany({ where: { firmId } });

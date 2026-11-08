@@ -1,4 +1,5 @@
 import { AppError } from '../../core/errors/AppError.js';
+import { calendarDate } from '../../core/validation/calendar-date.js';
 
 // GST state master; historical codes 25/28 are not offered for new documents.
 export const INDIA_STATES: Readonly<Record<string, string>> = Object.freeze({
@@ -32,7 +33,7 @@ export function isValidGstin(value: string) {
   return alphabet[(36 - sum % 36) % 36] === value[14];
 }
 export function indiaToday(now = new Date()) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  return calendarDate(now, 'Asia/Kolkata');
 }
 export function financialYear(date: string) {
   const year = Number(date.slice(0, 4));

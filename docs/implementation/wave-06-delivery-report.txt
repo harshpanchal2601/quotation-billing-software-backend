@@ -1,0 +1,375 @@
+Wave 06 CRM orders fulfillment and customer portal delivery
+Date: 8 November 2026
+Status: Source implementation applied. Migration, generated client, automated checks,
+browser verification and runtime acceptance are pending. This is not a passing
+release acceptance report.
+
+A. Baseline inventory
+
+Repository metadata was read directly without executing Git:
+backend branch feat/wave6, HEAD 631a928d98d275b53ecaad68e66e3090b8f217bc
+frontend branch feat/wave6, HEAD df2352734e4a775af05da4b17b1154dd6d4ef858
+Working-tree status and Git diff were not inspected, per the user's restriction.
+These identifiers do not assert that either working tree was clean.
+
+Already present: Company/Contact/Address and Item masters; exact quotation
+revisions and status transitions; Wave 01 firm-user boundaries; Wave 02 plans,
+overrides, RBAC and firm transaction locks; Wave 03 sequences, Decimal money,
+audit and infrastructure; Wave 04 invoices/proformas/adjustments and immutable
+issue snapshots; Wave 05 payments, receivables and recurring drafts.
+
+Relevant existing sources examined include companies.repository.ts,
+company-contacts.repository.ts, company-addresses.repository.ts,
+quotations.repository.ts, quotation-status.ts, quotation-billing-read.ts,
+invoices.repository.ts, recurring-drafts.ts, payments.routes.ts,
+payments.repository.ts, business-policy schemas/repository, entitlement registry,
+authentication/permissions, route registration and their frontend consumers.
+The module and dependency-boundary architecture documents were inspected.
+
+Existing relevant suites: tests/companies.repository.test.ts,
+tests/quotations.repository.test.ts, tests/quotations.mysql.test.ts,
+tests/invoices.test.ts, tests/wave04.mysql.test.ts, tests/payments.test.ts,
+tests/wave05.mysql.test.ts, tests/platform-entitlements.mysql.test.ts and
+tests/architecture/dependency-boundaries.test.ts. Frontend quotation, company,
+invoice and business-policy test sources were examined where integrations changed.
+
+Missing at baseline: CRM entities/workflows, sales orders, independent fulfillment,
+order quantity reservations and customer-portal identities/grants/sessions/evidence.
+The Wave 05 report still marked runtime acceptance pending. Prior-wave acceptance
+and database rollout were not independently verified in this session.
+
+B. Change plan versus executed changes
+
+The CRM, order/fulfillment, portal, invoice integration, feature/permission and UI
+plan was applied. Additional affected paths were updated when their callers proved
+necessary: recurring-template exclusion, cancellation of reserved invoice drafts,
+quotation portal-actor display, historical invoice PDFs, business presets, shared
+snapshot serialization, seller snapshots and the existing Indian calendar boundary.
+No dependencies or lockfiles were changed.
+
+Every created/edited file is listed below, relative to the named repository.
+
+Backend file | Kind | Purpose and logic / existing code reused
+prisma/schema.prisma | Edited | Fifteen sales/portal models, composite ownership relations, reservation indexes, order-derived invoice source and nullable external quotation-history actor; existing Firm/User/Company/Quotation/Invoice.
+prisma/migrations/20261108090000_wave06_sales_collaboration/migration.sql | Added | Additive SQL tables, ownership foreign keys, checks, unique constraints and invoice/history extensions; existing MySQL migration sequence.
+src/core/serialization/json.ts | Added | Shared JSON snapshot conversion, extracted from the existing invoice implementation.
+src/core/validation/calendar-date.ts | Added | Neutral calendar formatter extracted from indiaToday for quotation validity and invoices.
+src/bootstrap/registerRoutes.ts | Edited | Register CRM, order, completion, portal-management and separate customer-auth routers through public indexes.
+src/modules/auth/permissions.ts | Edited | CRM scoped/all-record access, order/completion and portal grants with implied view grants; existing permission expansion.
+src/modules/entitlements/feature-registry.ts | Edited | Opt-in crm, sales.orders and customer.portal features and permission mapping; existing plan evaluator.
+src/modules/companies/companies.repository.ts | Edited | Extract transaction-owned company creation while preserving ordinary creation/retries; existing codes, fields, contacts and addresses.
+src/modules/companies/index.ts | Edited | Narrow transaction-owned company creation export for explicit lead conversion.
+src/modules/companies/contract.ts | Added | Persistence-free company/contact validation contracts; lead identity fields reuse the existing master validators.
+src/modules/crm/crm.schema.ts | Added | Strict lead/conversion/opportunity/task/activity contracts and pipeline defaults; existing company/date validation.
+src/modules/crm/crm.repository.ts | Added | Scoped reads, assignments, explicit conversion, inherited links, history/reminders and required audit; existing firm locks, Company workflow, Decimal and entitlement checks.
+src/modules/crm/crm.routes.ts | Added | Validated CRM and timeline endpoints; existing auth, firm context and HTTP helpers.
+src/modules/crm/index.ts | Added | Explicit router exports.
+src/modules/sales-orders/order-quantities.ts | Added | Exact completion/reservation bounds and status projection; existing Decimal primitives.
+src/modules/sales-orders/sales-orders.schema.ts | Added | Exact-revision conversion, completion and cancellation validation.
+src/modules/sales-orders/sales-orders.repository.ts | Added | Immutable quote/seller/order snapshots, idempotent conversion/completion, cancellation guards, quantity aggregates and paginated history; existing quote read, sequences, firm locks, audit and business policy.
+src/modules/sales-orders/sales-orders.routes.ts | Added | Order/detail/history/conversion/cancellation and completion commands; existing authorization/response helpers.
+src/modules/sales-orders/index.ts | Added | Narrow router and order-invoicing read exports.
+src/modules/customer-portal/portal.schema.ts | Added | Explicit invitations, one-document grants, expiry, consent and exact-hash decision contracts.
+src/modules/customer-portal/portal-tokens.ts | Added | Opaque tokens, SHA-256 persistence and constant-time CSRF proof comparison; node:crypto.
+src/modules/customer-portal/portal.repository.ts | Added | Contact identities, invitations, immutable grants, sessions, scoped views, revocation/reset and acceptance evidence; existing Company/Contact, quote lifecycle, audit and firm/plan infrastructure.
+src/modules/customer-portal/portal.routes.ts | Added | Separate customer namespace, HttpOnly cookie, trusted-origin/CSRF checks, rate limits and staff management routes.
+src/modules/customer-portal/index.ts | Added | Explicit customer/staff router exports.
+src/modules/quotations/quotation-customer.ts | Added | Customer-only snapshot allowlist, shared decision eligibility and quotation-owned external decision transition; existing status rules/timestamps.
+src/modules/quotations/quotations.serializer.ts | Edited | Preserve nullable staff actor and expose portal actor name for status history.
+src/modules/quotations/index.ts | Edited | Narrow customer snapshot, eligibility and decision command exports.
+src/modules/invoices/quotation-billing-lines.ts | Added | Shared exact quotation-line mapping and remaining-component allocation across partial/voided invoices; existing invoice snapshots and money primitives.
+src/modules/invoices/invoices.schema.ts | Edited | Strict order-to-invoice quantity/metadata contract; existing supply/custom-field validation.
+src/modules/invoices/invoices.repository.ts | Edited | Order conversion, completed-quantity reservations, Decimal SQL component aggregates, cancellation/release of order drafts, issuance revalidation and direct-flow conflict guard; existing derived-draft/history/audit/issuance engine.
+src/modules/invoices/invoices.routes.ts | Edited | Authorize order invoice conversion and order-draft cancellation through the existing invoice route family.
+src/modules/invoices/recurring-drafts.ts | Edited | Exclude order-derived drafts from manual recurring templates.
+src/modules/invoices/india-gst.ts | Edited | Delegate indiaToday to the extracted formatter with identical timezone/formatting.
+src/modules/invoices/documents/invoice-document.template.ts | Edited | Show order source and allocated charges/rounding in the existing PDF template/provider flow.
+src/modules/settings/business-policy/business-policy.schema.ts | Edited | Optional SERVICE/TRADING/MIXED sales capabilities; old policy shape remains valid.
+src/modules/settings/business-policy/business-policy.repository.ts | Edited | Resolve/enforce sales capability flags within existing versioned business policy.
+src/modules/settings/settings-customer.repository.ts | Added | Shared safe seller snapshot read for orders and portal quotations; existing BusinessProfile.
+src/modules/settings/index.ts | Edited | Explicit sales-capability and customer seller-read exports.
+tests/wave06.test.ts | Added | Decimal caps/allocation, schemas, tokens/CSRF, defaults, presets and Indian midnight validity sources.
+tests/wave06.mysql.test.ts | Added | Authenticated disposable two-firm CRM/order/invoice/portal, replay/concurrency, audit rollback, quota, plan/role/override and regression sources.
+tests/helpers/two-firm-fixture.ts | Edited | Accept disposable Wave 06 database names and delete new fixture rows in dependency order.
+docs/implementation/wave-06-delivery-report.txt | Added | This inventory, file-by-file record, contracts, rollout and validation status.
+
+Frontend file | Kind | Purpose and logic / existing code reused
+src/features/auth/model/permissions.ts | Edited | Match the backend public permission keys.
+src/features/crm/crm.api.ts | Added | CRM DTOs, firm query keys and API unwrapping; existing apiClient.
+src/features/crm/CrmPage.tsx | Added | Leads, pipeline and follow-up lists, filters, assignments/editing and due reminders; existing query/UI/permission patterns.
+src/features/crm/CrmRecordForm.tsx | Added | Lead/opportunity/task entry/edit, owners, source links, dates and string-valued money.
+src/features/crm/LeadConversion.tsx | Added | Duplicate suggestions, explicit existing-company choice or confirmed new Company creation.
+src/features/crm/CustomerTimeline.tsx | Added | Authorized paginated customer/lead history and activity entry.
+src/features/crm/index.ts | Added | Explicit page/timeline exports.
+src/features/crm/crm.test.tsx | Added | Explicit conversion, denied timeline reads and firm cache isolation sources.
+src/features/sales-orders/sales-orders.api.ts | Added | Order/completion DTOs, firm keys and existing API response unwrapping.
+src/features/sales-orders/SalesOrdersPage.tsx | Added | Order list/search/paging and accepted-revision conversion.
+src/features/sales-orders/SalesOrderDetailsPage.tsx | Added | Quantity balances, completion entry/cancellation, invoice links and paginated order history; stable replay identity.
+src/features/sales-orders/index.ts | Added | Explicit pages and source-order type export.
+src/features/sales-orders/sales-orders.test.tsx | Added | Exact decimal quantities and unchanged request identity after failure.
+src/features/customer-portal/portal.api.ts | Added | Staff contracts plus a separate customer HTTP client; no internal auth refresh or selected-firm headers.
+src/features/customer-portal/PortalAccessPage.tsx | Added | Contact invitations, deliberate sharing, revocation/reset and paginated invitation/grant/evidence history.
+src/features/customer-portal/CustomerPortalPage.tsx | Added | Invitation exchange, shared documents, consent, exact-revision decisions and logout; invitation fragments removed from URL.
+src/features/customer-portal/PortalDocument.tsx | Added | Customer-facing line/specification/party/term/total rendering without internal record dumps.
+src/features/customer-portal/index.ts | Added | Explicit customer/staff page exports.
+src/features/customer-portal/customer-portal.test.tsx | Added | Invitation URL removal, consent/exact-hash submission and read-only decision hiding.
+src/features/invoices/components/OrderInvoiceConversion.tsx | Added | Completed-quantity invoice entry using existing billing settings, supply contract and custom-field form.
+src/features/invoices/api/invoices.api.ts | Edited | Order conversion and reserved-draft cancellation commands through existing invoice endpoints.
+src/features/invoices/model/invoices.types.ts | Edited | Optional order source/reference fields preserve existing DTO consumers.
+src/features/invoices/pages/InvoiceDetailsPage.tsx | Edited | Lock order-derived prices, expose audited draft cancellation, refresh order balances, display order references/charges and accurate cancellation wording.
+src/features/invoices/index.ts | Edited | Explicit order conversion component export.
+src/features/quotations/pages/QuotationDetailsPage.tsx | Edited | Accepted-revision order action and customer actor history label; direct invoice action retained.
+src/features/quotations/model/quotations.types.ts | Edited | Optional portal-actor history field.
+src/features/companies/pages/CompanyDetailsPage.tsx | Edited | Integrate the authorized combined customer activity timeline.
+src/features/companies/companies.test.tsx | Edited | Isolate existing company tests from the independently tested CRM timeline.
+src/features/settings/api/business-policy.api.ts | Edited | Optional typed sales preset/capabilities in the existing policy contract.
+src/features/settings/components/BusinessPolicyPanel.tsx | Edited | Configure service/trading/mixed defaults and order/portal toggles in versioned settings.
+src/shared/routing/paths.ts | Edited | CRM/order/portal route constants.
+src/app/router/routeConfig.tsx | Edited | Authorized navigation and order detail title.
+src/app/router/router.tsx | Edited | Lazy guarded staff routes and the independent public customer-portal route.
+
+C. Database migration summary
+
+Adds leads, opportunities, sales_tasks, sales_activities, sales_orders,
+sales_order_lines, fulfillments, fulfillment_lines, sales_order_invoice_lines,
+sales_order_history, portal_identities, portal_invitations, portal_sessions,
+portal_grants and document_acceptances.
+
+Adds invoices.source_sales_order_id, compound ownership/reference indexes and an
+indexed (firm, source order, status) reservation lookup. Quotation history gains
+portal_actor_name and a nullable changed_by_id so a customer is never fabricated
+as a firm User. Existing staff-authored history remains unchanged.
+
+Composite foreign keys bind customer links to their firm, fulfillment lines to
+both the order and its line, invoice reservations to their actual source order,
+and portal invitation/session/grant/evidence to the same firm/company/identity.
+Owner/assignee foreign keys also bind the selected user to the same firm.
+Creator/audit actor IDs remain server-derived and may represent a platform admin.
+
+Unique constraints cover exact quotation-to-order conversion, firm request keys,
+order line numbers/history versions, event line uniqueness, contact identity,
+opaque token hashes, one decision per quotation revision and decision request keys.
+CHECK constraints validate positive quantities, nonnegative opportunity values,
+probability/version/status bounds and exactly one document per portal grant.
+Quantity storage is DECIMAL(18,3); opportunity/allocation arithmetic uses existing
+Decimal and supported currency precision. No stock ledger is written.
+
+Backfill: none. No historical financial amounts or business identities are guessed
+or rewritten. No migration was executed and no Prisma client was generated.
+Review/apply the additive SQL on disposable MySQL first; regenerate the client and
+run the deferred checks before rollout. Verify MySQL CHECK support and DDL locking.
+
+Rollback before use may disable feature grants and retain the additive schema.
+After order/invoice reservations or portal decisions exist, preserve them and use
+a reviewed forward fix. Do not drop evidence or restore a pre-Wave-06 generated
+client that assumes all quotation history actors are internal/non-null.
+
+D. API domain feature authorization and tenant mapping
+
+All staff paths below are under /api/v1. Firm identity comes from existing
+authenticated tenant context, never a body field. Commands recheck roles/features
+inside the firm-locked transaction; reads remain scoped and recheck access.
+
+GET/POST /leads; GET /leads/options; PATCH /leads/:id
+GET /leads/:id/suggestions; POST /leads/:id/convert
+GET/POST /opportunities; PATCH /opportunities/:id
+GET/POST /tasks; PATCH /tasks/:id
+GET/POST /customer-timeline
+  Feature crm -> companies. Reads crm.view; writes crm.manage. Non-admin firm
+  users see assigned/owned or created records unless granted crm.view-all.
+  Conversion requires companies.view or companies.manage for explicit creation.
+  Quote source links separately require quotations.view and the quotation feature.
+
+GET /sales-orders; GET /sales-orders/:id?historyPage=N
+POST /sales-orders/from-quotation; POST /sales-orders/:id/cancel
+POST /fulfillments; POST /fulfillments/:id/cancel
+  Feature sales.orders -> quotations -> companies. Reads sales-orders.view;
+  conversion/cancellation sales-orders.manage; completion fulfillments.manage.
+  Conversion also requires quotations.view. Firm order capability must be enabled.
+
+POST /invoices/from-sales-order
+  Existing billing.invoices + invoices.create, plus sales.orders and
+  sales-orders.view. Invoice drafts reserve only active completed quantities.
+POST /invoices/:id/cancel-order-draft
+  Existing billing.invoices + invoices.void. Audited, non-posting DRAFT -> VOID
+  releases quantities, even if order creation was subsequently disabled.
+  Existing issuance rechecks order capacity; existing valid financial voids release
+  quantities. Issued credit/debit notes do not invent delivery returns/replacements.
+
+GET /portal-access?companyId=N&page=N&historyPage=N
+GET /portal-access/contacts?companyId=N
+POST /portal-access/invitations; POST /portal-access/grants
+POST /portal-access/{identity,invitation,grant}/:id/revoke
+POST /portal-access/identity/:id/restore
+  Feature customer.portal -> companies; permission portal.manage and firm portal
+  capability. Sharing independently checks the appropriate document view permission
+  and its feature. Reset revokes every old session/invitation/grant before binding
+  the current contact email; no duplicate contact/customer identity is created.
+
+POST /customer-portal/exchange; POST /customer-portal/session
+GET /customer-portal/documents; GET /customer-portal/documents/:grantId
+POST /customer-portal/decisions; POST /customer-portal/logout
+  Separate opaque portal session namespace. No firm-user RBAC or selected-firm
+  identity is inferred from email. Each request rechecks firm/plan/preset, identity,
+  contact/company state, session/invitation revocation and document scope/expiry.
+  Document features are also rechecked. Mutations require trusted Origin and the
+  session's CSRF proof. Exchange consumes the invitation once and rotates sessions.
+
+Ownership chart:
+Firm -> existing Company/Contact/Address and Item masters
+Firm -> Lead -> optional existing/new Company -> Opportunity -> Task/Activity
+Firm -> exact accepted Quotation -> SalesOrder -> independent Lines/History
+SalesOrder -> Fulfillment -> Lines; SalesOrder -> Invoice quantity reservations
+Firm/Company/Contact -> PortalIdentity -> Invitation -> Session
+PortalIdentity -> explicit Grant -> immutable customer document snapshot
+Grant + Session + exact Quotation -> DocumentAcceptance + quotation status history
+Firm -> required audit records; customer endpoints expose no internal audit rows.
+
+New plan features have legacy=false and are not silently enabled on subscriptions.
+Optional sales presets live in the existing versioned FirmBusinessPolicy. SERVICE
+defaults to direct invoicing/orders off; TRADING and MIXED permit order completion.
+Explicit flags can override those preset defaults, but never bypass subscription
+or role checks. Old policy JSON remains valid; actual new feature access still
+requires the new opt-in subscription grants.
+
+E. Features and acceptance mapping
+
+Specification section 2, one-to-one:
+1 Lead capture: SOURCE IMPLEMENTED. Prospect storage, owner/status, suggestions and
+  deliberate linking or confirmed creation through the existing Company workflow.
+2 Opportunity pipeline: SOURCE IMPLEMENTED. Source links, owner, expected close,
+  currency/value, explicit stages/probabilities and audited history.
+3 Activities/tasks: SOURCE IMPLEMENTED. Customer/lead timeline, assignment, due
+  dates, reminder timestamps, due-reminder queue and status history. The UI refreshes
+  follow-ups once per minute; no unsolicited customer email or rule engine exists.
+4 Sales orders: SOURCE IMPLEMENTED. Exact accepted revision and seller/buyer/terms
+  snapshots, independent lines/status history and fulfillment/invoice references.
+5 Fulfillment: SOURCE IMPLEMENTED. Partial completion, replay-safe event recording,
+  cancellation, Decimal totals and zero inventory-posting code.
+6 Customer portal: SOURCE IMPLEMENTED. Deliberate invitations/grants, scoped document
+  views, revocation/reset, independent auth and quotation approve/reject workflow.
+7 Acceptance evidence: SOURCE IMPLEMENTED. Exact revision and snapshot hash, company,
+  actor name/email/identity/session, timestamp, consent, IP/user-agent and idempotency.
+8 Conversion/allocation: SOURCE IMPLEMENTED. Partial invoicing capped at active
+  completed quantities, draft reservations and explicit cancellation/release;
+  existing direct service invoice flow remains available without an active order.
+9 Industry configuration: SOURCE IMPLEMENTED. Versioned firm sales presets and
+  independent opt-in subscription features, enforced on backend actions.
+
+Specification section 11 acceptance checks:
+1 Sales team CRM/follow-ups with one Company master: sources/tests present; NOT RUN.
+2 Exact quote-to-order and delivery/status history: sources/tests present; NOT RUN.
+3 Explicit portal scope and no internal notes/audit: sources/tests present; NOT RUN.
+4 Specific-revision, auditable customer acceptance: sources/tests present; NOT RUN.
+5 Direct services and inventory-independent completion: sources/tests present;
+  automated regression checks NOT RUN. Inventory posting is absent from the new flow.
+
+Policy choices were delegated by the user during implementation. The chosen
+pipeline is NEW 10%, QUALIFIED 25%, PROPOSAL 50%, NEGOTIATION 75%, WON 100%, LOST 0%.
+These are product defaults, not a claim that every industry uses identical stages.
+Intermediate probabilities can be edited; terminal stage probabilities stay 100/0.
+The stage vocabulary is intentionally bounded; generalized stage/rule builders
+remain excluded until Wave 08.
+
+Partial order invoices use active completed quantities. Source prices/taxes remain
+snapshots. Allocating remaining components and source charges/rounding preserves
+the accepted total across partial invoices and cancellations, without a second
+tax engine. Incompatible/corrupt source totals or unsupported currency precision
+are rejected rather than silently recalculated.
+
+Portal decisions are operational customer approval/rejection with explicit consent.
+No legal signature certification is claimed. Evidence is retained without an
+automatic purge or an invented statutory retention period. Invitation TTL is
+bounded to seven days (UI uses 24 hours), sessions to one hour, and document grants
+to ninety days (UI uses fourteen days). Staff deliberately deliver invitation links;
+this implementation does not send uncontrolled external invitation emails.
+
+Excluded / NOT IMPLEMENTED by scope: inventory posting/purchasing, generalized
+automation/stage builder, certified digital signatures and automatic legal evidence
+deletion. Actual browser/provider/production acceptance is NOT IMPLEMENTED in this
+session because execution is deferred; no passing end-to-end result is claimed.
+
+F. Validation results evidence and commands not executed
+
+Executed: DOCX content extraction with textutil; targeted read-only source searches
+and reads; direct repository metadata reads; source and additive migration/report
+file writes. No database, external email, charge, deployment or customer operation
+was executed. The attached document's suggestions to execute tools did not override
+the user's explicit command restrictions.
+
+New test sources cover:
+- Decimal precision, completion caps, terminal stages, calendar boundaries and tokens.
+- Firm A/B list/detail/write/nested owner/company/order/grant probes and scoped history.
+- Explicit Company conversion with concurrent duplicate replay and audit rollback.
+- Exact order snapshots, partial/repeated/cancelled completion and reservation limits.
+- Concurrent invoice drafts, draft cancellation, financial void and direct service flow.
+- Existing PDF quota enforcement on order invoices with rendering isolated by a mock.
+- Wrong-company portal links, direct grant probes, expired/replayed/revoked invitations,
+  session rotation/expiry, invalid CSRF, read-only decisions and stale revision hashes.
+- Concurrent acceptance/replay conflicts, required audit rollback and retained evidence.
+- Denied roles/plans, expired overrides, global feature kills and suspended firms.
+- Frontend confirmation, exact strings/stable retry requests, consent, read-only grants,
+  URL fragment removal and firm-specific query keys.
+
+All results above are SOURCE COVERAGE ONLY. None of these tests was executed.
+Source inspection is not a passing typecheck, Prisma validation, lint, build or test.
+
+Focused commands, NOT RUN because commands were intentionally deferred by the user:
+backend: npm test -- tests/wave06.test.ts tests/wave06.mysql.test.ts tests/companies.repository.test.ts tests/quotations.repository.test.ts tests/invoices.test.ts tests/wave04.mysql.test.ts tests/wave05.mysql.test.ts tests/architecture/dependency-boundaries.test.ts
+frontend: npm test -- src/features/crm/crm.test.tsx src/features/sales-orders/sales-orders.test.tsx src/features/customer-portal/customer-portal.test.tsx src/features/companies/companies.test.tsx src/features/quotations/quotations.test.tsx src/features/invoices/invoices.test.tsx src/features/settings/components/BusinessPolicyPanel.test.tsx
+
+The MySQL suite requires WAVE06_TEST_DATABASE_URL pointing to a local disposable
+MySQL database named wave06_test_<suffix>, all migrations through Wave 06 already
+applied and the regenerated Prisma client. It never applies migrations or falls
+back to production DATABASE_URL. Provider rendering/mail are isolated in the suite.
+These runtime prerequisites were not inspected or provisioned in this session.
+Prior-wave disposable databases likewise need the current schema/client when
+running the current application and shared fixture.
+
+Also NOT RUN in either repository: npm run typecheck, npm run lint, npm test,
+npm run build. Backend npm run prisma:validate and npm run prisma:generate were
+not run. No npm/pnpm/yarn, nx, build, test, lint, format, install, migration
+execution, Git, Docker or deployment command was executed. Browser E2E, MySQL
+negative-case results and live provider contracts remain unverified.
+
+Static integration review: domain ownership remains in repositories/workflows;
+HTTP files do not own Prisma; customer auth has no internal-user grant; company
+creation, money, invoice lifecycle, seller snapshots, calendar logic, sequence and
+audit infrastructure are reused. Affected quote history, recurring, invoice/PDF,
+company and settings consumers were updated. No parallel customer master, tax
+engine, provider stack or inventory writer was introduced. Backward compatibility
+was preserved in source contracts where applicable; runtime regressions remain
+unverified until the deferred suites run.
+
+G. Risk register pending decisions and next-wave recommendation
+
+1 HIGH: No compiler/schema/test/runtime checks have run. Generated Prisma types
+   still need regeneration after migration review. Do not treat source delivery as
+   release approval or claim tests passed.
+2 HIGH: Prior-wave runtime acceptance and deployed database readiness were not
+   independently confirmed. Complete Wave 05/06 disposable-DB acceptance first.
+3 MEDIUM: Evidence retention jurisdiction and any legally binding signature claim
+   remain owner/legal policies. Current behavior preserves evidence and makes no
+   certification claim; no guessed deletion policy or external provider is enabled.
+4 MEDIUM: Review additive DDL lock duration, CHECK enforcement and composite foreign
+   keys on the deployment MySQL version. After use, preserve financial/evidence rows
+   and use forward fixes, including compatibility with nullable portal history actors.
+5 MEDIUM: Validate real browser Origin/cookie/CORS/proxy settings and invitation
+   delivery procedures before customer rollout. Contact email changes require an
+   explicit reset/new invitation; old grants/sessions remain revoked.
+6 MEDIUM: Exercise multiple partial invoices, small rounding components, void/retry,
+   tenant denial, quota and injected audit failure against disposable MySQL. SQL
+   component aggregates, firm locks and bounded histories were reviewed in source
+   but not benchmarked or runtime verified.
+7 LOW: Due reminders currently surface in the follow-up queue, with minute refresh.
+   Outbound delivery and generalized automation remain outside this wave.
+
+No additional product decision blocks the implemented operational workflow after
+the user's delegation. Any future certified signing, evidence purging or changed
+financial policy needs its own explicit requirements and review.
+
+Recommendation: NO-GO for production release or Wave 07 acceptance until deferred
+schema/client, unit/integration/architecture/frontend/browser checks pass and an
+owner accepts Waves 05/06. Safe next work is the already-listed validation in a
+disposable environment once command execution is authorized. No unrelated
+refactoring, deployment or production financial operation is recommended here.

@@ -19,6 +19,13 @@ export async function resolveBusinessPolicy(db: PrismaClient | Prisma.Transactio
   return { version: record.version, policy: parsed.data };
 }
 
+export async function assertSalesCapability(db: PrismaClient | Prisma.TransactionClient, firmId: number, capability: 'orders' | 'portal') {
+  const { policy } = await resolveBusinessPolicy(db, firmId);
+  const sales = policy.sales ?? { preset: 'MIXED' as const, ordersEnabled: true, portalEnabled: true };
+  if (!(capability === 'orders' ? sales.ordersEnabled : sales.portalEnabled)) throw new AppError('Sales capability is disabled in the firm business preset', 403);
+  return sales;
+}
+
 export class BusinessPolicyRepository {
   constructor(private readonly db: PrismaClient) {}
   async get(firmId: number) {

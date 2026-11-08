@@ -16,10 +16,21 @@ import { notificationsRouter } from '../modules/notifications/index.js';
 import { invoicesRouter, proformasRouter, billingAdjustmentsRouter, billingSettingsRouter } from '../modules/invoices/index.js';
 import { paymentsRouter, receivablesRouter } from '../modules/payments/index.js';
 import { billingSchedulesRouter } from '../modules/billing-schedules/index.js';
+import { leadsRouter, opportunitiesRouter, tasksRouter, customerTimelineRouter } from '../modules/crm/index.js';
+import { salesOrdersRouter, fulfillmentsRouter } from '../modules/sales-orders/index.js';
+import { customerPortalRouter, portalAccessRouter } from '../modules/customer-portal/index.js';
 
 export const apiRouter = Router();
 
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/leads', leadsRouter);
+apiRouter.use('/opportunities', opportunitiesRouter);
+apiRouter.use('/tasks', tasksRouter);
+apiRouter.use('/customer-timeline', customerTimelineRouter);
+apiRouter.use('/sales-orders', salesOrdersRouter);
+apiRouter.use('/fulfillments', fulfillmentsRouter);
+apiRouter.use('/portal-access', portalAccessRouter);
+apiRouter.use('/customer-portal', customerPortalRouter);
 apiRouter.use('/platform', platformRouter);
 apiRouter.use('/entitlements', firmEntitlementsRouter);
 apiRouter.use('/administration', administrationRouter);
