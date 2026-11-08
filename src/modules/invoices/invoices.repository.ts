@@ -21,6 +21,8 @@ import { assertCreditReductionEligibility, assertStateCode, domesticGstMode, fin
 import { customFieldDefinitionsSchema, type AdjustmentInput, type InvoiceDraftInput, type InvoiceUpdateInput, type InvoiceLineInput, type InvoiceListInput, type SupplyInput, type conversionSchema } from './invoices.schema.js';
 import type { z } from 'zod';
 import { readInvoiceSettlement } from './invoice-settlement.repository.js';
+import { recordInvoiceFieldHistory } from './invoice-field-configuration.js';
+import { discountPercentage, emitAutomationEvent, enforceApproval, resolveDocumentPresentation } from '../automation/runtime.js';
 
 export const invoiceInclude = { lines: { orderBy: { lineNumber: 'asc' as const } }, statusHistory: { orderBy: { version: 'asc' as const } } } satisfies Prisma.InvoiceInclude;
 export type InvoiceRecord = Prisma.InvoiceGetPayload<{ include: typeof invoiceInclude }>;
@@ -96,7 +98,7 @@ export class InvoicesRepository {
     return company.addresses;
   }
   async policy(tx: Prisma.TransactionClient, firmId: number, supply: SupplyInput) {
-    const settings = await readInvoiceSettings(tx, firmId);
+    const settings = await readInvoiceSettings(tx, firmId, true);
     const { registration, sellerStateCode } = settings.config;
     if (registration === 'UNCONFIGURED' || sellerStateCode === null) throw new AppError('Ask a firm admin to configure billing registration and seller state first', 409);
     assertStateCode(supply.placeOfSupplyStateCode);
@@ -136,6 +138,15 @@ export class InvoicesRepository {
   }
   private async history(tx: Prisma.TransactionClient, firmId: number, id: number, version: number, actorId: number, fromStatus: 'DRAFT' | 'ISSUED' | 'VOID' | null, toStatus: 'DRAFT' | 'ISSUED' | 'VOID') {
     await tx.invoiceStatusHistory.create({ data: { firmId, invoiceId: id, version, changedById: actorId, fromStatus, toStatus } });
+    await recordInvoiceFieldHistory(tx, firmId, actorId, id, version);
+  }
+  async fieldHistory(firmId: number, actorId: number, id: number, scope: DocumentScope, page: number) {
+    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      await this.authorize(tx, firmId, actorId, scope, 'view');
+      await assertTransactionFeature(tx, firmId, 'automation');
+      await this.find(tx, firmId, id, scope);
+      return tx.customFieldValueVersion.findMany({ where: { firmId, entity: 'INVOICE', entityId: id }, orderBy: { version: 'desc' }, take: 50, skip: (page - 1) * 50 });
+    });
   }
   async preview(firmId: number, actorId: number, input: InvoiceDraftInput, scope: DocumentScope) {
     return withFirmEntitlementTransaction(this.db, firmId, (tx) => this.previewInTransaction(tx, firmId, actorId, input, scope));
@@ -212,6 +223,7 @@ export class InvoicesRepository {
       if (old.status === 'ISSUED' && old.version === expectedVersion + 1 && old.grandTotal.eq(confirmedTotal)) return serialiseInvoice(old);
       if (old.status !== 'DRAFT' || old.version !== expectedVersion) throw new AppError('Only the current draft can be issued; reload', 409);
       if (!old.grandTotal.eq(confirmedTotal)) throw new AppError('Displayed total changed; reload before issuing', 409);
+      if (old.kind === 'INVOICE' || old.kind === 'CREDIT_NOTE') await enforceApproval(tx, firmId, actorId, { action: old.kind === 'INVOICE' ? 'INVOICE_ISSUE' : 'CREDIT_NOTE_ISSUE', entityId: id, expectedVersion, confirmedTotal });
       if (old.sourceQuotationId) await readAcceptedQuotationForBilling(tx, firmId, old.sourceQuotationId);
       if (old.sourceSalesOrderId) {
         await assertTransactionFeature(tx, firmId, 'sales.orders');
@@ -262,12 +274,14 @@ export class InvoicesRepository {
         seller = jsonObject(originalSeller);
       }
       const bankSnapshot = bank ? { bankName: bank.bankName, accountName: bank.accountName, accountNumber: bank.accountNumber, ifscCode: bank.ifscCode, branchName: bank.branchName, swiftCode: bank.swiftCode, upiId: bank.upiId } : null;
-      const snapshot = jsonObject({ ...serialiseInvoice(old), status: 'ISSUED', documentNumber, invoiceDate: today, version: old.version + 1, sellerSnapshot: seller, bankSnapshot });
+      const automationPresentation = await resolveDocumentPresentation(tx, firmId, 'INVOICE', id);
+      const snapshot = jsonObject({ ...serialiseInvoice(old), status: 'ISSUED', documentNumber, invoiceDate: today, version: old.version + 1, sellerSnapshot: seller, bankSnapshot, automationPresentation });
       const updated = await tx.invoice.updateMany({ where: { id, firmId, version: expectedVersion, status: 'DRAFT' }, data: { status: 'ISSUED', version: { increment: 1 }, documentNumber, period: financialYear(today).period, invoiceDate: new Date(today), sellerSnapshot: seller, bankSnapshot: bankSnapshot ?? Prisma.JsonNull, issueSnapshot: snapshot, issuedAt: new Date(), updatedById: actorId } });
       if (updated.count !== 1) throw new AppError('Draft changed during issuance', 409);
       await this.history(tx, firmId, id, old.version + 1, actorId, 'DRAFT', 'ISSUED');
       const record = await this.find(tx, firmId, id, scope);
       await this.audit(tx, firmId, actorId, record, AuditAction.STATUS_CHANGE, metadata, old);
+      if (old.kind === 'INVOICE' || old.kind === 'CREDIT_NOTE') await emitAutomationEvent(tx, firmId, actorId, `billing:${id}:${record.version}`, { trigger: old.kind === 'INVOICE' ? 'invoice.issued' : 'credit-note.issued', entity: 'INVOICE', entityId: id, documentNumber, status: record.status, currency: record.currency, total: record.grandTotal.toString(), discountPercent: discountPercentage(record.subtotal, record.discountAmount) });
       return serialiseInvoice(record);
     });
   }
@@ -276,7 +290,7 @@ export class InvoicesRepository {
       await this.authorize(tx, firmId, actorId, scope, 'edit');
       const old = await this.find(tx, firmId, id, scope);
       if (old.status !== 'DRAFT' || old.version !== expectedVersion) throw new AppError('Only the current draft custom values can be edited', 409);
-      const fields = refresh ? (await readInvoiceSettings(tx, firmId)).config.customFields : customFieldDefinitionsSchema.parse(old.customFieldSchema);
+      const fields = refresh ? (await readInvoiceSettings(tx, firmId, true)).config.customFields : customFieldDefinitionsSchema.parse(old.customFieldSchema);
       const values = validateCustomFieldValues(fields, input, false);
       await tx.invoice.updateMany({ where: { id, firmId, status: 'DRAFT', version: expectedVersion }, data: { customFieldSchema: fields, customFieldValues: values, version: { increment: 1 }, updatedById: actorId } });
       await this.history(tx, firmId, id, old.version + 1, actorId, 'DRAFT', 'DRAFT');
@@ -313,10 +327,12 @@ export class InvoicesRepository {
       const dependants = await tx.invoice.count({ where: { firmId, OR: [{ sourceInvoiceId: id }, { sourceProformaId: id }] } });
       if (dependants > 0) throw new AppError('A document with adjustments or a conversion cannot be voided', 409);
       if (scope === 'INVOICE' && decimal((await readInvoiceSettlement(tx, firmId, id)).allocated).gt(0)) throw new AppError('Reverse allocated receipts before voiding this invoice', 409);
+      if (scope === 'INVOICE') await enforceApproval(tx, firmId, actorId, { action: 'INVOICE_VOID', entityId: id, expectedVersion, reason, notReportedAndSupplyCancelled: true });
       await tx.invoice.updateMany({ where: { id, firmId, status: 'ISSUED', version: expectedVersion }, data: { status: 'VOID', version: { increment: 1 }, voidedAt: new Date(), voidReason: reason, updatedById: actorId } });
       await this.history(tx, firmId, id, old.version + 1, actorId, 'ISSUED', 'VOID');
       const record = await this.find(tx, firmId, id, scope);
       await this.audit(tx, firmId, actorId, record, AuditAction.STATUS_CHANGE, metadata, old);
+      if (scope === 'INVOICE') await emitAutomationEvent(tx, firmId, actorId, `billing:${id}:${record.version}`, { trigger: 'invoice.voided', entity: 'INVOICE', entityId: id, documentNumber: record.documentNumber ?? '', status: record.status, currency: record.currency, total: record.grandTotal.toString(), discountPercent: discountPercentage(record.subtotal, record.discountAmount) });
       return serialiseInvoice(record);
     });
   }
@@ -494,7 +510,7 @@ export class InvoicesRepository {
       });
       const { lines, ...totals } = calculateInvoiceLines(linesInput, policy, new Map(originals.flatMap((line) => line.itemId && line.itemCode ? [[line.itemId, line.itemCode] as const] : [])));
       if (input.kind === 'CREDIT_NOTE') await this.assertCreditCapacity(tx, firmId, source, lines);
-      const { config } = await readInvoiceSettings(tx, firmId);
+      const { config } = await readInvoiceSettings(tx, firmId, true);
       const customFieldValues = validateCustomFieldValues(config.customFields, input.customFieldValues, false);
       return this.derivedDraft(tx, firmId, actorId, input.idempotencyKey, hash, {
         kind: input.kind, companyId: source.companyId, invoiceDate: new Date(indiaToday()), currency: source.currency,

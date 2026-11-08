@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { automationRouter, approvalsRouter, templatesRouter, notificationRulesRouter, customFieldsRouter } from '../modules/automation/index.js';
 
 import { healthRouter } from '../routes/health.routes.js';
 import { authRouter } from '../modules/auth/index.js';
@@ -23,6 +24,11 @@ import { warehousesRouter, stockRouter } from '../modules/inventory/index.js';
 import { purchaseOrdersRouter, goodsReceiptsRouter, supplierBillsRouter, expensesRouter } from '../modules/purchasing/index.js';
 
 export const apiRouter = Router();
+apiRouter.use('/automation', automationRouter);
+apiRouter.use('/approvals', approvalsRouter);
+apiRouter.use('/templates', templatesRouter);
+apiRouter.use('/custom-fields', customFieldsRouter);
+apiRouter.use('/notification-rules', notificationRulesRouter);
 apiRouter.use('/warehouses', warehousesRouter);
 apiRouter.use('/stock', stockRouter);
 apiRouter.use('/purchase-orders', purchaseOrdersRouter);

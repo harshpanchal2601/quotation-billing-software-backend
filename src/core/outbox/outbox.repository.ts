@@ -4,6 +4,7 @@ import { AuditAction, Prisma, type OutboxEvent, type PrismaClient } from '@prism
 import { createAuditLog } from '../audit/audit-log.service.js';
 import { AppError } from '../errors/AppError.js';
 import type { JobRegistry } from './outbox.types.js';
+import { DeferredOutboxJob } from './deferred-job.js';
 
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
@@ -15,18 +16,20 @@ function canonical(value: unknown): string {
 
 export async function enqueueOutbox(tx: Prisma.TransactionClient, input: {
   firmId: number; actorId: number; kind: string; sourceEventId: string; idempotencyKey: string;
-  payload: Prisma.InputJsonObject; maxAttempts?: number;
+  payload: Prisma.InputJsonObject; maxAttempts?: number; availableAt?: Date; correlationId?: string;
 }) {
   if (![input.firmId, input.actorId].every((id) => Number.isSafeInteger(id) && id > 0) ||
       !/^[a-z][a-z0-9.-]{0,99}$/.test(input.kind) || !input.sourceEventId.trim() || input.sourceEventId.length > 191 ||
       !input.idempotencyKey.trim() || input.idempotencyKey.length > 191 ||
       !Number.isInteger(input.maxAttempts ?? 5) || (input.maxAttempts ?? 5) < 1 || (input.maxAttempts ?? 5) > 20 ||
+      (input.availableAt !== undefined && !Number.isFinite(input.availableAt.getTime())) ||
+      (input.correlationId !== undefined && (!input.correlationId.trim() || input.correlationId.length > 191)) ||
       Buffer.byteLength(canonical(input.payload)) > 64 * 1024) throw new AppError('Invalid outbox envelope', 400);
   const where = { firmId_idempotencyKey: { firmId: input.firmId, idempotencyKey: input.idempotencyKey } };
   // Caller holds its firm's lock and commits the originating business write here.
   const existing = await tx.outboxEvent.findUnique({ where });
   if (existing !== null) {
-    if (existing.kind !== input.kind || existing.actorId !== input.actorId || existing.sourceEventId !== input.sourceEventId || canonical(existing.payload) !== canonical(input.payload)) throw new AppError('Outbox idempotency conflict', 409);
+    if (existing.kind !== input.kind || existing.actorId !== input.actorId || existing.sourceEventId !== input.sourceEventId || (existing.correlationId ?? null) !== (input.correlationId ?? null) || canonical(existing.payload) !== canonical(input.payload)) throw new AppError('Outbox idempotency conflict', 409);
     return existing;
   }
   const event = await tx.outboxEvent.create({ data: { ...input, id: randomUUID() } });
@@ -72,17 +75,19 @@ export class OutboxRepository {
       }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 30_000 });
     } catch (error) {
       // Never store exception messages: providers may embed credentials or PII.
+      const deferral = error instanceof DeferredOutboxJob && handler?.retry === 'TRANSACTIONAL' ? error : null;
+      const deferred = deferral !== null;
       const terminal = error instanceof AppError && [400, 401, 403, 404].includes(error.statusCode);
       const code = error instanceof AppError ? `HTTP_${error.statusCode}` : 'EXECUTION_FAILED';
-      const status = handler?.retry === 'RECONCILE' && effectStarted ? 'RECONCILE' : terminal || handler === undefined || event.attempts >= event.maxAttempts ? 'DEAD' : 'PENDING';
+      const status = deferred ? 'PENDING' : handler?.retry === 'RECONCILE' && effectStarted ? 'RECONCILE' : terminal || handler === undefined || event.attempts >= event.maxAttempts ? 'DEAD' : 'PENDING';
       await this.db.$transaction(async (tx) => {
         const settled = await tx.outboxEvent.updateMany({
           where: { id: event.id, status: 'PROCESSING', lockToken: event.lockToken },
-          data: { status, lockToken: null, lockedUntil: null, availableAt: new Date(Date.now() + Math.min(3600_000, 1000 * 2 ** (event.attempts - 1))) },
+          data: { status, lockToken: null, lockedUntil: null, availableAt: deferral?.availableAt ?? new Date(Date.now() + Math.min(3600_000, 1000 * 2 ** (event.attempts - 1))), ...(deferred ? { maxAttempts: { increment: 1 } } : {}) },
         });
         if (settled.count === 0) return;
-        await tx.jobAttempt.update({ where: { eventId_attempt: { eventId: event.id, attempt: event.attempts } }, data: { finishedAt: new Date(), outcome: status, errorCode: code } });
-        await audit(tx, event, status);
+        await tx.jobAttempt.update({ where: { eventId_attempt: { eventId: event.id, attempt: event.attempts } }, data: { finishedAt: new Date(), outcome: deferred ? 'DEFERRED' : status, errorCode: deferred ? null : code } });
+        await audit(tx, event, deferred ? 'DEFERRED' : status);
       });
     }
     return true;

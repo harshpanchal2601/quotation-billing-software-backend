@@ -41,10 +41,7 @@ quotationDocumentsRouter.post(
     }
 
     const firmId = getFirmId(req);
-    const quotation = await quotationDocumentsRepository.findQuotationForPdf(firmId, quotationId);
-    if (!quotation) {
-      throw new AppError('Quotation not found', 404);
-    }
+    const { quotation, presentation } = await quotationDocumentsRepository.preparePresentation(firmId, quotationId, userId);
 
     const businessProfile = await getBusinessProfileRecordForQuotation(firmId);
     const fallbackBank = await getDefaultBankDetailRecordForQuotation(firmId);
@@ -62,7 +59,7 @@ quotationDocumentsRouter.post(
       { logoDataUrl, signatureDataUrl, stampDataUrl },
     );
 
-    const html = renderQuotationHtmlTemplate(viewModel);
+    const html = renderQuotationHtmlTemplate(viewModel, presentation);
 
     const fileUuid = crypto.randomUUID();
     const filename = `${fileUuid}.pdf`;
@@ -79,6 +76,8 @@ quotationDocumentsRouter.post(
         filePath: relativeFilePath,
         fileHash: rendered.fileHash,
         generatedById: userId,
+        presentation,
+        expectedUpdatedAt: quotation.updatedAt,
       });
     } catch (error) {
       await storageService.deleteStorageFile(relativeFilePath).catch(() => {});

@@ -23,6 +23,7 @@ export const FEATURE_REGISTRY = Object.freeze({
   purchasing: { description: 'Supplier purchase orders and receipts', module: 'Purchasing', dependencies: ['companies', 'items'], required: false, legacy: false },
   'purchasing.bills': { description: 'Separate supplier payable documents', module: 'Purchasing', dependencies: ['purchasing'], required: false, legacy: false },
   expenses: { description: 'Classified operating expenses', module: 'Expenses', dependencies: [], required: false, legacy: false },
+  automation: { description: 'Tenant workflows, approvals, templates and custom fields', module: 'Automation', dependencies: [], required: false, legacy: false },
   'ai.credits': { description: 'Reserved entitlement for future AI operations', module: 'AI', dependencies: [], required: false, legacy: false },
 } as const);
 
@@ -59,6 +60,7 @@ export const PERMISSION_FEATURES: Readonly<Record<string, FeatureKey>> = Object.
   'purchasing.view': 'purchasing', 'purchasing.manage': 'purchasing', 'purchasing.approve': 'purchasing',
   'supplier-bills.view': 'purchasing.bills', 'supplier-bills.manage': 'purchasing.bills',
   'expenses.view': 'expenses', 'expenses.manage': 'expenses',
+  'automation.manage': 'automation', 'automation.view': 'automation',
   'firm.profile.manage': 'firm.core', 'firm.quotation-settings.manage': 'firm.core',
   'firm.bank-details.manage': 'firm.core', 'firm.users.manage': 'firm.core', 'firm.roles.manage': 'firm.core',
 });

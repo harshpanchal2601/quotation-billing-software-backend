@@ -16,6 +16,10 @@ import { prisma } from '../../../core/database/prisma.js';
 import { mailService } from '../../../integrations/mail/index.js';
 import { storageService } from '../../../integrations/storage/index.js';
 import { getBusinessProfileRecordForQuotation } from '../../settings/index.js';
+import { discountPercentage, emitAutomationEvent, enforceApproval, quotationApprovalEnabled } from '../../automation/runtime.js';
+import { requestHash } from '../../../core/idempotency/request-hash.js';
+import { customerQuotationSnapshot } from '../quotation-customer.js';
+import { withFirmEntitlementTransaction } from '../../entitlements/index.js';
 import { validateStatusTransition, getStatusTimestampUpdate } from '../quotation-status.js';
 import { buildQuotationEmailContent } from '../email/quotation-email.template.js';
 import { sendQuotationEmailSchema } from '../email/quotation-email.schema.js';
@@ -355,7 +359,13 @@ export class QuotationCommunicationsRepository {
     ];
 
     const attemptNumber = (await this.db.quotationCommunication.count({ where: { quotationId } })) + 1;
-    const attempt = await this.db.quotationCommunication.create({
+    const { attempt, approvedQuotationUpdatedAt } = await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      await tx.$queryRaw`SELECT id FROM quotations WHERE id = ${quotationId} AND firm_id = ${firmId} FOR UPDATE`;
+      const current = await tx.quotation.findFirst({ where: { id: quotationId, firmId, deletedAt: null }, include: { items: { orderBy: { lineNumber: 'asc' } } } });
+      if (!current) throw new AppError('Quotation not found', 404);
+      if (await quotationApprovalEnabled(tx, firmId) && (!document.sourceSnapshotHash || document.sourceSnapshotHash !== requestHash(customerQuotationSnapshot(current)))) throw new AppError('Generate a current quotation PDF before an approval-controlled send', 409);
+      if (current.status === QuotationStatus.DRAFT || current.status === QuotationStatus.PENDING) await enforceApproval(tx, firmId, userId, { action: 'QUOTATION_SEND', entityId: quotationId });
+      const attempt = await tx.quotationCommunication.create({
       data: {
         quotationId,
         generatedDocumentId: document.id,
@@ -371,6 +381,8 @@ export class QuotationCommunicationsRepository {
         documentSnapshot: documentSnapshot as Prisma.InputJsonValue,
         attachmentSnapshots: selectedAttachmentSnapshots as Prisma.InputJsonValue,
       },
+      });
+      return { attempt, approvedQuotationUpdatedAt: current.updatedAt };
     });
 
     let sendInfo: unknown;
@@ -409,7 +421,7 @@ export class QuotationCommunicationsRepository {
     let statusTransitioned = false;
 
     try {
-      await this.db.$transaction(async (tx) => {
+      await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
         await tx.quotationCommunication.update({
           where: { id: attempt.id },
           data: { status: CommunicationStatus.ACCEPTED, acceptedAt, providerMessageId },
@@ -420,7 +432,7 @@ export class QuotationCommunicationsRepository {
           where: { id: quotation.id, firmId, deletedAt: null },
         });
         if (current) quotationStatusAfter = current.status;
-        if (current?.isLatestRevision &&
+        if (current?.isLatestRevision && current.updatedAt.getTime() === approvedQuotationUpdatedAt.getTime() &&
             (current.status === QuotationStatus.DRAFT || current.status === QuotationStatus.PENDING)) {
           validateStatusTransition(current.status, QuotationStatus.SENT);
           const updated = await tx.quotation.updateMany({
@@ -453,6 +465,7 @@ export class QuotationCommunicationsRepository {
             });
             quotationStatusAfter = QuotationStatus.SENT;
             statusTransitioned = true;
+            await emitAutomationEvent(tx, firmId, userId, `quotation:${quotationId}:sent`, { trigger: 'quotation.sent', entity: 'QUOTATION', entityId: quotationId, documentNumber: current.quotationNumber, status: 'SENT', currency: current.currency, total: current.grandTotal.toString(), discountPercent: discountPercentage(current.subtotal, current.itemDiscountAmount.add(current.quotationDiscountAmount)) });
           } else {
             const latest = await tx.quotation.findFirst({
               where: { id: quotation.id, firmId, deletedAt: null },

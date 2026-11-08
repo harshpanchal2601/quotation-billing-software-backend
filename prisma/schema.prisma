@@ -204,6 +204,7 @@ model OutboxEvent {
   actorId        Int          @map("actor_id")
   kind           String       @db.VarChar(100)
   sourceEventId  String       @map("source_event_id") @db.VarChar(191)
+  correlationId  String?      @map("correlation_id") @db.VarChar(191)
   idempotencyKey String       @map("idempotency_key") @db.VarChar(191)
   payload        Json
   status         OutboxStatus @default(PENDING)
@@ -218,11 +219,13 @@ model OutboxEvent {
   firm           Firm         @relation(fields: [firmId], references: [id], onDelete: Restrict)
   jobAttempts    JobAttempt[]
   notifications NotificationDelivery[]
+  workflowRun WorkflowRun?
 
   @@unique([firmId, idempotencyKey])
   @@unique([id, firmId])
   @@index([status, availableAt])
   @@index([status, lockedUntil])
+  @@index([firmId, correlationId], map: "outbox_firm_correlation_idx")
   @@map("outbox_events")
 }
 
@@ -973,6 +976,13 @@ model User {
 
   goodsReceiptReturns GoodsReceiptReturn[]
 
+  automationPublications AutomationDefinitionVersion[]
+  automationPreferences AutomationRecipientPreference[]
+  workflowRuns WorkflowRun[]
+  approvalRequests ApprovalRequest[]
+  approvalDecisions ApprovalDecision[]
+  customFieldValueVersions CustomFieldValueVersion[]
+
   @@index([firmId])
   @@unique([id, firmId])
   @@index([firmRoleId])
@@ -1036,9 +1046,157 @@ model Firm {
 
   goodsReceiptReturns GoodsReceiptReturn[]
 
+  automationDefinitions AutomationDefinitionVersion[]
+  workflowRuns WorkflowRun[]
+  approvalRequests ApprovalRequest[]
+  customFieldValues CustomFieldValueVersion[]
+  automationPreferences AutomationRecipientPreference[]
+
   @@index([status])
   @@index([deletedAt])
   @@map("firms")
+}
+
+// Published definitions are append-only. Rollback publishes another version.
+model AutomationDefinitionVersion {
+  id            Int      @id @default(autoincrement())
+  firmId        Int      @map("firm_id")
+  kind          String   @db.VarChar(20)
+  key           String   @db.VarChar(64)
+  version       Int
+  definition    Json
+  publishedById Int      @map("published_by_id")
+  publishedAt   DateTime @default(now()) @map("published_at")
+  firm          Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "automation_version_firm_fk")
+  publisher     User     @relation(fields: [publishedById, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "automation_version_publisher_fk")
+  runs          WorkflowRun[]
+  approvals     ApprovalRequest[]
+  values        CustomFieldValueVersion[]
+
+  @@unique([id, firmId], map: "automation_version_id_firm_key")
+  @@unique([firmId, kind, key, version], map: "automation_version_identity_key")
+  @@index([publishedById, firmId], map: "automation_publisher_idx")
+  @@map("automation_definition_versions")
+}
+
+model WorkflowRun {
+  id            String   @id @db.VarChar(36)
+  firmId        Int      @map("firm_id")
+  definitionId  Int      @map("definition_id")
+  sourceEventId String   @map("source_event_id") @db.VarChar(191)
+  actorId       Int      @map("actor_id")
+  event         Json
+  outboxId      String   @map("outbox_id") @db.VarChar(36)
+  status        String   @default("PENDING") @db.VarChar(20)
+  reason        String?  @db.VarChar(100)
+  expiresAt     DateTime @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  completedAt   DateTime? @map("completed_at")
+  firm          Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "workflow_run_firm_fk")
+  definition    AutomationDefinitionVersion @relation(fields: [definitionId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "workflow_run_definition_fk")
+  outbox        OutboxEvent @relation(fields: [outboxId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "workflow_run_outbox_fk")
+  actor         User @relation(fields: [actorId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "workflow_run_actor_fk")
+  actions       WorkflowActionResult[]
+
+  @@unique([id, firmId], map: "workflow_run_id_firm_key")
+  @@unique([firmId, definitionId, sourceEventId], map: "workflow_run_event_key")
+  @@index([firmId, createdAt], map: "workflow_runs_firm_created_idx")
+  @@index([definitionId, firmId], map: "workflow_run_definition_idx")
+  @@unique([outboxId, firmId], map: "workflow_runs_outbox_firm_key")
+  @@index([actorId, firmId], map: "workflow_run_actor_idx")
+  @@map("workflow_runs")
+}
+
+model WorkflowActionResult {
+  id          Int      @id @default(autoincrement())
+  firmId      Int      @map("firm_id")
+  runId       String   @map("run_id") @db.VarChar(36)
+  step        String   @db.VarChar(32)
+  outcome     String   @db.VarChar(32)
+  createdAt   DateTime @default(now()) @map("created_at")
+  run         WorkflowRun @relation(fields: [runId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "workflow_action_run_fk")
+
+  @@unique([runId, step])
+  @@index([runId, firmId])
+  @@map("workflow_action_results")
+}
+
+model ApprovalRequest {
+  id           String   @id @db.VarChar(36)
+  firmId       Int      @map("firm_id")
+  policyId     Int      @map("policy_id")
+  requesterId  Int      @map("requester_id")
+  fingerprint  String   @db.Char(64)
+  command      Json
+  evidence     Json
+  status       String   @default("PENDING") @db.VarChar(20)
+  expiresAt    DateTime @map("expires_at")
+  consumedAt   DateTime? @map("consumed_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  firm         Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "approval_request_firm_fk")
+  policy       AutomationDefinitionVersion @relation(fields: [policyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "approval_request_policy_fk")
+  requester    User @relation(fields: [requesterId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "approval_request_actor_fk")
+  decisions    ApprovalDecision[]
+
+  @@unique([id, firmId])
+  @@index([firmId, requesterId, fingerprint, status], map: "approval_request_fingerprint_idx")
+  @@index([policyId, firmId], map: "approval_request_policy_idx")
+  @@index([requesterId, firmId], map: "approval_request_actor_idx")
+  @@map("approval_requests")
+}
+
+model ApprovalDecision {
+  id          Int      @id @default(autoincrement())
+  firmId      Int      @map("firm_id")
+  requestId   String   @map("request_id") @db.VarChar(36)
+  actorId     Int      @map("actor_id")
+  decision    String   @db.VarChar(20)
+  reason      String   @db.VarChar(2000)
+  createdAt   DateTime @default(now()) @map("created_at")
+  request     ApprovalRequest @relation(fields: [requestId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "approval_decision_request_fk")
+  actor       User @relation(fields: [actorId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "approval_decision_actor_fk")
+
+  @@index([requestId, firmId])
+  @@index([actorId, firmId], map: "approval_decision_actor_idx")
+  @@map("approval_decisions")
+}
+
+model CustomFieldValueVersion {
+  id           Int      @id @default(autoincrement())
+  firmId       Int      @map("firm_id")
+  entity       String   @db.VarChar(20)
+  entityId     Int      @map("entity_id")
+  definitionId Int?     @map("definition_id")
+  schemaSnapshot Json?  @map("schema_snapshot")
+  version      Int
+  values       Json
+  actorId      Int      @map("actor_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  firm         Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "custom_field_value_firm_fk")
+  definition   AutomationDefinitionVersion? @relation(fields: [definitionId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "custom_field_value_definition_fk")
+  actor        User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "custom_field_value_actor_fk")
+
+  @@unique([firmId, entity, entityId, version], map: "custom_field_value_identity_key")
+  @@index([definitionId, firmId], map: "custom_field_value_definition_idx")
+  @@index([actorId, firmId], map: "custom_field_value_actor_idx")
+  @@map("custom_field_value_versions")
+}
+
+model AutomationRecipientPreference {
+  id                Int      @id @default(autoincrement())
+  firmId            Int      @map("firm_id")
+  userId            Int      @map("user_id")
+  enabled           Boolean  @default(false)
+  utcOffsetMinutes  Int      @default(0) @map("utc_offset_minutes")
+  quietStartMinute  Int?     @map("quiet_start_minute")
+  quietEndMinute    Int?     @map("quiet_end_minute")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  firm              Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "automation_preference_firm_fk")
+  user              User     @relation(fields: [userId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "automation_preference_user_fk")
+
+  @@unique([firmId, userId])
+  @@index([userId, firmId])
+  @@map("automation_recipient_preferences")
 }
 
 model FirmRole {
@@ -1659,6 +1817,7 @@ model Quotation {
   status                  QuotationStatus          @default(DRAFT)
   currency                String                   @default("INR") @db.VarChar(3)
   financialPolicySnapshot Json?                    @map("financial_policy_snapshot")
+  automationPresentationSnapshot Json?             @map("automation_presentation_snapshot")
   taxMode                 TaxMode                  @default(CGST_SGST) @map("tax_mode")
   subtotal                Decimal                  @default(0.00) @db.Decimal(15, 2)
   itemDiscountAmount      Decimal                  @default(0.00) @map("item_discount_amount") @db.Decimal(15, 2)
@@ -1818,6 +1977,7 @@ model GeneratedDocument {
   documentType   DocumentType             @default(QUOTATION_PDF) @map("document_type")
   filePath       String                   @map("file_path") @db.VarChar(500)
   fileHash       String?                  @map("file_hash") @db.VarChar(191)
+  sourceSnapshotHash String?               @map("source_snapshot_hash") @db.Char(64)
   generatedById  Int                      @map("generated_by_id")
   generatedAt    DateTime                 @default(now()) @map("generated_at")
   quotation      Quotation                @relation(fields: [quotationId], references: [id], onDelete: Cascade)

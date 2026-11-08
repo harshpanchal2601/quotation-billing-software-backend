@@ -1,4 +1,5 @@
 import { AuditAction, Prisma, type PrismaClient } from '@prisma/client';
+import { discountPercentage, emitAutomationEvent, enforceApproval } from '../automation/runtime.js';
 import type { z } from 'zod';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
@@ -63,16 +64,19 @@ export class SalesOrdersRepository {
       const previous = await tx.salesOrder.findUnique({ where: { firmId_idempotencyKey: { firmId, idempotencyKey: input.idempotencyKey } } });
       if (previous) { if (previous.requestHash !== hash) throw new AppError('Order idempotency conflict', 409); return this.detail(tx, firmId, previous.id); }
       const source = await readAcceptedQuotationForBilling(tx, firmId, input.sourceRevisionId);
+      await enforceApproval(tx, firmId, actorId, { action: 'ORDER_CONFIRM', entityId: input.sourceRevisionId, idempotencyKey: input.idempotencyKey });
       if (await tx.salesOrder.findUnique({ where: { firmId_sourceQuotationId: { firmId, sourceQuotationId: source.id } } })) throw new AppError('Revision already has a sales order', 409);
       if (await tx.invoice.findFirst({ where: { firmId, sourceQuotationId: source.id, status: { not: 'VOID' } } })) throw new AppError('Revision already has a direct invoice', 409);
       if (!source.items.length) throw new AppError('Quotation has no lines', 409);
       const seller = await readCustomerSellerSnapshot(tx, firmId);
       const preset = await assertSalesCapability(tx, firmId, 'orders');
-      const snapshot = json({ ...customerQuotationSnapshot(source), seller, invoicingPolicy: 'FULFILLED_QUANTITIES', fulfillmentLabel: preset.preset === 'SERVICE' ? 'Service completion' : preset.preset === 'TRADING' ? 'Delivery / dispatch' : 'Delivery / service completion' });
+      const snapshot = json({ ...customerQuotationSnapshot(source), seller, invoicingPolicy: 'FULFILLED_QUANTITIES', fulfillmentLabel: preset.preset === 'SERVICE' ? 'Service completion' : preset.preset === 'TRADING' ? 'Delivery / dispatch' : preset.preset === 'MANUFACTURING' ? 'Production delivery / dispatch' : 'Delivery / service completion' });
       const sequence = await reserveDocumentSequence(tx, { firmId, documentType: 'SALES_ORDER', period: 'ALL' });
       const catalog = await tx.item.findMany({ where: { firmId, id: { in: source.items.flatMap((line) => line.itemId ? [line.itemId] : []) }, deletedAt: null }, select: { id: true, kind: true, stockTracking: true } });
       const row = await tx.salesOrder.create({ data: { firmId, companyId: source.companyId, sourceQuotationId: source.id, currency: source.currency, orderNumber: `SO-${sequence.toString().padStart(6, '0')}`, snapshot, snapshotHash: requestHash(snapshot), idempotencyKey: input.idempotencyKey, requestHash: hash, createdById: actorId, lines: { create: source.items.map((line) => ({ lineNumber: line.lineNumber, quantity: line.quantity, snapshot: json({ itemId: line.itemId, kind: catalog.find((item) => item.id === line.itemId)?.kind ?? 'GOODS', stockTracking: catalog.find((item) => item.id === line.itemId)?.stockTracking ?? false, itemName: line.itemNameSnapshot, itemCode: line.itemCodeSnapshot, description: line.descriptionSnapshot, measurementUnit: line.measurementUnitSnapshot, quantity: line.quantity.toFixed(3), unitRate: line.unitRate.toFixed(2), discountType: line.discountType, discountValue: line.discountValue.toFixed(2), taxRate: line.gstRate.toFixed(2) }) })) } } });
-      await this.audit(tx, firmId, actorId, row.id, 'Accepted quotation revision converted', metadata); return this.detail(tx, firmId, row.id);
+      await this.audit(tx, firmId, actorId, row.id, 'Accepted quotation revision converted', metadata);
+      await emitAutomationEvent(tx, firmId, actorId, `order:${row.id}`, { trigger: 'order.confirmed', entity: 'SALES_ORDER', entityId: row.id, documentNumber: row.orderNumber, status: row.status, currency: row.currency, total: source.grandTotal.toString(), discountPercent: discountPercentage(source.subtotal, source.itemDiscountAmount.add(source.quotationDiscountAmount)) });
+      return this.detail(tx, firmId, row.id);
     });
   }
   private async refresh(tx: Prisma.TransactionClient, firmId: number, actorId: number, id: number, reason: string, metadata: RequestMetadata) {

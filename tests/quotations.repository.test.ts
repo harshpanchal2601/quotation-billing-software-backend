@@ -6,6 +6,8 @@ import { validateStatusTransition } from '../src/modules/quotations/quotation-st
 import { QuotationsRepository } from '../src/modules/quotations/quotations.repository.js';
 import { calculationPreviewSchema, quotationCreateSchema } from '../src/modules/quotations/quotations.schema.js';
 
+vi.mock('../src/modules/automation/runtime.js', () => ({ enforceApproval: vi.fn(), emitAutomationEvent: vi.fn(), discountPercentage: vi.fn(() => '0') }));
+
 type MockPrisma = {
   documentSequence: { findUniqueOrThrow: ReturnType<typeof vi.fn> };
   $queryRaw: ReturnType<typeof vi.fn>;

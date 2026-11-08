@@ -1,7 +1,10 @@
-import { CommunicationStatus, CommunicationType, QuotationStatus } from '@prisma/client';
+import { CommunicationStatus, CommunicationType, Prisma, QuotationStatus } from '@prisma/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildQuotationEmailContent, escapeHtml } from '../src/modules/quotations/email/quotation-email.template';
 import { validateSendQuotationEmailInput } from '../src/modules/quotations/communications/quotation-communications.repository';
+import { AppError } from '../src/core/errors/AppError.js';
+import { requestHash } from '../src/core/idempotency/request-hash.js';
+import { customerQuotationSnapshot } from '../src/modules/quotations/quotation-customer.js';
 
 process.env.SMTP_HOST = 'smtp.example.com';
 
@@ -20,14 +23,19 @@ const mocks = vi.hoisted(() => {
     quotationStatusHistory: { create: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
+    $queryRaw: vi.fn(),
   };
 
   return {
     prisma,
     sendMail: vi.fn(),
     stat: vi.fn(),
+    enforceApproval: vi.fn(),
+    quotationApprovalEnabled: vi.fn(),
   };
 });
+
+vi.mock('../src/modules/automation/runtime.js', () => ({ enforceApproval: mocks.enforceApproval, quotationApprovalEnabled: mocks.quotationApprovalEnabled, emitAutomationEvent: vi.fn(), discountPercentage: vi.fn(() => '0'), assertQuotationPublicationApproved: vi.fn() }));
 
 vi.mock('../src/core/database/prisma.js', () => ({
   prisma: mocks.prisma,
@@ -141,6 +149,8 @@ describe('quotation email communication lifecycle', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.quotationApprovalEnabled.mockResolvedValue(false);
+    mocks.prisma.$queryRaw.mockResolvedValue([{ id: 1 }]);
     mocks.prisma.$transaction.mockImplementation(async (callback: unknown) => {
       if (typeof callback === 'function') return callback(mocks.prisma);
       return undefined;
@@ -151,6 +161,9 @@ describe('quotation email communication lifecycle', () => {
       revisionNumber: 0,
       status: QuotationStatus.DRAFT,
       isLatestRevision: true,
+      updatedAt: now,
+      quotationDate: now, validUntil: null, freightAmount: new Prisma.Decimal('0'), otherCharges: new Prisma.Decimal('0'), items: [],
+      currency: 'INR', subtotal: new Prisma.Decimal('100'), grandTotal: new Prisma.Decimal('100'), itemDiscountAmount: new Prisma.Decimal('0'), quotationDiscountAmount: new Prisma.Decimal('0'),
     });
     mocks.prisma.generatedDocument.findFirst.mockResolvedValue({
       id: 10,
@@ -244,10 +257,53 @@ describe('quotation email communication lifecycle', () => {
     });
   });
 
+  it('requires approval before creating an email attempt or invoking SMTP', async () => {
+    mocks.enforceApproval.mockRejectedValueOnce(new AppError('Approval required', 409));
+    await expect(quotationCommunicationsRepository.sendQuotationEmail(1, 1, { generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Reviewed quotation', message: 'Please review.' }, 1, { userId: 1, firmId: 1 })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mocks.prisma.quotationCommunication.create).not.toHaveBeenCalled();
+    expect(mocks.sendMail).not.toHaveBeenCalled();
+  });
+
+  it('requires regeneration of unverifiable historical PDFs before an approval-controlled send', async () => {
+    mocks.quotationApprovalEnabled.mockResolvedValue(true);
+    await expect(quotationCommunicationsRepository.sendQuotationEmail(1, 1, { generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Reviewed quotation', message: 'Please review.' }, 1, { userId: 1, firmId: 1 })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mocks.enforceApproval).not.toHaveBeenCalled();
+    expect(mocks.prisma.quotationCommunication.create).not.toHaveBeenCalled();
+    expect(mocks.sendMail).not.toHaveBeenCalled();
+  });
+
+  it('rejects a PDF whose recorded source differs from the currently approved quotation', async () => {
+    mocks.quotationApprovalEnabled.mockResolvedValue(true);
+    mocks.prisma.generatedDocument.findFirst.mockResolvedValue({ id: 10, quotationId: 1, versionNumber: 2, documentType: 'QUOTATION_PDF', filePath: 'quotation-documents/quote.pdf', generatedAt: now, generatedBy: null, sourceSnapshotHash: '0'.repeat(64) });
+    await expect(quotationCommunicationsRepository.sendQuotationEmail(1, 1, { generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Reviewed quotation', message: 'Please review.' }, 1, { userId: 1, firmId: 1 })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mocks.prisma.quotationCommunication.create).not.toHaveBeenCalled();
+    expect(mocks.sendMail).not.toHaveBeenCalled();
+  });
+
+  it('allows a current PDF through the existing explicit email command after approval', async () => {
+    const quotation = await mocks.prisma.quotation.findFirst();
+    const document = await mocks.prisma.generatedDocument.findFirst();
+    mocks.quotationApprovalEnabled.mockResolvedValue(true);
+    mocks.prisma.generatedDocument.findFirst.mockResolvedValue({ ...document, sourceSnapshotHash: requestHash(customerQuotationSnapshot(quotation)) });
+    await quotationCommunicationsRepository.sendQuotationEmail(1, 1, { generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Reviewed quotation', message: 'Please review.' }, 1, { userId: 1, firmId: 1 });
+    expect(mocks.enforceApproval).toHaveBeenCalled();
+    expect(mocks.sendMail).toHaveBeenCalledOnce();
+  });
+
+  it('leaves a draft edited during SMTP in its current state', async () => {
+    mocks.sendMail.mockImplementationOnce(async () => {
+      mocks.prisma.quotation.findFirst.mockResolvedValue({ id: 1, status: QuotationStatus.DRAFT, isLatestRevision: true, updatedAt: new Date(now.getTime() + 1) });
+      return { messageId: 'smtp-message-123' };
+    });
+    const result = await quotationCommunicationsRepository.sendQuotationEmail(1, 1, { generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Quotation', message: 'Attached' }, 1, { firmId: 1, userId: 1 });
+    expect(result).toMatchObject({ statusTransitioned: false, quotationStatusAfter: QuotationStatus.DRAFT });
+    expect(mocks.prisma.quotation.updateMany).not.toHaveBeenCalled();
+  });
+
   it('does not overwrite a quotation cancelled while SMTP is in flight', async () => {
     mocks.sendMail.mockImplementationOnce(async () => {
       mocks.prisma.quotation.findFirst.mockResolvedValue({
-        id: 1, status: QuotationStatus.CANCELLED, isLatestRevision: true,
+        id: 1, status: QuotationStatus.CANCELLED, isLatestRevision: true, updatedAt: now,
       });
       return { messageId: 'smtp-message-123' };
     });
@@ -263,9 +319,9 @@ describe('quotation email communication lifecycle', () => {
     mocks.prisma.quotation.updateMany.mockResolvedValueOnce({ count: 0 });
     mocks.prisma.quotation.findFirst
       .mockResolvedValueOnce({ id: 1, quotationNumber: 'ERP/2026-27/000001', revisionNumber: 0,
-        status: QuotationStatus.DRAFT, isLatestRevision: true })
-      .mockResolvedValueOnce({ id: 1, status: QuotationStatus.DRAFT, isLatestRevision: true })
-      .mockResolvedValueOnce({ id: 1, status: QuotationStatus.CANCELLED, isLatestRevision: true });
+        status: QuotationStatus.DRAFT, isLatestRevision: true, updatedAt: now })
+      .mockResolvedValueOnce({ id: 1, status: QuotationStatus.DRAFT, isLatestRevision: true, updatedAt: now })
+      .mockResolvedValueOnce({ id: 1, status: QuotationStatus.CANCELLED, isLatestRevision: true, updatedAt: now });
     const result = await quotationCommunicationsRepository.sendQuotationEmail(1, 1, {
       generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Quotation', message: 'Attached',
     }, 1, { firmId: 1, userId: 1 });

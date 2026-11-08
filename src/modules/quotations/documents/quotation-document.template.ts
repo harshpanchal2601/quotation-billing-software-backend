@@ -2,6 +2,7 @@ import type { QuotationPdfViewModel } from './quotation-documents.types.js';
 import { Prisma } from '@prisma/client';
 
 import { escapeHtml } from '../../../core/html/escape-html.js';
+import { renderDocumentPresentation } from '../../automation/document-presentation.js';
 export { escapeHtml } from '../../../core/html/escape-html.js';
 
 export function formatCurrencyPdf(val: string | number, currency: string = 'INR'): string {
@@ -13,10 +14,11 @@ export function formatCurrencyPdf(val: string | number, currency: string = 'INR'
   }
 }
 
-export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string {
+export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel, presentation?: unknown): string {
   const bp = data.businessProfile;
   const bank = data.bankDetail;
   const currency = escapeHtml(data.currency || 'INR');
+  const decoration = presentation === undefined ? { heading: '', footer: '' } : renderDocumentPresentation(presentation, { businessName: bp?.displayName ?? '', documentNumber: data.quotationNumber, entityType: 'QUOTATION', status: data.status, currency: data.currency, total: data.grandTotal });
 
   const primaryColor = bp?.primaryColour || '#168A56';
   const secondaryColor = bp?.secondaryColour || '#082B67';
@@ -272,6 +274,7 @@ export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string
   </style>
 </head>
 <body>
+${decoration.heading}
 
   <!-- Header -->
   <table class="header-table">
@@ -487,6 +490,7 @@ export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string
     </tr>
   </table>
 
+${decoration.footer}
 </body>
 </html>`;
 }

@@ -14,6 +14,11 @@ import { storageService } from '../../../integrations/storage/index.js';
 import { AppError } from '../../../core/errors/AppError.js';
 import { assertTransactionFeature, recordUsage, withFirmEntitlementTransaction } from '../../entitlements/index.js';
 import type { QuotationPdfViewModel } from './quotation-documents.types.js';
+import { resolveDocumentPresentation } from '../../automation/runtime.js';
+import { authorizeFirmJobActor } from '../../auth/index.js';
+import { PERMISSIONS } from '../../auth/permissions.js';
+import { requestHash } from '../../../core/idempotency/request-hash.js';
+import { customerQuotationSnapshot } from '../quotation-customer.js';
 
 export async function getBrandingFileDataUrl(
   firmId: number,
@@ -246,6 +251,18 @@ export function buildQuotationPdfViewModel(
 export class QuotationDocumentsRepository {
   constructor(private readonly db: PrismaClient) {}
 
+  async preparePresentation(firmId: number, quotationId: number, actorId: number) {
+    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      await authorizeFirmJobActor(tx, firmId, actorId, PERMISSIONS.QUOTATIONS_DOCUMENTS);
+      await assertTransactionFeature(tx, firmId, 'quotations.documents');
+      const quotation = await tx.quotation.findFirst({ where: { id: quotationId, firmId, deletedAt: null }, include: { items: { orderBy: { sortOrder: 'asc' } } } });
+      if (!quotation) throw new AppError('Quotation not found', 404);
+      const historical = await tx.generatedDocument.count({ where: { quotationId } });
+      const presentation = quotation.automationPresentationSnapshot ?? (historical ? { templateVersionId: null, template: null, fields: [] } : await resolveDocumentPresentation(tx, firmId, 'QUOTATION', quotationId));
+      return { quotation, presentation };
+    });
+  }
+
   async findQuotationForPdf(firmId: number, quotationId: number) {
     return this.db.quotation.findFirst({
       where: { id: quotationId, firmId, deletedAt: null },
@@ -262,10 +279,14 @@ export class QuotationDocumentsRepository {
     filePath: string;
     fileHash: string;
     generatedById: number;
+    presentation?: import('@prisma/client').Prisma.InputJsonValue;
+    expectedUpdatedAt?: Date;
   }) {
     return withFirmEntitlementTransaction(this.db, data.firmId, async (tx) => {
-      const quotation = await tx.quotation.findFirst({ where: { id: data.quotationId, firmId: data.firmId, deletedAt: null } });
+      await tx.$queryRaw`SELECT id FROM quotations WHERE id = ${data.quotationId} AND firm_id = ${data.firmId} FOR UPDATE`;
+      const quotation = await tx.quotation.findFirst({ where: { id: data.quotationId, firmId: data.firmId, deletedAt: null }, include: { items: { orderBy: { lineNumber: 'asc' } } } });
       if (quotation === null) throw new AppError('Quotation not found', 404);
+      if (data.expectedUpdatedAt !== undefined && quotation.updatedAt.getTime() !== data.expectedUpdatedAt.getTime()) throw new AppError('Quotation changed while rendering; reload and retry', 409);
       await assertTransactionFeature(tx, data.firmId, 'quotations.documents');
       const existing = await tx.generatedDocument.findFirst({ where: { quotationId: data.quotationId, filePath: data.filePath } });
       if (existing !== null) {
@@ -274,11 +295,13 @@ export class QuotationDocumentsRepository {
       }
       await recordUsage(tx, data.firmId, 'documents', 1n, `document:${data.filePath}`);
       await recordUsage(tx, data.firmId, 'storageBytes', BigInt(data.fileSize), `document:${data.filePath}`);
+      if (quotation.automationPresentationSnapshot === null && data.presentation !== undefined) await tx.quotation.update({ where: { id: quotation.id }, data: { automationPresentationSnapshot: data.presentation } });
       const versionNumber = await tx.generatedDocument.count({ where: { quotationId: data.quotationId, documentType: DocumentType.QUOTATION_PDF } }) + 1;
       return tx.generatedDocument.create({
         data: {
           quotationId: data.quotationId, versionNumber, documentType: DocumentType.QUOTATION_PDF,
           filePath: data.filePath, fileHash: data.fileHash, generatedById: data.generatedById,
+          sourceSnapshotHash: data.expectedUpdatedAt === undefined ? null : requestHash(customerQuotationSnapshot(quotation)),
         },
       });
     });

@@ -10,6 +10,7 @@ import { PERMISSIONS } from '../auth/permissions.js';
 import { assertTransactionFeature, withFirmEntitlementTransaction, type FeatureKey } from '../entitlements/index.js';
 import { applyPortalQuotationDecision, customerQuotationSnapshot, isCustomerQuotationDecisionOpen } from '../quotations/index.js';
 import { assertSalesCapability, readCustomerSellerSnapshot } from '../settings/index.js';
+import { assertQuotationPublicationApproved } from '../automation/runtime.js';
 import { PORTAL_CONSENT, type portalInviteSchema, type portalGrantSchema, type portalDecisionSchema, type portalListSchema } from './portal.schema.js';
 import { matchesPortalToken, newPortalToken, portalCsrfToken, portalTokenHash } from './portal-tokens.js';
 
@@ -63,6 +64,7 @@ export class PortalRepository {
         if (locked.length !== 1) throw new AppError('Quotation unavailable', 404);
         const quote = await tx.quotation.findFirst({ where: { id: input.quotationId, firmId, companyId: identity.companyId, deletedAt: null, status: { notIn: ['DRAFT', 'CANCELLED'] } }, include: { items: { orderBy: { lineNumber: 'asc' } } } });
         if (!quote) throw new AppError('Quotation unavailable for sharing', 404);
+        await assertQuotationPublicationApproved(tx, firmId, quote.id);
         if (input.allowDecision && !isCustomerQuotationDecisionOpen(quote)) throw new AppError('Only a current open quotation supports decisions', 409);
         snapshot = json({ ...customerQuotationSnapshot(quote), seller: await readCustomerSellerSnapshot(tx, firmId) });
       } else if (input.invoiceId) {
@@ -166,6 +168,10 @@ export class PortalRepository {
     const where = { firmId: grant.firmId, companyId: grant.companyId };
     const live = grant.quotationId ? await tx.quotation.findFirst({ where: { ...where, id: grant.quotationId, deletedAt: null, status: { notIn: ['DRAFT', 'CANCELLED'] } }, select: { id: true } }) : grant.invoiceId ? await tx.invoice.findFirst({ where: { ...where, id: grant.invoiceId, status: 'ISSUED', kind: 'INVOICE' }, select: { id: true } }) : await tx.salesOrder.findFirst({ where: { ...where, id: grant.salesOrderId!, status: { not: 'CANCELLED' } }, select: { id: true } });
     if (!live) throw new AppError('Shared document no longer available', 404);
+    if (grant.quotationId) {
+      try { await assertQuotationPublicationApproved(tx, grant.firmId, grant.quotationId); }
+      catch (error) { if (error instanceof AppError && error.statusCode === 409) throw new AppError('Shared document no longer available', 404); throw error; }
+    }
   }
   async listDocuments(token: string | undefined, page: number) {
     return this.session(token, undefined, async (tx, session) => {

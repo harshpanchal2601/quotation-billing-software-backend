@@ -41,15 +41,19 @@ export const inAppNotificationHandler: JobHandler = {
   retry: 'TRANSACTIONAL', authorize,
   async execute(tx, event) {
     const payload = parsePayload(event.payload);
-    const preference = await tx.notificationPreference.findUnique({ where: { firmId_channel: { firmId: event.firmId, channel: 'IN_APP' } } });
-    if (preference?.enabled === false) return;
-    await tx.notificationDelivery.upsert({
-      where: { eventId_recipientId: { eventId: event.id, recipientId: payload.recipientId } },
-      create: { eventId: event.id, firmId: event.firmId, recipientId: payload.recipientId, title: payload.title, body: payload.body },
-      update: {},
-    });
+    await deliverInAppNotification(tx, event, payload);
   },
 };
+
+export async function deliverInAppNotification(tx: Prisma.TransactionClient, event: OutboxEvent, payload: { recipientId: number; title: string; body: string }) {
+  const preference = await tx.notificationPreference.findUnique({ where: { firmId_channel: { firmId: event.firmId, channel: 'IN_APP' } } });
+  if (preference?.enabled === false) return false;
+  await tx.notificationDelivery.upsert({
+    where: { eventId_recipientId: { eventId: event.id, recipientId: payload.recipientId } },
+    create: { eventId: event.id, firmId: event.firmId, recipientId: payload.recipientId, title: payload.title, body: payload.body }, update: {},
+  });
+  return true;
+}
 
 export async function listNotifications(db: PrismaClient, firmId: number, recipientId: number) {
   // Reads revalidate firm access through middleware and plan entitlement here.

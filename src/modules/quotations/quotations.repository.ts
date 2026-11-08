@@ -4,6 +4,8 @@ import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
 import { getOrCreateQuotationSettings } from '../settings/index.js';
+import { discountPercentage, emitAutomationEvent, enforceApproval } from '../automation/runtime.js';
+import { withFirmEntitlementTransaction } from '../entitlements/index.js';
 import { calculateQuotationTotals } from './calculations/quotation-calculations.js';
 import { quotationPolicySnapshot } from './calculations/quotation-policy.js';
 import {
@@ -706,7 +708,7 @@ export class QuotationsRepository {
     metadata: RequestMetadata,
     userId: number,
   ) {
-    await this.db.$transaction(async (tx) => {
+    await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
       const existing = await tx.quotation.findFirst({
         where: { id, firmId, deletedAt: null },
       });
@@ -715,6 +717,7 @@ export class QuotationsRepository {
         throw new AppError('Only the latest quotation revision can change status.', 409);
       }
       validateStatusTransition(existing.status, input.status);
+      if (input.status === QuotationStatus.SENT || input.status === QuotationStatus.ACCEPTED && existing.sentAt === null) await enforceApproval(tx, firmId, userId, { action: 'QUOTATION_SEND', entityId: id, status: input.status, ...(input.comment === undefined ? {} : { comment: input.comment }) });
 
       const updated = await tx.quotation.updateMany({
         where: { id, firmId, deletedAt: null, isLatestRevision: true,
@@ -731,6 +734,7 @@ export class QuotationsRepository {
         entityType: 'Quotation', entityId: String(id), action: AuditAction.STATUS_CHANGE,
         oldValues: { status: existing.status }, newValues: { status: input.status },
       });
+      if (input.status === QuotationStatus.SENT) await emitAutomationEvent(tx, firmId, userId, `quotation:${id}:sent`, { trigger: 'quotation.sent', entity: 'QUOTATION', entityId: id, documentNumber: existing.quotationNumber, status: input.status, currency: existing.currency, total: existing.grandTotal.toString(), discountPercent: discountPercentage(existing.subtotal, existing.itemDiscountAmount.add(existing.quotationDiscountAmount)) });
     });
     return this.getQuotation(firmId, id);
   }

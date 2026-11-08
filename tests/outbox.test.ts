@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { enqueueOutbox, OutboxRepository, startOutboxWorker, type JobHandler } from '../src/core/outbox/index.js';
 import { AppError } from '../src/core/errors/AppError.js';
+import { DeferredOutboxJob } from '../src/core/outbox/deferred-job.js';
 
 // A rollback-capable persistence fixture. Effects live in the transaction state,
 // so an execution/audit crash actually undoes its business effect in these tests.
@@ -21,7 +22,7 @@ function memoryDatabase(overrides: Partial<OutboxEvent> = {}) {
   }
   function update(data: Record<string, unknown>) {
     for (const [key, value] of Object.entries(data)) {
-      if (key === 'attempts' && typeof value === 'object') state.event.attempts += (value as { increment: number }).increment;
+      if ((key === 'attempts' || key === 'maxAttempts') && typeof value === 'object') state.event[key] += (value as { increment: number }).increment;
       else Object.assign(state.event, { [key]: value });
     }
   }
@@ -55,6 +56,15 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-27T12:
 afterEach(() => { vi.useRealTimers(); });
 
 describe('durable outbox dispatch', () => {
+  it('defers transactional scheduling without consuming its failure budget or committing effects', async () => {
+    const fixture = memoryDatabase({ maxAttempts: 1 }); let quiet = true;
+    const worker = new OutboxRepository(fixture.db, { 'fixture.v1': { retry: 'TRANSACTIONAL', authorize: async () => {}, execute: async () => { fixture.effect(); if (quiet) throw new DeferredOutboxJob(new Date(Date.now() + 3600000)); } } });
+    await worker.runOne('quiet-worker');
+    expect(fixture.state.effects).toBe(0); expect(fixture.state.event.status).toBe('PENDING'); expect(fixture.state.event.maxAttempts).toBe(2);
+    expect(fixture.state.attempts[0]).toMatchObject({ outcome: 'DEFERRED', errorCode: null });
+    quiet = false; vi.setSystemTime(new Date(Date.now() + 3600000)); await worker.runOne('daytime-worker');
+    expect(fixture.state.event.status).toBe('SUCCEEDED'); expect(fixture.state.effects).toBe(1);
+  });
   it('rolls back a failed effect, retries and commits it exactly once', async () => {
     const fixture = memoryDatabase(); let crash = true;
     const handler: JobHandler = { retry: 'TRANSACTIONAL', authorize: async () => {}, execute: async () => { fixture.effect(); if (crash) { crash = false; throw new Error('injected provider crash with private content'); } } };

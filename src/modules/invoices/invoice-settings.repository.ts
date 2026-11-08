@@ -12,15 +12,27 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   prefixes: { INVOICE: 'INV', PROFORMA: 'PF', CREDIT_NOTE: 'CN', DEBIT_NOTE: 'DN' },
   template: 'STANDARD', primaryColour: '#168A56', paymentInstructions: '', termsAndConditions: '', customFields: [],
 };
-export async function readInvoiceSettings(db: PrismaClient | Prisma.TransactionClient, firmId: number) {
+export async function readInvoiceSettings(db: PrismaClient | Prisma.TransactionClient, firmId: number, forNewWork = false) {
   const row = await db.invoiceSetting.findUnique({ where: { firmId } });
-  return { version: row?.version ?? 0, config: invoiceSettingsSchema.parse(row?.config ?? DEFAULT_INVOICE_SETTINGS) };
+  const config = invoiceSettingsSchema.parse(row?.config ?? DEFAULT_INVOICE_SETTINGS);
+  if (forNewWork && await db.automationDefinitionVersion.findFirst({ where: { firmId, kind: 'CUSTOM_FIELDS', key: 'INVOICE' }, select: { id: true } })) {
+    try { await assertTransactionFeature(db, firmId, 'automation'); }
+    catch (error) {
+      if (!(error instanceof AppError) || error.statusCode !== 403) throw error;
+      // Existing invoice snapshots retain their definitions. Unavailable tenant
+      // customization is not adopted by new drafts or explicit field refreshes.
+      return { version: row?.version ?? 0, config: { ...config, customFields: [] } };
+    }
+  }
+  return { version: row?.version ?? 0, config };
 }
 export class InvoiceSettingsRepository {
   constructor(private readonly db: PrismaClient) {}
   async get(firmId: number) {
     await assertTransactionFeature(this.db, firmId, 'billing.invoices');
-    return readInvoiceSettings(this.db, firmId);
+    const settings = await readInvoiceSettings(this.db, firmId, true);
+    const managed = await this.db.automationDefinitionVersion.count({ where: { firmId, kind: 'CUSTOM_FIELDS', key: 'INVOICE' } });
+    return { ...settings, fieldsManagedByAutomation: managed > 0 };
   }
   async update(firmId: number, actorId: number, expectedVersion: number, change: { customFields: InvoiceSettings['customFields'] } | Omit<InvoiceSettings, 'customFields'>, permission: Permission, metadata: RequestMetadata) {
     // A fields delegate may never use this method to change fiscal configuration.
@@ -31,6 +43,7 @@ export class InvoiceSettingsRepository {
       await authorizeFirmJobActor(tx, firmId, actorId, permission);
       await assertTransactionFeature(tx, firmId, 'billing.invoices');
       const previous = await readInvoiceSettings(tx, firmId);
+      if (fieldsOnly && await tx.automationDefinitionVersion.findFirst({ where: { firmId, kind: 'CUSTOM_FIELDS', key: 'INVOICE' } })) throw new AppError('Manage versioned invoice fields in Automation settings', 409);
       if (previous.version !== expectedVersion) throw new AppError('Billing configuration changed; reload before saving', 409);
       const config = invoiceSettingsSchema.parse({ ...previous.config, ...change });
       if (config.sellerStateCode !== null) assertStateCode(config.sellerStateCode);

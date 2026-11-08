@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { AppError } from '../../core/errors/AppError.js';
 import { calendarDate } from '../../core/validation/calendar-date.js';
 import { getStatusTimestampUpdate, validateStatusTransition } from './quotation-status.js';
+import { assertQuotationPublicationApproved } from '../automation/runtime.js';
 
 // Deliberate allowlist shared by order snapshots and portal grants. Never
 // serialize a whole quotation: it contains internal notes and staff identities.
@@ -29,6 +30,7 @@ export function isCustomerQuotationDecisionOpen(source: { isLatestRevision: bool
 // Portal owns identity/evidence; Quotations continues to own its lifecycle.
 // Caller holds the firm and quotation row locks and has verified the grant hash.
 export async function applyPortalQuotationDecision(tx: Prisma.TransactionClient, firmId: number, quotationId: number, decision: 'ACCEPTED' | 'REJECTED', actorName: string, acceptanceId: number) {
+  await assertQuotationPublicationApproved(tx, firmId, quotationId);
   const source = await tx.quotation.findFirst({ where: { id: quotationId, firmId, deletedAt: null } });
   if (!source) throw new AppError('Quotation revision unavailable', 404);
   if (!isCustomerQuotationDecisionOpen(source)) throw new AppError('Quotation revision is no longer open for a decision', 409);
