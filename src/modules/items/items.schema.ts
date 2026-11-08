@@ -7,18 +7,21 @@ const decimalRegex = /^\d+(\.\d{1,2})?$/;
 const hsnRegex = /^\d{4,8}$/;
 
 export const createItemSchema = z.object({
-  categoryId: z.coerce.number().int().positive().optional(),
+  kind: z.enum(['GOODS', 'SERVICE']).optional(),
+  categoryId: z.preprocess((value) => value === null ? undefined : value, z.coerce.number().int().positive().optional()),
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(191, 'Name must not exceed 191 characters'),
   shortDescription: z
     .string()
     .trim()
     .max(500, 'Short description must not exceed 500 characters')
     .optional()
+    .nullable()
     .transform((val) => (val && val.length > 0 ? val : null)),
   detailedDescription: z
     .string()
     .max(20000, 'Detailed description must not exceed 20,000 characters')
     .optional()
+    .nullable()
     .transform((val) => (val && val.trim().length > 0 ? val : null)),
   specifications: z
     .unknown()
@@ -41,6 +44,7 @@ export const createItemSchema = z.object({
     .string()
     .trim()
     .optional()
+    .nullable()
     .transform((val) => {
       if (!val || val.length === 0) return null;
       if (!hsnRegex.test(val)) {
@@ -64,6 +68,7 @@ export const createItemSchema = z.object({
 });
 
 export const updateItemSchema = createItemSchema.partial();
+export const itemInventorySchema = z.object({ stockTracking: z.boolean() }).strict();
 
 export const itemListQuerySchema = z
   .object({
@@ -87,6 +92,7 @@ export const itemListQuerySchema = z
         throw new Error('isActive must be a boolean');
       }),
     sourceType: z.nativeEnum(ItemSourceType).optional(),
+    kind: z.enum(['GOODS', 'SERVICE']).optional(),
     minRate: z.coerce.number().min(0).optional(),
     maxRate: z.coerce.number().min(0).optional(),
     sortBy: z

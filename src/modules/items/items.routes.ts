@@ -14,6 +14,7 @@ import {
   itemListQuerySchema,
   itemOptionsQuerySchema,
   itemStatusSchema,
+  itemInventorySchema,
   updateItemSchema,
 } from './items.schema.js';
 
@@ -108,6 +109,7 @@ itemsRouter.get(
   asyncHandler(getItem),
 );
 itemsRouter.put('/:id', requirePermission(PERMISSIONS.ITEMS_MANAGE), asyncHandler(updateItem));
+itemsRouter.put('/:id/inventory', requirePermission(PERMISSIONS.INVENTORY_MANAGE), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Item stock tracking saved', { item: await itemsRepository.setInventory(getFirmId(req), idParamSchema.parse(req.params).id, itemInventorySchema.parse(req.body).stockTracking, metadata(req)) })));
 itemsRouter.patch('/:id/status', requirePermission(PERMISSIONS.ITEMS_MANAGE), asyncHandler(updateItemStatus));
 itemsRouter.delete('/:id', requirePermission(PERMISSIONS.ITEMS_MANAGE), asyncHandler(deleteItem));
 itemsRouter.patch('/:id/restore', requirePermission(PERMISSIONS.ITEMS_MANAGE), asyncHandler(restoreItem));

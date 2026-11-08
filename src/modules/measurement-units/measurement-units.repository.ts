@@ -3,6 +3,8 @@ import { AuditAction } from '@prisma/client';
 
 import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { withFirmEntitlementTransaction } from '../entitlements/index.js';
 import { createPaginationMetadata } from './measurement-units.types.js';
 import {
   serialiseMeasurementUnit,
@@ -135,21 +137,26 @@ export class MeasurementUnitsRepository {
     metadata: RequestMetadata,
     previous: MeasurementUnit,
   ) {
-    const updateData: Prisma.MeasurementUnitUpdateInput = {
-      ...(input.name === undefined ? {} : { name: input.name }),
-      ...(input.symbol === undefined ? {} : { symbol: input.symbol }),
-      ...(input.allowDecimal === undefined ? {} : { allowDecimal: input.allowDecimal }),
-      ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
-    };
+    return withFirmEntitlementTransaction(this.db, previous.firmId, async (tx) => {
+      const current = await tx.measurementUnit.findFirst({ where: { id, firmId: previous.firmId, deletedAt: null } });
+      if (!current) throw new AppError('Measurement unit unavailable', 404);
+      if (input.allowDecimal !== undefined && input.allowDecimal !== current.allowDecimal && await tx.item.count({ where: { firmId: previous.firmId, measurementUnitId: id, stockTracking: true } })) throw new AppError('Decimal precision cannot change for a unit used by tracked inventory', 409);
+      const updateData: Prisma.MeasurementUnitUpdateInput = {
+        ...(input.name === undefined ? {} : { name: input.name }),
+        ...(input.symbol === undefined ? {} : { symbol: input.symbol }),
+        ...(input.allowDecimal === undefined ? {} : { allowDecimal: input.allowDecimal }),
+        ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+      };
 
-    const updated = await this.db.measurementUnit.update({
-      where: { id },
-      data: updateData,
-      include: unitDetailInclude,
+      const updated = await tx.measurementUnit.update({
+        where: { id },
+        data: updateData,
+        include: unitDetailInclude,
+      });
+
+      await this.auditUnit(AuditAction.UPDATE, updated, metadata, current, tx);
+      return serialiseMeasurementUnit(updated);
     });
-
-    await this.auditUnit(AuditAction.UPDATE, updated, metadata, previous);
-    return serialiseMeasurementUnit(updated);
   }
 
   async updateMeasurementUnitStatus(
@@ -199,6 +206,7 @@ export class MeasurementUnitsRepository {
     unit: MeasurementUnit,
     metadata: RequestMetadata,
     previous?: MeasurementUnit,
+    db: PrismaClient | Prisma.TransactionClient = this.db,
   ) {
     const changed = previous
       ? pickChangedFields(
@@ -208,11 +216,12 @@ export class MeasurementUnitsRepository {
         )
       : undefined;
 
-    await createAuditLog(this.db, {
+    await createAuditLog(db, {
       metadata,
       entityType: 'MeasurementUnit',
       entityId: String(unit.id),
       action,
+      policy: db === this.db ? 'BEST_EFFORT' : 'REQUIRED',
       oldValues: changed?.oldValues,
       newValues: changed?.newValues ?? {
         name: unit.name,

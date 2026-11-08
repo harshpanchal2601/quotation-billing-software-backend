@@ -73,6 +73,7 @@ export const companyListQuerySchema = z.object({
   ...paginationSchema,
   search: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   isActive: booleanQuerySchema,
+  isSupplier: booleanQuerySchema,
   sortBy: z.enum(['companyCode', 'name', 'createdAt', 'updatedAt']).default('createdAt'),
   sortOrder: sortOrderSchema.default('desc'),
 });
@@ -114,6 +115,7 @@ export const companyCreateSchema = z
     website: websiteSchema,
     notes: nullableText(5000),
     isActive: z.boolean().default(true),
+    isSupplier: z.boolean().optional(),
     contacts: z.array(companyContactCreateSchema).optional(),
     addresses: z.array(companyAddressCreateSchema).optional(),
   })

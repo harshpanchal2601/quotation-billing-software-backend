@@ -12,6 +12,7 @@ import { PERMISSIONS, type Permission } from '../auth/permissions.js';
 import { assertTransactionFeature, withFirmEntitlementTransaction } from '../entitlements/index.js';
 import { readAcceptedQuotationForBilling, customerQuotationSnapshot } from '../quotations/index.js';
 import { assertSalesCapability, readCustomerSellerSnapshot } from '../settings/index.js';
+import { postFulfillmentStock, reverseFulfillmentStock, releaseOrderStock } from '../inventory/index.js';
 import { availableOrderQuantity, fulfillmentStatus } from './order-quantities.js';
 import type { cancelSalesSchema, fulfillmentSchema, orderConversionSchema, salesListSchema } from './sales-orders.schema.js';
 
@@ -30,6 +31,9 @@ export async function readOrderForInvoicing(tx: Prisma.TransactionClient, firmId
 }
 export class SalesOrdersRepository {
   constructor(private readonly db: PrismaClient) {}
+  async fulfillmentWarehouses(firmId: number, actorId: number, search = '') {
+    return this.db.$transaction(async (tx) => { await this.access(tx, firmId, actorId, PERMISSIONS.FULFILLMENTS_MANAGE); await assertTransactionFeature(tx, firmId, 'inventory'); return { warehouses: await tx.warehouse.findMany({ where: { firmId, isActive: true, OR: [{ name: { contains: search } }, { code: { contains: search } }] }, select: { id: true, name: true }, orderBy: { name: 'asc' }, take: 100 }) }; });
+  }
   private async access(tx: Prisma.TransactionClient, firmId: number, actorId: number, permission: Permission) { await authorizeFirmJobActor(tx, firmId, actorId, permission); await assertTransactionFeature(tx, firmId, 'sales.orders'); await assertSalesCapability(tx, firmId, 'orders'); }
   private async detail(tx: Prisma.TransactionClient, firmId: number, id: number, historyPage = 1) {
     const paging = { skip: (historyPage - 1) * 20, take: 20 };
@@ -66,7 +70,8 @@ export class SalesOrdersRepository {
       const preset = await assertSalesCapability(tx, firmId, 'orders');
       const snapshot = json({ ...customerQuotationSnapshot(source), seller, invoicingPolicy: 'FULFILLED_QUANTITIES', fulfillmentLabel: preset.preset === 'SERVICE' ? 'Service completion' : preset.preset === 'TRADING' ? 'Delivery / dispatch' : 'Delivery / service completion' });
       const sequence = await reserveDocumentSequence(tx, { firmId, documentType: 'SALES_ORDER', period: 'ALL' });
-      const row = await tx.salesOrder.create({ data: { firmId, companyId: source.companyId, sourceQuotationId: source.id, currency: source.currency, orderNumber: `SO-${sequence.toString().padStart(6, '0')}`, snapshot, snapshotHash: requestHash(snapshot), idempotencyKey: input.idempotencyKey, requestHash: hash, createdById: actorId, lines: { create: source.items.map((line) => ({ lineNumber: line.lineNumber, quantity: line.quantity, snapshot: json({ itemId: line.itemId, itemName: line.itemNameSnapshot, itemCode: line.itemCodeSnapshot, description: line.descriptionSnapshot, measurementUnit: line.measurementUnitSnapshot, quantity: line.quantity.toFixed(3), unitRate: line.unitRate.toFixed(2), discountType: line.discountType, discountValue: line.discountValue.toFixed(2), taxRate: line.gstRate.toFixed(2) }) })) } } });
+      const catalog = await tx.item.findMany({ where: { firmId, id: { in: source.items.flatMap((line) => line.itemId ? [line.itemId] : []) }, deletedAt: null }, select: { id: true, kind: true, stockTracking: true } });
+      const row = await tx.salesOrder.create({ data: { firmId, companyId: source.companyId, sourceQuotationId: source.id, currency: source.currency, orderNumber: `SO-${sequence.toString().padStart(6, '0')}`, snapshot, snapshotHash: requestHash(snapshot), idempotencyKey: input.idempotencyKey, requestHash: hash, createdById: actorId, lines: { create: source.items.map((line) => ({ lineNumber: line.lineNumber, quantity: line.quantity, snapshot: json({ itemId: line.itemId, kind: catalog.find((item) => item.id === line.itemId)?.kind ?? 'GOODS', stockTracking: catalog.find((item) => item.id === line.itemId)?.stockTracking ?? false, itemName: line.itemNameSnapshot, itemCode: line.itemCodeSnapshot, description: line.descriptionSnapshot, measurementUnit: line.measurementUnitSnapshot, quantity: line.quantity.toFixed(3), unitRate: line.unitRate.toFixed(2), discountType: line.discountType, discountValue: line.discountValue.toFixed(2), taxRate: line.gstRate.toFixed(2) }) })) } } });
       await this.audit(tx, firmId, actorId, row.id, 'Accepted quotation revision converted', metadata); return this.detail(tx, firmId, row.id);
     });
   }
@@ -85,7 +90,8 @@ export class SalesOrdersRepository {
       if (order.version !== input.expectedVersion) throw new AppError('Order changed; reload', 409);
       if (new Date(input.occurredAt).getTime() > Date.now()) throw new AppError('Completion cannot be future dated', 400);
       for (const row of input.lines) { const line = order.lines.find((entry) => entry.id === row.salesOrderLineId); if (!line) throw new AppError('Order line unavailable', 404); if (decimal(row.quantity).add(line.fulfilled).gt(line.quantity)) throw new AppError('Completion exceeds ordered quantity', 409); }
-      await tx.fulfillment.create({ data: { firmId, salesOrderId: order.id, reference: input.reference, occurredAt: new Date(input.occurredAt), idempotencyKey: input.idempotencyKey, requestHash: hash, createdById: actorId, lines: { create: input.lines.map((row) => ({ ...row, quantity: decimal(row.quantity) })) } } });
+      const fulfillment = await tx.fulfillment.create({ data: { firmId, salesOrderId: order.id, reference: input.reference, occurredAt: new Date(input.occurredAt), idempotencyKey: input.idempotencyKey, requestHash: hash, createdById: actorId, lines: { create: input.lines.map((row) => ({ salesOrderLineId: row.salesOrderLineId, quantity: decimal(row.quantity) })) } }, include: { lines: true } });
+      await postFulfillmentStock(tx, { firmId, actorId, fulfillmentId: fulfillment.id, salesOrderId: order.id, lines: fulfillment.lines.map((line) => ({ ...line, warehouseId: input.lines.find((entry) => entry.salesOrderLineId === line.salesOrderLineId)?.warehouseId, snapshot: order.lines.find((entry) => entry.id === line.salesOrderLineId)!.snapshot })) });
       return this.refresh(tx, firmId, actorId, order.id, `Completion recorded: ${input.reference}`, metadata);
     });
   }
@@ -98,6 +104,7 @@ export class SalesOrdersRepository {
       const order = await readOrderForInvoicing(tx, firmId, row.salesOrderId);
       if (order.version !== input.expectedVersion) throw new AppError('Order changed; reload', 409);
       for (const line of row.lines) { const totals = order.lines.find((entry) => entry.id === line.salesOrderLineId)!; if (totals.fulfilled.sub(line.quantity).lt(totals.reserved)) throw new AppError('Void linked invoice drafts/issued documents through billing before cancelling this completion', 409); }
+      await reverseFulfillmentStock(tx, firmId, actorId, id, input.reason);
       await tx.fulfillment.update({ where: { id }, data: { cancelledAt: new Date(), cancellationReason: input.reason, cancelledById: actorId } });
       return this.refresh(tx, firmId, actorId, row.salesOrderId, `Completion #${id} cancelled: ${input.reason}`, metadata);
     });
@@ -108,6 +115,7 @@ export class SalesOrdersRepository {
       const order = await readOrderForInvoicing(tx, firmId, id);
       if (order.version !== input.expectedVersion) throw new AppError('Order changed; reload', 409);
       if (order.lines.some((line) => line.fulfilled.gt(0) || line.reserved.gt(0))) throw new AppError('Cancel completions and void invoices before cancelling the order', 409);
+      await releaseOrderStock(tx, firmId, id, input.reason);
       await tx.salesOrder.update({ where: { id }, data: { status: 'CANCELLED', version: { increment: 1 } } });
       await this.audit(tx, firmId, actorId, id, input.reason, metadata); return this.detail(tx, firmId, id);
     });

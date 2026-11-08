@@ -34,7 +34,11 @@ type MockPrisma = {
   auditLog: {
     create: ReturnType<typeof vi.fn>;
   };
+  purchaseOrder: { count: ReturnType<typeof vi.fn> };
+  supplierBill: { count: ReturnType<typeof vi.fn> };
+  expense: { count: ReturnType<typeof vi.fn> };
   $transaction: ReturnType<typeof vi.fn>;
+  $queryRaw: ReturnType<typeof vi.fn>;
 };
 
 function asPrisma(db: MockPrisma): PrismaClient {
@@ -67,8 +71,12 @@ function createMockPrisma(): MockPrisma {
       findMany: vi.fn(),
       groupBy: vi.fn(),
     },
+    purchaseOrder: { count: vi.fn().mockResolvedValue(0) },
+    supplierBill: { count: vi.fn().mockResolvedValue(0) },
+    expense: { count: vi.fn().mockResolvedValue(0) },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
+    $queryRaw: vi.fn().mockResolvedValue([{ id: 1 }]),
   };
   db.$transaction.mockImplementation(async (input: unknown) => {
     if (Array.isArray(input)) return Promise.all(input);
@@ -92,6 +100,7 @@ function company(overrides: Partial<Company> = {}): Company {
     website: null,
     notes: null,
     isActive: true,
+    isSupplier: false,
     createdById: 1,
     updatedById: 1,
     createdAt: now,

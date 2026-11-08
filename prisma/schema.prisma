@@ -63,6 +63,11 @@ enum ItemSourceType {
   CSV_IMPORT
 }
 
+enum ItemKind {
+  GOODS
+  SERVICE
+}
+
 enum QuotationStatus {
   DRAFT
   PENDING
@@ -425,9 +430,298 @@ model SalesOrderLine {
   order SalesOrder @relation(fields: [salesOrderId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
   fulfillmentLines FulfillmentLine[]
   invoiceLines SalesOrderInvoiceLine[]
+  stockReservations StockReservation[]
   @@unique([id, firmId, salesOrderId])
   @@unique([salesOrderId, lineNumber])
   @@map("sales_order_lines")
+}
+
+// Inventory quantities are projections of immutable postings. Every writer uses
+// the existing firm transaction lock, including sales fulfillment commands.
+model Warehouse {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  code String @db.VarChar(50)
+  name String @db.VarChar(191)
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  positions StockPosition[]
+  receipts GoodsReceipt[]
+  @@unique([id, firmId])
+  @@unique([firmId, code])
+  @@map("warehouses")
+}
+
+model StockPosition {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  warehouseId Int @map("warehouse_id")
+  itemId Int @map("item_id")
+  currency String @db.VarChar(3)
+  onHand Decimal @default(0) @map("on_hand") @db.Decimal(18,3)
+  reserved Decimal @default(0) @db.Decimal(18,3)
+  value Decimal @default(0) @db.Decimal(30,6)
+  reorderLevel Decimal @default(0) @map("reorder_level") @db.Decimal(18,3)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  warehouse Warehouse @relation(fields: [warehouseId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  item Item @relation(fields: [itemId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  movements StockMovement[]
+  reservations StockReservation[]
+  @@unique([id, firmId])
+  @@unique([firmId, warehouseId, itemId])
+  @@index([itemId, firmId])
+  @@index([warehouseId, firmId])
+  @@map("stock_positions")
+}
+
+model StockMovement {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  positionId Int @map("position_id")
+  sourceType String @map("source_type") @db.VarChar(30)
+  sourceId Int @map("source_id")
+  sourceLineId Int @map("source_line_id")
+  eventType String @map("event_type") @db.VarChar(30)
+  quantity Decimal @db.Decimal(18,3)
+  value Decimal @db.Decimal(30,6)
+  originalMovementId Int? @map("original_movement_id")
+  reason String @db.VarChar(2000)
+  actorId Int @map("actor_id")
+  postedAt DateTime @default(now()) @map("posted_at")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  position StockPosition @relation(fields: [positionId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  original StockMovement? @relation("StockCorrection", fields: [originalMovementId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  corrections StockMovement[] @relation("StockCorrection")
+  @@unique([id, firmId])
+  @@unique([firmId, sourceType, sourceId, sourceLineId, eventType], map: "stock_movement_source_event_key")
+  @@index([positionId, firmId, postedAt, id], map: "stock_movement_position_period_idx")
+  @@index([originalMovementId, firmId])
+  @@map("stock_movements")
+}
+
+model StockReservation {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  positionId Int @map("position_id")
+  salesOrderId Int @map("sales_order_id")
+  salesOrderLineId Int @map("sales_order_line_id")
+  quantity Decimal @db.Decimal(18,3)
+  remaining Decimal @db.Decimal(18,3)
+  status String @default("ACTIVE") @db.VarChar(20)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  actorId Int @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  releaseReason String? @map("release_reason") @db.VarChar(2000)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  position StockPosition @relation(fields: [positionId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  orderLine SalesOrderLine @relation(fields: [salesOrderLineId, firmId, salesOrderId], references: [id, firmId, salesOrderId], onDelete: Restrict, onUpdate: Restrict, map: "stock_reservation_order_line_fkey")
+  @@unique([firmId, idempotencyKey])
+  @@index([positionId, firmId, status])
+  @@index([firmId, salesOrderId, salesOrderLineId, status], map: "stock_reservation_order_idx")
+  @@map("stock_reservations")
+}
+
+model StockOperation {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  kind String @db.VarChar(30)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  payload Json
+  actorId Int @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  @@unique([firmId, idempotencyKey])
+  @@index([firmId, kind, id])
+  @@map("stock_operations")
+}
+
+model PurchaseOrder {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  supplierId Int @map("supplier_id")
+  orderNumber String @map("order_number") @db.VarChar(50)
+  status String @default("DRAFT") @db.VarChar(30)
+  version Int @default(1)
+  expectedDate DateTime? @map("expected_date") @db.Date
+  currency String @db.VarChar(3)
+  supplierSnapshot Json @map("supplier_snapshot")
+  financialSnapshot Json @map("financial_snapshot")
+  total Decimal @db.Decimal(24,3)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  actorId Int @map("actor_id")
+  cancellationReason String? @map("cancellation_reason") @db.VarChar(2000)
+  createdAt DateTime @default(now()) @map("created_at")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  supplier Company @relation(fields: [supplierId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  lines PurchaseOrderLine[]
+  receipts GoodsReceipt[]
+  @@unique([id, firmId])
+  @@unique([firmId, orderNumber])
+  @@unique([firmId, idempotencyKey])
+  @@index([supplierId, firmId])
+  @@index([firmId, status, id])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  purchaseOrderId Int @map("purchase_order_id")
+  itemId Int @map("item_id")
+  lineNumber Int @map("line_number")
+  quantity Decimal @db.Decimal(18,3)
+  receivedQuantity Decimal @default(0) @map("received_quantity") @db.Decimal(18,3)
+  unitCost Decimal @map("unit_cost") @db.Decimal(24,3)
+  snapshot Json
+  order PurchaseOrder @relation(fields: [purchaseOrderId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  item Item @relation(fields: [itemId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  receiptLines GoodsReceiptLine[]
+  billLines SupplierBillLine[]
+  @@unique([id, firmId])
+  @@unique([purchaseOrderId, lineNumber])
+  @@index([itemId, firmId])
+  @@map("purchase_order_lines")
+}
+
+model GoodsReceipt {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  purchaseOrderId Int @map("purchase_order_id")
+  warehouseId Int? @map("warehouse_id")
+  reference String @db.VarChar(191)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  actorId Int @map("actor_id")
+  cancelledAt DateTime? @map("cancelled_at")
+  cancellationReason String? @map("cancellation_reason") @db.VarChar(2000)
+  createdAt DateTime @default(now()) @map("created_at")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  order PurchaseOrder @relation(fields: [purchaseOrderId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  warehouse Warehouse? @relation(fields: [warehouseId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  lines GoodsReceiptLine[]
+  @@unique([id, firmId])
+  @@unique([firmId, idempotencyKey])
+  @@index([purchaseOrderId, firmId])
+  @@index([warehouseId, firmId])
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptLine {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  goodsReceiptId Int @map("goods_receipt_id")
+  purchaseOrderLineId Int @map("purchase_order_line_id")
+  quantity Decimal @db.Decimal(18,3)
+  returnedQuantity Decimal @default(0) @map("returned_quantity") @db.Decimal(18,3)
+  receipt GoodsReceipt @relation(fields: [goodsReceiptId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  orderLine PurchaseOrderLine @relation(fields: [purchaseOrderLineId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  billLines SupplierBillLine[]
+  returns GoodsReceiptReturn[]
+  @@unique([id, firmId])
+  @@unique([goodsReceiptId, purchaseOrderLineId])
+  @@index([purchaseOrderLineId, firmId])
+  @@map("goods_receipt_lines")
+}
+
+model GoodsReceiptReturn {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  receiptLineId Int @map("receipt_line_id")
+  quantity Decimal @db.Decimal(18,3)
+  reason String @db.VarChar(2000)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  actorId Int @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  line GoodsReceiptLine @relation(fields: [receiptLineId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([firmId, idempotencyKey])
+  @@index([receiptLineId, firmId])
+  @@index([firmId, id])
+  @@map("goods_receipt_returns")
+}
+
+model SupplierBill {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  supplierId Int @map("supplier_id")
+  supplierReference String @map("supplier_reference") @db.VarChar(100)
+  status String @default("DRAFT") @db.VarChar(20)
+  version Int @default(1)
+  billDate DateTime @map("bill_date") @db.Date
+  dueDate DateTime? @map("due_date") @db.Date
+  currency String @db.VarChar(3)
+  supplierSnapshot Json @map("supplier_snapshot")
+  financialSnapshot Json @map("financial_snapshot")
+  total Decimal @db.Decimal(24,3)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  actorId Int @map("actor_id")
+  voidReason String? @map("void_reason") @db.VarChar(2000)
+  createdAt DateTime @default(now()) @map("created_at")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  supplier Company @relation(fields: [supplierId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  lines SupplierBillLine[]
+  @@unique([id, firmId])
+  @@unique([firmId, idempotencyKey])
+  @@unique([firmId, supplierId, supplierReference], map: "supplier_bill_reference_key")
+  @@index([supplierId, firmId])
+  @@index([firmId, status, id])
+  @@map("supplier_bills")
+}
+
+model SupplierBillLine {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  supplierBillId Int @map("supplier_bill_id")
+  purchaseOrderLineId Int? @map("purchase_order_line_id")
+  goodsReceiptLineId Int? @map("goods_receipt_line_id")
+  lineNumber Int @map("line_number")
+  quantity Decimal @db.Decimal(18,3)
+  snapshot Json
+  bill SupplierBill @relation(fields: [supplierBillId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  orderLine PurchaseOrderLine? @relation(fields: [purchaseOrderLineId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  receiptLine GoodsReceiptLine? @relation(fields: [goodsReceiptLineId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([supplierBillId, lineNumber])
+  @@index([purchaseOrderLineId, firmId])
+  @@index([goodsReceiptLineId, firmId])
+  @@map("supplier_bill_lines")
+}
+
+model Expense {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  supplierId Int? @map("supplier_id")
+  category String @db.VarChar(100)
+  reference String @db.VarChar(191)
+  expenseDate DateTime @map("expense_date") @db.Date
+  currency String @db.VarChar(3)
+  total Decimal @db.Decimal(24,3)
+  snapshot Json
+  status String @default("POSTED") @db.VarChar(20)
+  voidReason String? @map("void_reason") @db.VarChar(2000)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  actorId Int @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  supplier Company? @relation(fields: [supplierId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([firmId, idempotencyKey])
+  @@index([supplierId, firmId])
+  @@index([firmId, expenseDate, id])
+  @@map("expenses")
 }
 
 model Fulfillment {
@@ -669,6 +963,16 @@ model User {
   portalInvitations PortalInvitation[]
   portalGrants PortalGrant[]
 
+  stockMovements StockMovement[]
+  stockReservations StockReservation[]
+  stockOperations StockOperation[]
+  purchaseOrders PurchaseOrder[]
+  goodsReceipts GoodsReceipt[]
+  supplierBills SupplierBill[]
+  expenses Expense[]
+
+  goodsReceiptReturns GoodsReceiptReturn[]
+
   @@index([firmId])
   @@unique([id, firmId])
   @@index([firmRoleId])
@@ -720,6 +1024,17 @@ model Firm {
   salesActivities SalesActivity[]
   salesOrders SalesOrder[]
   portalIdentities PortalIdentity[]
+  warehouses Warehouse[]
+  stockPositions StockPosition[]
+  stockMovements StockMovement[]
+  stockReservations StockReservation[]
+  stockOperations StockOperation[]
+  purchaseOrders PurchaseOrder[]
+  goodsReceipts GoodsReceipt[]
+  supplierBills SupplierBill[]
+  expenses Expense[]
+
+  goodsReceiptReturns GoodsReceiptReturn[]
 
   @@index([status])
   @@index([deletedAt])
@@ -854,6 +1169,7 @@ model Company {
   website     String?          @db.VarChar(191)
   notes       String?          @db.Text
   isActive    Boolean          @default(true) @map("is_active")
+  isSupplier  Boolean          @default(false) @map("is_supplier")
   createdById Int?             @map("created_by_id")
   updatedById Int?             @map("updated_by_id")
   createdAt   DateTime         @default(now()) @map("created_at")
@@ -874,6 +1190,9 @@ model Company {
   salesActivities SalesActivity[]
   salesOrders SalesOrder[]
   portalIdentities PortalIdentity[]
+  purchaseOrders PurchaseOrder[]
+  supplierBills SupplierBill[]
+  expenses Expense[]
 
   @@unique([firmId, companyCode])
   @@unique([id, firmId])
@@ -973,6 +1292,8 @@ model Item {
   itemCode            String          @map("item_code") @db.VarChar(50)
   categoryId          Int?            @map("category_id")
   name                String          @db.VarChar(191)
+  kind                ItemKind        @default(GOODS)
+  stockTracking       Boolean         @default(false) @map("stock_tracking")
   shortDescription    String?         @map("short_description") @db.Text
   detailedDescription String?         @map("detailed_description") @db.LongText
   specifications      Json?
@@ -997,6 +1318,8 @@ model Item {
   firm                Firm            @relation(fields: [firmId], references: [id], onDelete: Restrict)
   quotationItems      QuotationItem[]
   invoiceLines        InvoiceLine[]
+  stockPositions      StockPosition[]
+  purchaseOrderLines  PurchaseOrderLine[]
 
   @@unique([firmId, itemCode])
   @@unique([id, firmId])

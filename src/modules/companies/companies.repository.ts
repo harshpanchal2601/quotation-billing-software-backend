@@ -4,6 +4,7 @@ import { AuditAction } from '@prisma/client';
 import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
+import { lockEntitlementFirm } from '../entitlements/index.js';
 import { findLatestCompanyCodeSequence, formatCompanyCode } from './code/company-code.js';
 import {
   serialiseCompanyDetail,
@@ -28,6 +29,7 @@ const companyAuditFields = [
   'website',
   'notes',
   'isActive',
+  'isSupplier',
 ] as const;
 
 const companyDetailInclude = {
@@ -58,6 +60,7 @@ export class CompaniesRepository {
       firmId,
       deletedAt: null,
       ...(query.isActive === undefined ? {} : { isActive: query.isActive }),
+      ...(query.isSupplier === undefined ? {} : { isSupplier: query.isSupplier }),
       ...(query.search === undefined ? {} : createCompanySearchFilter(query.search)),
     };
     const [companies, total] = await this.db.$transaction([
@@ -133,6 +136,7 @@ export class CompaniesRepository {
         website: input.website ?? null,
         notes: input.notes ?? null,
         isActive: input.isActive,
+        isSupplier: input.isSupplier ?? false,
         createdById: metadata.userId,
         updatedById: metadata.userId,
       },
@@ -230,6 +234,8 @@ export class CompaniesRepository {
     }
 
     await this.db.$transaction(async (tx) => {
+      await lockEntitlementFirm(tx, firmId);
+      if (await tx.purchaseOrder.count({ where: { firmId, supplierId: id } }) || await tx.supplierBill.count({ where: { firmId, supplierId: id } }) || await tx.expense.count({ where: { firmId, supplierId: id } })) throw new AppError('A company with purchasing history must be retained; deactivate the company instead', 409);
       const deletedAt = new Date();
       await tx.company.update({
         where: { id },
@@ -477,6 +483,7 @@ function toCompanyUpdateData(input: CompanyUpdateInput): Prisma.CompanyUnchecked
     ...(input.website === undefined ? {} : { website: input.website ?? null }),
     ...(input.notes === undefined ? {} : { notes: input.notes ?? null }),
     ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+    ...(input.isSupplier === undefined ? {} : { isSupplier: input.isSupplier }),
   };
 }
 

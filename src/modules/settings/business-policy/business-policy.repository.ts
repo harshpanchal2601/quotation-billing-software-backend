@@ -39,6 +39,9 @@ export class BusinessPolicyRepository {
       await assertTransactionFeature(tx, firmId, 'firm.core');
       const previous = await resolveBusinessPolicy(tx, firmId);
       if (previous.version !== expectedVersion) throw new AppError('Business policy changed; reload before saving', 409);
+      if (policy.currency !== previous.policy.currency && await tx.stockPosition.count({ where: { firmId } })) throw new AppError('Inventory currency is fixed once stock positions exist; a reviewed conversion workflow is required', 409);
+      if (policy.currency !== previous.policy.currency && await tx.purchaseOrder.count({ where: { firmId, status: { not: 'CANCELLED' }, lines: { some: { snapshot: { path: '$.stockTracking', equals: true } } } } })) throw new AppError('Outstanding tracked purchases retain the approved inventory currency', 409);
+      if (policy.sales?.preset === 'SERVICE' && previous.policy.sales?.preset !== 'SERVICE' && await tx.item.count({ where: { firmId, stockTracking: true } })) throw new AppError('A service-only preset cannot contain tracked inventory items', 409);
       const version = previous.version + 1;
       const record = await tx.firmBusinessPolicy.create({ data: { firmId, actorId, version, policy } });
       await tx.notificationPreference.upsert({ where: { firmId_channel: { firmId, channel: 'IN_APP' } }, create: { firmId, channel: 'IN_APP', enabled: policy.inAppNotifications }, update: { enabled: policy.inAppNotifications } });

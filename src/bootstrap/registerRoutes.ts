@@ -19,8 +19,16 @@ import { billingSchedulesRouter } from '../modules/billing-schedules/index.js';
 import { leadsRouter, opportunitiesRouter, tasksRouter, customerTimelineRouter } from '../modules/crm/index.js';
 import { salesOrdersRouter, fulfillmentsRouter } from '../modules/sales-orders/index.js';
 import { customerPortalRouter, portalAccessRouter } from '../modules/customer-portal/index.js';
+import { warehousesRouter, stockRouter } from '../modules/inventory/index.js';
+import { purchaseOrdersRouter, goodsReceiptsRouter, supplierBillsRouter, expensesRouter } from '../modules/purchasing/index.js';
 
 export const apiRouter = Router();
+apiRouter.use('/warehouses', warehousesRouter);
+apiRouter.use('/stock', stockRouter);
+apiRouter.use('/purchase-orders', purchaseOrdersRouter);
+apiRouter.use('/goods-receipts', goodsReceiptsRouter);
+apiRouter.use('/supplier-bills', supplierBillsRouter);
+apiRouter.use('/expenses', expensesRouter);
 
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/leads', leadsRouter);

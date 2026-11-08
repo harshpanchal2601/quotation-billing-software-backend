@@ -1,6 +1,9 @@
 import { AuditAction, ItemSourceType, Prisma, type Item, type PrismaClient } from '@prisma/client';
 
 import { AppError } from '../../core/errors/AppError.js';
+import { authorizeFirmJobActor } from '../auth/index.js';
+import { PERMISSIONS } from '../auth/permissions.js';
+import { resolveBusinessPolicy } from '../settings/index.js';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
 import { assertTransactionFeature, prepareStorageUsage, recordStorageReplacement, withFirmEntitlementTransaction } from '../entitlements/index.js';
@@ -43,6 +46,7 @@ export class ItemsRepository {
       ...(query.categoryId === undefined ? {} : { categoryId: query.categoryId }),
       ...(query.measurementUnitId === undefined ? {} : { measurementUnitId: query.measurementUnitId }),
       ...(query.sourceType === undefined ? {} : { sourceType: query.sourceType }),
+      ...(query.kind === undefined ? {} : { kind: query.kind }),
       ...(query.minRate !== undefined || query.maxRate !== undefined
         ? {
             defaultRate: {
@@ -119,6 +123,8 @@ export class ItemsRepository {
         itemCode,
         categoryId,
         name: input.name,
+        kind: input.kind ?? 'GOODS',
+        stockTracking: false,
         shortDescription: input.shortDescription ?? null,
         detailedDescription: input.detailedDescription ?? null,
         specifications: input.specifications as unknown as Prisma.InputJsonValue,
@@ -146,7 +152,13 @@ export class ItemsRepository {
   }
 
   async updateItem(firmId: number, id: number, input: ItemUpdateInput, metadata: RequestMetadata) {
-    const existing = await this.getExistingItemRecord(firmId, id);
+    return withFirmEntitlementTransaction(this.db, firmId, (tx) => this.updateItemRecord(tx, firmId, id, input, metadata));
+  }
+
+  private async updateItemRecord(tx: Prisma.TransactionClient, firmId: number, id: number, input: ItemUpdateInput, metadata: RequestMetadata) {
+    const existing = await tx.item.findFirst({ where: { id, firmId, deletedAt: null }, include: itemDetailInclude });
+    if (!existing) throw new AppError('Item not found', 404);
+    if (existing.stockTracking && ((input.kind !== undefined && input.kind !== existing.kind) || (input.measurementUnitId !== undefined && input.measurementUnitId !== existing.measurementUnitId))) throw new AppError('Tracked goods classification and stock unit cannot change; create a separately classified item', 409);
 
     let targetCategoryId = existing.categoryId;
     if (input.categoryId !== undefined) {
@@ -158,6 +170,7 @@ export class ItemsRepository {
     }
 
     const updateData: Prisma.ItemUpdateInput = {
+      ...(input.kind === undefined ? {} : { kind: input.kind }),
       ...(input.name === undefined ? {} : { name: input.name }),
       ...(input.categoryId === undefined ? {} : { category: { connect: { id: targetCategoryId ?? undefined } } }),
       ...(input.shortDescription === undefined ? {} : { shortDescription: input.shortDescription ?? null }),
@@ -171,14 +184,32 @@ export class ItemsRepository {
       updatedBy: metadata.userId ? { connect: { id: metadata.userId } } : undefined,
     };
 
-    const updated = await this.db.item.update({
+    const updated = await tx.item.update({
       where: { id },
       data: updateData,
       include: itemDetailInclude,
     });
 
-    await this.auditItem(AuditAction.UPDATE, updated, metadata, existing);
+    await this.auditItem(AuditAction.UPDATE, updated, metadata, existing, tx);
     return serialiseItemDetail(updated);
+  }
+
+  async setInventory(firmId: number, id: number, stockTracking: boolean, metadata: RequestMetadata) {
+    if (!metadata.userId) throw new AppError('Authentication required', 401);
+    const actorId = metadata.userId;
+    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      await authorizeFirmJobActor(tx, firmId, actorId, PERMISSIONS.INVENTORY_MANAGE);
+      await authorizeFirmJobActor(tx, firmId, actorId, PERMISSIONS.ITEMS_MANAGE);
+      await assertTransactionFeature(tx, firmId, 'inventory'); await assertTransactionFeature(tx, firmId, 'items');
+      if (stockTracking && (await resolveBusinessPolicy(tx, firmId)).policy.sales?.preset === 'SERVICE') throw new AppError('The service-only preset does not enable inventory', 403);
+      const existing = await tx.item.findFirst({ where: { id, firmId, deletedAt: null }, include: itemDetailInclude });
+      if (!existing) throw new AppError('Item not found', 404);
+      if (stockTracking && existing.kind !== 'GOODS') throw new AppError('Service items cannot track stock', 409);
+      if (existing.stockTracking === stockTracking) return serialiseItemDetail(existing);
+      if (!stockTracking && (await tx.stockMovement.count({ where: { firmId, position: { itemId: id } } }) || await tx.stockReservation.count({ where: { firmId, status: 'ACTIVE', position: { itemId: id } } }) || await tx.purchaseOrderLine.count({ where: { firmId, itemId: id, order: { status: { notIn: ['CANCELLED', 'RECEIVED'] } } } }) || await tx.salesOrderLine.count({ where: { firmId, order: { status: { not: 'CANCELLED' } }, AND: [{ snapshot: { path: '$.itemId', equals: id } }, { snapshot: { path: '$.stockTracking', equals: true } }] } }))) throw new AppError('Stock tracking is retained for items with stock history or open commitments', 409);
+      const updated = await tx.item.update({ where: { id }, data: { stockTracking, updatedById: actorId }, include: itemDetailInclude });
+      await this.auditItem(AuditAction.UPDATE, updated, metadata, existing, tx); return serialiseItemDetail(updated);
+    });
   }
 
   async updateItemStatus(firmId: number, id: number, isActive: boolean, metadata: RequestMetadata) {
@@ -211,18 +242,21 @@ export class ItemsRepository {
   }
 
   async deleteItem(firmId: number, id: number, metadata: RequestMetadata) {
-    const existing = await this.getExistingItemRecord(firmId, id);
+    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      const existing = await tx.item.findFirst({ where: { id, firmId, deletedAt: null }, include: itemDetailInclude });
+      if (!existing) throw new AppError('Item not found', 404);
+      if (existing.stockTracking) throw new AppError('Tracked inventory items must be retained for traceability; deactivate the item instead', 409);
+      await tx.item.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          isActive: false,
+          updatedById: metadata.userId ?? null,
+        },
+      });
 
-    await this.db.item.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        isActive: false,
-        updatedById: metadata.userId ?? null,
-      },
+      await this.auditItem(AuditAction.DELETE, existing, metadata, undefined, tx);
     });
-
-    await this.auditItem(AuditAction.DELETE, existing, metadata);
   }
 
   async restoreItem(firmId: number, id: number, metadata: RequestMetadata) {
@@ -456,10 +490,13 @@ export class ItemsRepository {
     item: Item,
     metadata: RequestMetadata,
     previous?: Item,
+    db: PrismaClient | Prisma.TransactionClient = this.db,
   ) {
     const newSummary: Record<string, unknown> = {
       itemCode: item.itemCode,
       name: item.name,
+      kind: item.kind,
+      stockTracking: item.stockTracking,
       categoryId: item.categoryId,
       measurementUnitId: item.measurementUnitId,
       defaultRate: item.defaultRate.toString(),
@@ -472,6 +509,8 @@ export class ItemsRepository {
       oldSummary = {
         itemCode: previous.itemCode,
         name: previous.name,
+        kind: previous.kind,
+        stockTracking: previous.stockTracking,
         categoryId: previous.categoryId,
         measurementUnitId: previous.measurementUnitId,
         defaultRate: previous.defaultRate.toString(),
@@ -480,11 +519,12 @@ export class ItemsRepository {
       };
     }
 
-    await createAuditLog(this.db, {
+    await createAuditLog(db, {
       metadata,
       entityType: 'Item',
       entityId: String(item.id),
       action,
+      policy: db === this.db ? 'BEST_EFFORT' : 'REQUIRED',
       oldValues: oldSummary as Prisma.InputJsonObject | undefined,
       newValues: newSummary as Prisma.InputJsonObject,
     });

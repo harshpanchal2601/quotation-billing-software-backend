@@ -21,6 +21,7 @@ type MockPrisma = {
     create: ReturnType<typeof vi.fn>;
   };
   $transaction: ReturnType<typeof vi.fn>;
+  $queryRaw: ReturnType<typeof vi.fn>;
 };
 
 function asPrisma(db: MockPrisma): PrismaClient {
@@ -44,6 +45,7 @@ function createMockPrisma(): MockPrisma {
     },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
+    $queryRaw: vi.fn().mockResolvedValue([{ id: 1 }]),
   };
   db.$transaction.mockImplementation(async (input: unknown) => {
     if (Array.isArray(input)) return Promise.all(input);
@@ -101,6 +103,8 @@ function mockItem(overrides: Partial<Item> = {}) {
     gstRate: new Prisma.Decimal('18.00'),
     imagePath: null,
     sourceType: 'MANUAL',
+    kind: 'GOODS',
+    stockTracking: false,
     sourceUrl: null,
     sourceExternalId: null,
     isActive: true,

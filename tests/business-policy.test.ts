@@ -14,6 +14,8 @@ function database() {
     firmBusinessPolicy: { findFirst: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue({ id: 12 }) },
     notificationPreference: { upsert: vi.fn() }, user: { findFirst: vi.fn().mockResolvedValue({ id: 10, firmId: 1 }) },
     auditLog: { create: vi.fn() },
+    stockPosition: { count: vi.fn().mockResolvedValue(0) }, item: { count: vi.fn().mockResolvedValue(0) },
+    purchaseOrder: { count: vi.fn().mockResolvedValue(0) },
   };
   const db = { ...tx, $transaction: vi.fn(async (work) => work(tx)) };
   return { tx, db: db as unknown as PrismaClient };
@@ -60,5 +62,13 @@ describe('versioned firm business configuration', () => {
     const { tx, db } = database(); tx.auditLog.create.mockRejectedValueOnce(new Error('audit unavailable'));
     await expect(new BusinessPolicyRepository(db).update(1, 10, 0, DEFAULT_BUSINESS_POLICY, {})).rejects.toThrow('audit unavailable');
     expect(dependencies.notify).not.toHaveBeenCalled();
+  });
+  it('retains inventory currency and prevents switching tracked firms to the service-only preset', async () => {
+    const { tx, db } = database(); tx.stockPosition.count.mockResolvedValue(1);
+    await expect(new BusinessPolicyRepository(db).update(1, 10, 0, { ...DEFAULT_BUSINESS_POLICY, currency: 'USD' }, {})).rejects.toMatchObject({ statusCode: 409 });
+    expect(tx.firmBusinessPolicy.create).not.toHaveBeenCalled();
+    tx.item.count.mockResolvedValue(1);
+    await expect(new BusinessPolicyRepository(db).update(1, 10, 0, { ...DEFAULT_BUSINESS_POLICY, sales: { preset: 'SERVICE', ordersEnabled: false, portalEnabled: true } }, {})).rejects.toMatchObject({ statusCode: 409 });
+    expect(tx.item.count).toHaveBeenCalledWith({ where: { firmId: 1, stockTracking: true } });
   });
 });

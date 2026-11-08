@@ -1,0 +1,353 @@
+Wave 07 inventory purchasing supplier bills and expenses
+Date: 8 November 2026
+Status: SOURCE IMPLEMENTATION APPLIED. Runtime acceptance is pending.
+
+This report describes source changes, not a passing release. No application,
+compiler, Prisma validation, automated test, browser, migration or deployment
+command was executed. The user confirmed acceptance of Waves 00-06 and delegated
+operational policy choices using current market examples. Direct command
+restrictions took precedence over execution instructions inside the DOCX brief.
+
+A. Baseline inventory and repository metadata
+
+Metadata read directly from repository files, without executing Git:
+backend: branch feat/wave7, HEAD dccda74368d0e2de7bdba5aa44f042a03b954283
+frontend: branch feat/wave7, HEAD 986c09d3a1d76e5eff345e594f654790aa19df40
+These identifiers do not assert clean working trees. Git status/diff were deferred.
+
+Already present: Company/Contact/Address and Item masters; Firm/User/RBAC and
+plan/override/kill-switch infrastructure; versioned business policy; Decimal,
+tax, audit, sequences and firm transaction locks; customer invoices, receipts and
+recurring billing; Wave 06 CRM, accepted-quotation orders, independent fulfillment,
+invoice quantity reservations and customer portal.
+
+Partially relevant: Wave 06 reserved quantities represent invoices, not physical
+stock. Existing business presets distinguish service/trading/mixed workflows.
+Item and Company endpoints already own catalog and company metadata. Their public
+API/client infrastructure was extended rather than creating vendor/item masters.
+
+Missing at baseline, now added in source: item classification and supplier
+capability; warehouse stock, physical reservations and movement valuation;
+purchase orders, receipts, supplier return records, supplier bills and expenses;
+opt-in features/permissions and integrated inventory/purchasing workspaces.
+
+Examined architecture: docs/architecture/backend/BACKEND-MODULE-RULES.md and
+BACKEND-DEPENDENCY-BOUNDARIES.md. Routes remain HTTP adapters; repositories own
+persistence/workflows; cross-domain stock commands use an explicit index boundary.
+
+Relevant existing test sources examined/reused include tests/items.repository.test.ts,
+companies.repository.test.ts, measurement-units.repository.test.ts,
+quotations.repository.test.ts, business-policy.test.ts, wave06.test.ts,
+wave06.mysql.test.ts, entitlement-evaluator.test.ts and
+architecture/dependency-boundaries.test.ts, plus frontend Item/Company/order tests.
+Their results were not re-established in this session.
+
+B. Change plan versus executed changes and files changed
+
+The planned catalog/supplier, stock, purchasing, permissions, migration, UI and
+test-source changes were applied. Proven integrations also required guards for
+catalog deletion, shared measurement precision, configured currency and service
+presets. Supplier receipt returns have a purchasing-owned record so non-stock
+returns do not depend on inventory. Shared exact quantities and command keys now
+have neutral validators. No dependencies, package manifests or lockfiles changed.
+
+Paths below are relative to the named repository. Added/Edited describe this
+session's actions; they are not Git status classifications.
+
+Backend file | Action | Why and logic changed / existing code reused
+prisma/schema.prisma | Edited | ItemKind/stockTracking, Company.isSupplier, thirteen inventory/purchasing models and inverse ownership/actor relations; existing Firm/User/Item/Company/order keys.
+prisma/migrations/20261108120000_wave07_inventory_purchasing/migration.sql | Added | Additive DDL, safe non-stock defaults, ownership/actor foreign keys, idempotency indexes and quantity/value checks; existing MySQL migration history.
+src/core/validation/quantity.ts | Added | Exact positive three-decimal wire quantity shared by sales/stock/purchasing; preserves the existing order quantity contract.
+src/core/idempotency/command-key.ts | Added | Shared existing request-key grammar; public sales aliases stay compatible.
+src/bootstrap/registerRoutes.ts | Edited | Mount warehouse, stock, purchase order, receipt, supplier bill and expense routers via public module indexes.
+src/modules/auth/permissions.ts | Edited | Independent view/manage/approval/adjustment grants and implied views; existing role expansion.
+src/modules/entitlements/feature-registry.ts | Edited | Opt-in inventory, purchasing, purchasing.bills and expenses plus permission mappings; existing evaluator and plan dependencies.
+src/modules/items/items.schema.ts | Edited | Optional goods/service classification, dedicated strict tracking command, kind filter and nullable empty form-field normalization; existing Item validators.
+src/modules/items/items.repository.ts | Edited | Persist/serialize classification, transactional tracking changes and deletion/type/unit safeguards, stock metadata audits; existing catalog ownership and audit workflow.
+src/modules/items/items.serializer.ts | Edited | Return kind/tracking in existing detail/list/selection responses; existing serializer.
+src/modules/items/items.types.ts | Edited | Extend existing Item list/detail/selection contracts consistently.
+src/modules/items/items.routes.ts | Edited | Add PUT /items/:id/inventory; repository rechecks both Item and Inventory permissions/features.
+src/modules/companies/companies.schema.ts | Edited | Optional supplier capability and list filter on the existing Company contract.
+src/modules/companies/companies.repository.ts | Edited | Persist/audit/filter supplier capability; lock deletion and retain purchasing history; existing Company master and transaction infrastructure.
+src/modules/companies/companies.serializer.ts | Edited | Include supplier capability in existing list/detail responses.
+src/modules/measurement-units/measurement-units.repository.ts | Edited | Transactionally prevent precision changes for units used by tracked goods; re-read current unit and audit inside the transaction.
+src/modules/settings/business-policy/business-policy.repository.ts | Edited | Prevent inventory currency changes after positions/approved tracked commitments and service-only presets containing tracked items; existing versioned policy transaction.
+src/modules/sales-orders/sales-orders.schema.ts | Edited | Shared quantity/key validators and optional per-line dispatch warehouse; old service completion payload remains valid.
+src/modules/sales-orders/sales-orders.repository.ts | Edited | Freeze catalog tracking on new order lines, post/reverse dispatch and release held stock atomically; expose authorized warehouse choices; existing order/version/audit transaction.
+src/modules/sales-orders/sales-orders.routes.ts | Edited | Add fulfillment warehouse reference choices behind fulfillment RBAC and inventory entitlement.
+src/modules/inventory/contract.ts | Added | Persistence-free validation exports used by purchasing schemas.
+src/modules/inventory/inventory.schema.ts | Added | Strict adjustment, transfer, return, reservation, release, threshold, warehouse and bounded report/list contracts; shared core quantity/key/date validators.
+src/modules/inventory/stock-ledger.ts | Added | Single stock writer, signed Decimal valuation, ownership checks, source-linked returns, dispatch/reversal and reservation release; existing firm transactions and business policy.
+src/modules/inventory/inventory.repository.ts | Added | Authorized warehouse/stock reads, operational commands, physical reservations, reconciliation, thresholds and period reports; shared ledger writer and required audit.
+src/modules/inventory/inventory.routes.ts | Added | Validated HTTP endpoints with feature-mapped permission middleware; existing HTTP/firm/auth helpers.
+src/modules/inventory/index.ts | Added | Explicit router exports and narrow transaction-owned stock commands.
+src/modules/purchasing/purchasing.schema.ts | Added | PO, receipt, return, bill, expense, transition and filter contracts; existing date and shared exact-value validators.
+src/modules/purchasing/purchase-calculations.ts | Added | Supplier-side financial snapshots and approved-source policy restoration; existing neutral money/tax/rounding primitives, independent of sales invoices.
+src/modules/purchasing/purchasing.repository.ts | Added | Supplier ownership, immutable PO pricing, approval/cancellation, partial receipts/returns, bill matching/post/void, classified expenses and firm-private reports; existing Company, sequences, audit and firm locks.
+src/modules/purchasing/purchasing.routes.ts | Added | Separate PO/receipt/bill/expense routers, reference choices and return history; existing HTTP/auth infrastructure.
+src/modules/purchasing/index.ts | Added | Narrow explicit purchasing router exports.
+tests/wave07.test.ts | Added | Quantity/valuation/rounding, legacy/service behavior, validation, source snapshots, independent RBAC and entitlement denial sources.
+tests/wave07.mysql.test.ts | Added | Authenticated disposable two-firm retry/concurrency/dispatch/return/bill/isolation/audit/feature/role/quota/regression sources.
+tests/helpers/two-firm-fixture.ts | Edited | Permit dedicated Wave 07 database names; remove owned new rows in foreign-key order, corrections before original movements.
+tests/items.repository.test.ts | Edited | Catalog fixture metadata and firm-lock mock support for the changed Item contract.
+tests/companies.repository.test.ts | Edited | Supplier metadata and purchasing-history/firm-lock mock support.
+tests/quotations.repository.test.ts | Edited | Extend existing Company/Item fixtures with additive supplier/catalog fields.
+tests/measurement-units.repository.test.ts | Edited | Add the existing firm-lock mock for transaction-owned precision updates.
+tests/business-policy.test.ts | Edited | Mock added relationship checks and cover currency/preset rejection before policy writes.
+docs/implementation/wave-07-delivery-report.txt | Added | This delivery inventory, source contracts, migration/policy decisions and explicit validation status.
+
+Frontend file | Action | Why and logic changed / existing code reused
+src/shared/forms/CommandForm.tsx | Added | Shared pending/error/success form handling and stable keys for unchanged retries; existing API error, React Query and AppButton components.
+src/shared/forms/CommandForm.test.tsx | Added | Lost-response, successful replay, exact decimal and edited-request identity source coverage.
+src/features/auth/model/permissions.ts | Edited | Mirror backend purchasing/inventory grants in the established permission contract.
+src/shared/routing/paths.ts | Edited | Add /inventory and /purchasing paths.
+src/app/router/routeConfig.tsx | Edited | Permission/entitlement-aware navigation for both workspaces.
+src/app/router/router.tsx | Edited | Lazy workspace routes behind existing AccessRoute guards.
+src/features/items/model/items.types.ts | Edited | Item kind/tracking response fields and optional classification input.
+src/features/items/model/items.schema.ts | Edited | Validate goods/service selection in the existing form.
+src/features/items/components/ItemForm.tsx | Edited | Classification control/default/reset, preventing changes for tracked goods; existing form controls.
+src/features/items/pages/CreateItemPage.tsx | Edited | Include selected classification in the existing create request.
+src/features/items/pages/EditItemPage.tsx | Edited | Preserve classification through the existing edit payload.
+src/features/items/pages/ItemDetailsPage.tsx | Edited | Show classification and permission-gated stock/ledger panel; existing detail invalidation.
+src/features/items/items.test.tsx | Edited | Extend fixture contract and verify service classification without stock activation in create payloads.
+src/features/companies/model/companies.types.ts | Edited | Supplier capability and optional supplier filter in existing Company types.
+src/features/companies/model/company.schema.ts | Edited | Validate/map supplier capability through existing create/update form payloads.
+src/features/companies/components/CompanyForm.tsx | Edited | Add supplier checkbox and default/reset values to the existing master form.
+src/features/companies/pages/CompanyDetailsPage.tsx | Edited | Show supplier capability and permission-gated purchasing history alongside existing customer panels.
+src/features/companies/companies.test.tsx | Edited | Extend Company fixture and assert supplier capability while preserving nested contacts/addresses.
+src/features/sales-orders/sales-orders.api.ts | Edited | Optional frozen tracking metadata and dispatch warehouse input/reference request; existing order API.
+src/features/sales-orders/SalesOrderDetailsPage.tsx | Edited | Warehouse choices only for tracked dispatch, physical reservation panel and stock cache invalidation; service completion and invoicing controls preserved.
+src/features/inventory/inventory.api.ts | Added | Typed stock/warehouse/reservation requests and firm-specific keys using the existing API client.
+src/features/inventory/StockTables.tsx | Added | Exact-string balances, ledger, reconciliation/low-stock status and bounded paging.
+src/features/inventory/WarehouseField.tsx | Added | Server-searched warehouse references with retained selections, firm/context query keys and each owning domain's authorized loader.
+src/features/inventory/InventoryPage.tsx | Added | Balance/ledger/reservation/period views and authorized warehouse/adjustment/transfer/customer-return/threshold forms.
+src/features/inventory/ItemStockPanel.tsx | Added | Authorized item tracking control and paged warehouse balances/movement history.
+src/features/inventory/OrderStockPanel.tsx | Added | Physical stock reservation and status display for tracked order lines; distinct from invoice reservations.
+src/features/inventory/index.ts | Added | Explicit workspace/panel and narrow shared UI/API exports.
+src/features/inventory/inventory.test.tsx | Added | Exact balances, low-stock/reconciliation states, independent adjustment authorization and firm cache segregation sources.
+src/features/purchasing/purchasing.api.ts | Added | Typed purchasing, bill, expense, return-history and reference requests with firm-scoped keys.
+src/features/purchasing/PurchaseLineFields.tsx | Added | Reusable exact-string purchase/bill line editor with supplier receipt matching and classification.
+src/features/purchasing/PurchasingPage.tsx | Added | Authorized draft/approve/cancel/receive/return/post/void and expense workflows, dates, history and reports; existing UI/query infrastructure.
+src/features/purchasing/SupplierPurchasingPanel.tsx | Added | Firm-private supplier orders/bills and links to the full workspace.
+src/features/purchasing/index.ts | Added | Explicit purchasing workspace and supplier-history exports.
+src/features/purchasing/purchasing.test.tsx | Added | Independent expense/bill permissions, exact expense strings and stable retry payload source coverage.
+
+C. Database migration schema diff backfill and recovery
+
+Migration source: 20261108120000_wave07_inventory_purchasing. No SQL was applied.
+Adds Item.kind GOODS/SERVICE with GOODS default and stockTracking=false; adds
+Company.isSupplier=false. Existing stock, supplier, financial and quotation history
+are not inferred from names or rewritten. Existing service catalog entries can be
+explicitly reclassified without enabling stock.
+
+Adds thirteen tables: warehouses, stock_positions, stock_movements,
+stock_reservations, stock_operations, purchase_orders, purchase_order_lines,
+goods_receipts, goods_receipt_lines, goods_receipt_returns, supplier_bills,
+supplier_bill_lines and expenses. Adds Firm/User inverse relations and physical
+reservations on the existing SalesOrderLine. No parallel Item, Company, sales
+Invoice or customer-payment master was created.
+
+DDL includes 37 foreign keys and 17 CHECK constraints. Same-firm composite links
+cover warehouse/item positions, ledger corrections, order-line reservations,
+supplier/PO lines, receipts, returns and bill matches. Actors retain User foreign
+keys. Quantity and reservation columns use Decimal(18,3); stock values use
+Decimal(30,6); supplier document totals use Decimal(24,3).
+
+Unique stock event key: (firm_id, source_type, source_id, source_line_id, event_type).
+Other unique keys cover firm/warehouse/item positions, warehouse codes, PO numbers,
+command idempotency keys and firm/supplier/bill reference. Period/owner/status
+indexes support scoped reads and reconciliation. Reservation state, signed stock
+values, received/returned caps and service/non-stock classification have SQL checks.
+
+Movement and projection updates commit together under the existing firm row lock.
+The application exposes no posted-movement update/delete or balance-overwrite
+operation. Correction commands append movements with original-source references.
+
+Legacy order snapshots lacking stockTracking remain non-stock. New orders freeze
+the catalog's explicit tracking configuration. No historic dispatch is replayed or
+assigned an invented warehouse/cost. Opening stock requires an authorized,
+reasoned adjustment or a new actual receipt.
+
+Review/apply the DDL in a dedicated disposable MySQL database and generate a matching
+Prisma client before runtime validation. Neither action was performed here. Before
+use, an application rollback may leave additive unused schema intact. After any
+posting, preserve source/ledger/financial records and use reviewed forward fixes;
+do not drop populated tables or reverse quantities by editing ledger rows.
+
+D. API domain feature authorization and tenant ownership
+
+API / domain | Feature and permission contract
+GET /warehouses; GET /stock/{availability,movements,reports,reservations,reference-options} | inventory + inventory.view.
+POST /warehouses; POST /stock/{transfers,returns,reservations}; reservation release; PUT /stock/reorder-level | inventory + inventory.manage.
+POST /stock/adjustments | inventory + separate inventory.adjust; explicit reason and inbound cost.
+POST /stock/reservations | Also sales.orders + sales-orders.view and order-capability checks; order/line/warehouse ownership is verified.
+PUT /items/:id/inventory | inventory + items, both inventory.manage and items.manage; service preset/type and history/commitment guards.
+GET /purchase-orders and /goods-receipts, details/options/return history | purchasing + purchasing.view.
+POST /purchase-orders; cancel; POST /goods-receipts and receipt cancel/return | purchasing + purchasing.manage; tracked postings additionally require inventory.
+POST /purchase-orders/:id/approve | purchasing + independent purchasing.approve.
+GET /supplier-bills and detail/options | purchasing.bills + supplier-bills.view.
+POST /supplier-bills; post/void | purchasing.bills + supplier-bills.manage.
+GET /expenses and detail/options | expenses + expenses.view.
+POST /expenses; void | expenses + expenses.manage.
+Existing /fulfillments posting/cancellation and warehouse choices | sales.orders + fulfillments.manage; inventory checked only when tracked goods participate.
+Existing Company/Item classification metadata | Existing companies.manage/items.manage and corresponding master feature; stock activation is separate.
+
+All new features are optional and non-legacy. Inventory depends on Items; purchasing
+depends on Companies/Items; purchasing.bills depends on purchasing. Expenses are
+independent of inventory. Existing evaluator behavior handles plan selection,
+dependency kills, expired overrides, suspended firms and roles. Required audits
+commit in the same transaction as new business/ledger writes.
+
+Ownership chart:
+Authenticated request -> server firm context -> authorized active actor/feature.
+Firm -> Warehouse/Item -> StockPosition -> StockMovement/StockReservation.
+Firm -> existing Company marked supplier -> PurchaseOrder -> PurchaseOrderLine.
+PurchaseOrder + optional same-firm Warehouse -> GoodsReceipt -> ReceiptLine -> Return.
+Existing sales order/line -> physical reservation and fulfillment stock command.
+Firm + supplier -> independent SupplierBill -> matched PO/receipt lines.
+Firm + optional supplier -> classified Expense.
+Source identifiers, nested identifiers, reference options, counts, history, totals
+and audit queries stay scoped to that context. Client firmId is never authoritative.
+Cross-firm transfers are rejected. No new file/export/worker/provider route exists.
+
+E. Feature and acceptance mapping achievements and assumptions
+
+Specification section 2 | Source implementation status
+1 Catalog classification | IMPLEMENTED: goods/service metadata; safe untracked defaults; explicit authorized stock activation; frozen order/PO eligibility.
+2 Supplier relationships | IMPLEMENTED: capability on existing Company, forms/filters/history; customer functionality retained.
+3 Warehouses/stock ledger | IMPLEMENTED: firm-owned locations, create-only movements, Decimal projections and available/reserved balances.
+4 Stock reservations | IMPLEMENTED: eligible uncompleted order quantities, serialized availability checks, consumption/release and cancellation integration.
+5 Purchase orders | IMPLEMENTED: supplier/pricing/policy snapshots, draft/approval/cancellation, expected dates and partial receipt.
+6 Receipts/returns | IMPLEMENTED: source-idempotent receipts, exact cancellation movements, capped purchasing return documents; non-stock returns need no inventory.
+7 Dispatch integration | IMPLEMENTED: existing fulfillment transaction posts tracked goods once, reverses cancellation and leaves service flows stock-free.
+8 Supplier bills/expenses | IMPLEMENTED: separate draft/post/void payable records, receipt/PO caps and duplicate-reference guards; classified standalone expenses and reports; no sales AR posting.
+9 Valuation/alerts | IMPLEMENTED: explicit moving weighted average, original dispatch return-cost allocation, low-stock thresholds, current reconciliation and per-warehouse posting-period reports.
+
+All applicable section 11 acceptance checks remain BLOCKED / NOT RUN as runtime
+acceptance: purchase/receive/reserve/dispatch/report; service regression; retry and
+concurrency uniqueness; projection reconciliation; firm-private supplier reports;
+combined feature/RBAC enforcement. Source coverage is not a passing acceptance test.
+
+Operational choices under the user's delegation:
+- Block negative on-hand/available quantities; no implicit negative-stock override.
+- Use moving weighted-average inventory value in the configured firm currency,
+  exclusive of supplier-declared tax. This is operational valuation, not a statutory
+  accounting/ITC claim. Quantity scale is three; stock value scale is six; whole-item
+  units still reject fractions. Warehouses must be chosen explicitly.
+- Incoming purchase value is frozen PO quantity times net unit cost. Consumption
+  and supplier returns use current moving average. Customer returns allocate the
+  original dispatch cost cumulatively, including the final precision residual.
+  Transfers preserve total quantity/value within one firm transaction.
+- Matched bills retain their approved PO currency/rounding/tax snapshot. Mixed
+  source policies or price/tax variances require separate/corrected documents.
+  Warehouse, catalog, supplier and receipt reference choices support server search
+  beyond the first bounded result page while retaining selected records.
+- Only the already-configured no-tax or India GST adapter is accepted. Supplier
+  tax treatment is explicit; there is no input-tax-credit eligibility decision,
+  tax submission, tax-document certification or inferred new jurisdiction.
+- Return/transfer records are operational traceability documents. Posted supplier
+  matches must be corrected/voided before a conflicting return; consumed receipts
+  cannot be cancelled into an invalid valuation. No statutory supplier credit note
+  or customer credit note is automatically issued by stock returns.
+- New optional features require explicit plan/role access. Service-only presets
+  reject tracked inventory; legacy tenants are not automatically inventory-enabled.
+
+NOT IMPLEMENTED / explicitly excluded: supplier payment lifecycle or live banking,
+full AP/general ledger, manufacturing/BOM, FX inventory conversion, certified/legal
+document issuance and unrelated CRM/automation expansion. These are not claimed
+as completed features of the bounded operational implementation.
+
+Current market references consulted on 8 November 2026:
+https://www.zoho.com/us/inventory/help/reports/inventory-valuation-reports.html
+https://www.zoho.com/inventory/kb/warehouses/transfer-order-create.html
+https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/inventory_valuation/operations_valuation.html
+These support the availability of moving-average valuation, explicit transfers and
+receipt/delivery movements. Negative-stock blocking and the bounded policies above
+are project implementation choices, not claims of one universal market policy.
+
+F. Test results evidence exact commands and commands not executed
+
+Executed: read-only DOCX extraction, targeted rg/sed/cat reads, direct repository
+metadata reads, source edits and SQL text-file generation. No database was queried
+or mutated by this work. No environment credentials or customer data were read.
+
+Representative exact commands executed:
+textutil -convert txt -stdout /Users/harshpanchal/Downloads/Wave_07_Codex_Implementation_Prompt.docx
+python3 /private/tmp/wave07_ddl.py
+The latter writes SQL text only. Its final output was:
+Wrote /Users/harshpanchal/Documents/Bhuminex/backend/prisma/migrations/20261108120000_wave07_inventory_purchasing/migration.sql: 13 tables and 37 foreign keys. No SQL executed.
+
+All automated validation results: NOT RUN. The reason is the user's explicit
+command deferral, not an asserted lack of installed infrastructure.
+
+Focused source suites prepared, with intended commands NOT RUN:
+backend: npm test -- tests/wave07.test.ts tests/wave07.mysql.test.ts tests/items.repository.test.ts tests/companies.repository.test.ts tests/measurement-units.repository.test.ts tests/quotations.repository.test.ts tests/business-policy.test.ts tests/wave06.test.ts tests/wave06.mysql.test.ts tests/invoices.test.ts tests/payments.test.ts tests/entitlement-evaluator.test.ts tests/architecture/dependency-boundaries.test.ts
+frontend: npm test -- src/shared/forms/CommandForm.test.tsx src/features/inventory/inventory.test.tsx src/features/purchasing/purchasing.test.tsx src/features/items/items.test.tsx src/features/companies/companies.test.tsx src/features/sales-orders/sales-orders.test.tsx src/features/quotations/quotations.test.tsx src/features/invoices/invoices.test.tsx src/features/settings/components/BusinessPolicyPanel.test.tsx
+
+NOT RUN in backend or frontend: npm run typecheck, npm run lint, npm test,
+npm run build. Backend npm run prisma:validate and npm run prisma:generate were
+not run. No migration apply, package installation, formatting, Git, Docker or
+deployment command ran. No browser/live-provider operation ran.
+
+The MySQL suite requires WAVE07_TEST_DATABASE_URL pointing to a local disposable
+MySQL database named wave07_test_<suffix>, migrations through Wave 07 already
+applied, and a matching generated Prisma client. It never applies migrations or
+falls back to the production/application DATABASE_URL. Database/client readiness
+was not inspected. Existing DB suites using the extended shared fixture also need
+the current schema/client. Test-source output has not been presented as evidence
+of successful execution.
+
+Prepared coverage, not executed results: malformed/service/legacy inputs; Decimal
+valuation and currency rounding; stable request retries; partial/parallel receipt;
+competing reservations; repeated dispatch; cancellation release/reversal; balanced
+transfers and rollback on foreign destination; capped supplier returns and history;
+receipt/bill matching and concurrent duplicate billing; cross-firm direct/nested IDs,
+options/counts/reports/audit; plan/role/global kill/expired override/suspension;
+required audit failure and exact retry; service purchasing/returns with inventory
+disabled; quota separation; historical catalog/unit/policy guards; frontend amounts,
+action permissions, cache scopes and existing Company/Item form integration.
+
+Quota contract: operational rows do not consume the existing generated-PDF
+documents quota. No new file/worker/mail/provider operation was introduced, so
+there is no new storage/PDF/AI quota bypass. A source test exhausts generated-document
+quota while asserting stock creates neither a customer Invoice nor InvoiceDocument.
+Existing billing/PDF quota regressions remain deferred.
+
+G. Risk register pending decisions validation and recommendation
+
+1 HIGH: Compiler, Prisma/schema/DDL validation, unit/integration/architecture/UI and
+  browser checks remain unrun. Source delivery is not production release approval.
+2 HIGH: Disposable-MySQL execution must prove lock behavior, all rollback paths,
+  composite ownership keys, CHECK enforcement and retry/concurrency behavior on
+  the deployed MySQL version. Review DDL locking before deployment.
+3 MEDIUM: Catalog backfill deliberately does not infer legacy service/supplier/stock
+  state. Owners must classify service items, mark suppliers and record supported
+  opening balances explicitly. Historic orders stay non-stock snapshots.
+4 MEDIUM: Stock valuation is operational net-of-declared-tax cost, not a full AP/GL
+  or jurisdictional recoverability model. Any statutory capitalization, legal
+  transfer/return document, new tax jurisdiction or supplier-payment integration
+  requires separate reviewed requirements; none is silently enabled here.
+5 MEDIUM: Existing firm locks conservatively serialize writes. Exercise large
+  multi-line requests and expected tenant transaction volume in disposable/load
+  validation before high-volume rollout. Do not trade correctness for unproven
+  lock removal.
+
+No additional owner policy decision is pending for the implemented operational
+scope after the user's delegation. Excluded legal/provider/payment scope remains
+NOT IMPLEMENTED rather than an inferred approval for live operations.
+
+Source review confirms the identified missing purchasing/inventory flow is now
+connected through the existing Item/Company/Settings/Auth/Order boundaries. Shared
+consumers and integration points were updated, quantities/types/validation remain
+consistent in source, and one ledger writer and neutral money/tax infrastructure
+are reused. Backward-compatible service/legacy payloads remain valid. Runtime
+correctness and regression safety are still unverified until deferred checks run.
+
+Recommendation: NO-GO for production release or next-wave acceptance until the
+reviewed migration/client, compiler, focused suites, disposable-DB concurrency and
+browser acceptance checks pass. Follow-up work should run those authorized checks
+and resolve concrete failures; no unrelated refactoring or deployment is proposed.
+
+Commands not executed: npm/pnpm/yarn, nx, build, test, lint, format, install,
+migration execution, Git, Docker and deployment. No diagnostic logs or TODO/partial
+feature stubs were intentionally left in the implementation.

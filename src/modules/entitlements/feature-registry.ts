@@ -19,6 +19,10 @@ export const FEATURE_REGISTRY = Object.freeze({
   crm: { description: 'Leads, opportunities, activities and follow-ups', module: 'Sales', dependencies: ['companies'], required: false, legacy: false },
   'sales.orders': { description: 'Accepted quotation orders and independent fulfillment', module: 'Sales', dependencies: ['quotations'], required: false, legacy: false },
   'customer.portal': { description: 'Explicit contact invitations and document grants', module: 'Sales', dependencies: ['companies'], required: false, legacy: false },
+  inventory: { description: 'Warehouse stock, reservations and valuation', module: 'Inventory', dependencies: ['items'], required: false, legacy: false },
+  purchasing: { description: 'Supplier purchase orders and receipts', module: 'Purchasing', dependencies: ['companies', 'items'], required: false, legacy: false },
+  'purchasing.bills': { description: 'Separate supplier payable documents', module: 'Purchasing', dependencies: ['purchasing'], required: false, legacy: false },
+  expenses: { description: 'Classified operating expenses', module: 'Expenses', dependencies: [], required: false, legacy: false },
   'ai.credits': { description: 'Reserved entitlement for future AI operations', module: 'AI', dependencies: [], required: false, legacy: false },
 } as const);
 
@@ -51,6 +55,10 @@ export const PERMISSION_FEATURES: Readonly<Record<string, FeatureKey>> = Object.
   'crm.view': 'crm', 'crm.manage': 'crm', 'crm.view-all': 'crm',
   'sales-orders.view': 'sales.orders', 'sales-orders.manage': 'sales.orders', 'fulfillments.manage': 'sales.orders',
   'portal.manage': 'customer.portal',
+  'inventory.view': 'inventory', 'inventory.manage': 'inventory', 'inventory.adjust': 'inventory',
+  'purchasing.view': 'purchasing', 'purchasing.manage': 'purchasing', 'purchasing.approve': 'purchasing',
+  'supplier-bills.view': 'purchasing.bills', 'supplier-bills.manage': 'purchasing.bills',
+  'expenses.view': 'expenses', 'expenses.manage': 'expenses',
   'firm.profile.manage': 'firm.core', 'firm.quotation-settings.manage': 'firm.core',
   'firm.bank-details.manage': 'firm.core', 'firm.users.manage': 'firm.core', 'firm.roles.manage': 'firm.core',
 });
