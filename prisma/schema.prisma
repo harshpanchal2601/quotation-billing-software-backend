@@ -31,6 +31,26 @@ enum UserStatus {
   LOCKED
 }
 
+enum CustomerPaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  EXTERNAL_CONFIRMED
+}
+
+enum BillingScheduleStatus {
+  PAUSED
+  ACTIVE
+  CANCELLED
+  COMPLETED
+}
+
+enum BillingScheduleRunStatus {
+  QUEUED
+  DRAFT_CREATED
+  CANCELLED
+}
+
 enum AddressType {
   BILLING
   SHIPPING
@@ -281,6 +301,13 @@ model User {
   invoicesUpdated   Invoice[]              @relation("InvoiceUpdatedBy")
   invoiceChanges    InvoiceStatusHistory[]
   billingDocuments  InvoiceDocument[]
+  customerPayments  CustomerPayment[]
+  paymentAllocations PaymentAllocation[]
+  paymentReversals  PaymentReversal[]
+  customerRefunds   CustomerRefund[]
+  billingSchedules  BillingSchedule[]
+  billingScheduleVersions BillingScheduleVersion[] @relation("BillingScheduleVersionCreator")
+  billingScheduleApprovals BillingScheduleVersion[] @relation("BillingScheduleVersionApprover")
 
   @@index([firmId])
   @@index([firmRoleId])
@@ -311,6 +338,8 @@ model Firm {
   quotations        Quotation[]
   invoices          Invoice[]
   invoiceSetting    InvoiceSetting?
+  customerPayments  CustomerPayment[]
+  billingSchedules  BillingSchedule[]
   termsTemplates    TermsTemplate[]
   importBatches     ImportBatch[]
   auditLogs         AuditLog[]
@@ -470,6 +499,8 @@ model Company {
   addresses   CompanyAddress[]
   quotations  Quotation[]
   invoices    Invoice[]
+  customerPayments CustomerPayment[]
+  billingSchedules BillingSchedule[]
 
   @@unique([firmId, companyCode])
   @@unique([id, firmId])
@@ -659,8 +690,11 @@ model Invoice {
   convertedInvoices       Invoice[]     @relation("ProformaConversion")
   sourceInvoice           Invoice?      @relation("InvoiceAdjustments", fields: [sourceInvoiceId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
   adjustments             Invoice[]     @relation("InvoiceAdjustments")
+  paymentAllocations      PaymentAllocation[]
+  billingScheduleRun      BillingScheduleRun?
 
   @@unique([id, firmId])
+  @@unique([id, firmId, companyId, currency], map: "invoices_id_firm_company_currency_key")
   @@unique([firmId, idempotencyKey])
   @@unique([firmId, documentNumber])
   @@unique([firmId, sourceQuotationId])
@@ -670,6 +704,166 @@ model Invoice {
   @@index([firmId, status, createdAt, id])
   @@index([companyId, firmId])
   @@map("invoices")
+}
+
+// Tenant customer receipts are intentionally separate from platform PaymentEvent.
+model CustomerPayment {
+  id             Int       @id @default(autoincrement())
+  firmId         Int       @map("firm_id")
+  companyId      Int       @map("company_id")
+  currency       String    @db.VarChar(3)
+  amount         Decimal   @db.Decimal(24, 3)
+  method         CustomerPaymentMethod
+  reference      String?   @db.VarChar(191)
+  receivedDate   DateTime  @map("received_date") @db.Date
+  idempotencyKey String    @map("idempotency_key") @db.VarChar(100)
+  requestHash    String    @map("request_hash") @db.Char(64)
+  createdById    Int       @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  firm           Firm      @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  company        Company   @relation(fields: [companyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  allocations    PaymentAllocation[]
+  reversal       PaymentReversal?
+  refunds        CustomerRefund[]
+
+  @@unique([id, firmId])
+  @@unique([id, firmId, companyId, currency], map: "customer_payments_id_firm_company_currency_key")
+  @@unique([firmId, idempotencyKey])
+  @@index([firmId, companyId, currency, id])
+  @@index([firmId, receivedDate, id])
+  @@map("customer_payments")
+}
+
+model PaymentAllocation {
+  id          Int       @id @default(autoincrement())
+  firmId      Int       @map("firm_id")
+  companyId   Int       @map("company_id")
+  currency    String    @db.VarChar(3)
+  paymentId   Int       @map("payment_id")
+  invoiceId   Int       @map("invoice_id")
+  amount      Decimal   @db.Decimal(24, 3)
+  requestKey  String    @map("request_key") @db.VarChar(100)
+  requestHash String    @map("request_hash") @db.Char(64)
+  createdById Int       @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  payment     CustomerPayment @relation(fields: [paymentId, firmId, companyId, currency], references: [id, firmId, companyId, currency], onDelete: Restrict, onUpdate: Restrict)
+  invoice     Invoice   @relation(fields: [invoiceId, firmId, companyId, currency], references: [id, firmId, companyId, currency], onDelete: Restrict, onUpdate: Restrict)
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([paymentId, requestKey, invoiceId])
+  @@index([firmId, invoiceId])
+  @@index([firmId, paymentId])
+  @@index([invoiceId, firmId, companyId, currency], map: "payment_allocations_invoice_owner_idx")
+  @@index([paymentId, firmId, companyId, currency], map: "payment_allocations_payment_owner_idx")
+  @@map("payment_allocations")
+}
+
+model PaymentReversal {
+  id             Int       @id @default(autoincrement())
+  firmId         Int       @map("firm_id")
+  paymentId      Int       @unique @map("payment_id")
+  amount         Decimal   @db.Decimal(24, 3)
+  reason         String    @db.Text
+  idempotencyKey String    @map("idempotency_key") @db.VarChar(100)
+  requestHash    String    @map("request_hash") @db.Char(64)
+  createdById    Int       @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  payment        CustomerPayment @relation(fields: [paymentId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([firmId, idempotencyKey])
+  @@unique([paymentId, firmId])
+  @@map("payment_reversals")
+}
+
+model CustomerRefund {
+  id             Int       @id @default(autoincrement())
+  firmId         Int       @map("firm_id")
+  paymentId      Int       @map("payment_id")
+  amount         Decimal   @db.Decimal(24, 3)
+  paidDate       DateTime  @map("paid_date") @db.Date
+  reference      String    @db.VarChar(191)
+  reason         String    @db.Text
+  idempotencyKey String    @map("idempotency_key") @db.VarChar(100)
+  requestHash    String    @map("request_hash") @db.Char(64)
+  createdById    Int       @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  payment        CustomerPayment @relation(fields: [paymentId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([firmId, idempotencyKey])
+  @@index([paymentId, firmId])
+  @@index([firmId, paymentId])
+  @@map("customer_refunds")
+}
+
+model BillingSchedule {
+  id             Int       @id @default(autoincrement())
+  firmId         Int       @map("firm_id")
+  companyId      Int       @map("company_id")
+  name           String    @db.VarChar(191)
+  status         BillingScheduleStatus @default(PAUSED)
+  version        Int       @default(1)
+  nextPeriod     DateTime  @map("next_period") @db.Date
+  idempotencyKey String    @map("idempotency_key") @db.VarChar(100)
+  requestHash    String    @map("request_hash") @db.Char(64)
+  createdById    Int       @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  firm           Firm      @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  company        Company   @relation(fields: [companyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  versions       BillingScheduleVersion[]
+  runs           BillingScheduleRun[]
+
+  @@unique([id, firmId])
+  @@unique([firmId, idempotencyKey])
+  @@index([firmId, companyId])
+  @@index([status, nextPeriod, id])
+  @@map("billing_schedules")
+}
+
+model BillingScheduleVersion {
+  id          Int       @id @default(autoincrement())
+  firmId      Int       @map("firm_id")
+  scheduleId  Int       @map("schedule_id")
+  version     Int
+  config      Json
+  preview     Json
+  approvedAt  DateTime? @map("approved_at")
+  approvedById Int?     @map("approved_by_id")
+  createdById Int       @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  schedule    BillingSchedule @relation(fields: [scheduleId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy   User      @relation("BillingScheduleVersionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy  User?     @relation("BillingScheduleVersionApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+  runs        BillingScheduleRun[]
+
+  @@unique([scheduleId, firmId, version])
+  @@map("billing_schedule_versions")
+}
+
+model BillingScheduleRun {
+  id          Int       @id @default(autoincrement())
+  firmId      Int       @map("firm_id")
+  scheduleId  Int       @map("schedule_id")
+  version     Int
+  period      DateTime  @db.Date
+  status      BillingScheduleRunStatus @default(QUEUED)
+  retryCount  Int       @default(0) @map("retry_count")
+  invoiceId   Int?      @unique @map("invoice_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+  schedule    BillingSchedule @relation(fields: [scheduleId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  revision    BillingScheduleVersion @relation(fields: [scheduleId, firmId, version], references: [scheduleId, firmId, version], onDelete: Restrict, onUpdate: Restrict)
+  invoice     Invoice?  @relation(fields: [invoiceId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([scheduleId, period])
+  @@index([firmId, createdAt, id])
+  @@index([scheduleId, firmId, version])
+  @@unique([invoiceId, firmId])
+  @@map("billing_schedule_runs")
 }
 
 model InvoiceSetting {

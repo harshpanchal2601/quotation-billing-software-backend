@@ -13,6 +13,9 @@ export const FEATURE_REGISTRY = Object.freeze({
   'billing.invoices': { description: 'Invoice drafts, issuance and document history', module: 'Billing', dependencies: ['companies'], required: false, legacy: false },
   'billing.proforma': { description: 'Non-posting proforma documents', module: 'Billing', dependencies: ['billing.invoices'], required: false, legacy: false },
   'billing.adjustments': { description: 'Traceable credit and debit notes', module: 'Billing', dependencies: ['billing.invoices'], required: false, legacy: false },
+  'payments.record': { description: 'Customer receipts, allocation and receivables', module: 'Payments', dependencies: ['billing.invoices'], required: false, legacy: false },
+  'payments.manage': { description: 'Receipt reversals and confirmed refund tracking', module: 'Payments', dependencies: ['payments.record'], required: false, legacy: false },
+  'billing.recurring': { description: 'Approved recurring invoice draft schedules', module: 'Billing', dependencies: ['billing.invoices'], required: false, legacy: false },
   'ai.credits': { description: 'Reserved entitlement for future AI operations', module: 'AI', dependencies: [], required: false, legacy: false },
 } as const);
 
@@ -40,6 +43,8 @@ export const PERMISSION_FEATURES: Readonly<Record<string, FeatureKey>> = Object.
   'proformas.view': 'billing.proforma', 'proformas.manage': 'billing.proforma',
   'billing-adjustments.view': 'billing.adjustments', 'billing-adjustments.manage': 'billing.adjustments',
   'firm.invoice-fields.manage': 'billing.invoices', 'firm.billing-settings.manage': 'billing.invoices',
+  'payments.view': 'payments.record', 'payments.record': 'payments.record', 'payments.manage': 'payments.manage',
+  'billing.recurring': 'billing.recurring',
   'firm.profile.manage': 'firm.core', 'firm.quotation-settings.manage': 'firm.core',
   'firm.bank-details.manage': 'firm.core', 'firm.users.manage': 'firm.core', 'firm.roles.manage': 'firm.core',
 });

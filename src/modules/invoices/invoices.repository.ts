@@ -16,6 +16,7 @@ import { readInvoiceSettings, InvoiceSettingsRepository } from './invoice-settin
 import { assertCreditReductionEligibility, assertStateCode, domesticGstMode, financialYear, formatBillingNumber, indiaToday, isValidGstin, INDIA_STATES } from './india-gst.js';
 import { customFieldDefinitionsSchema, type AdjustmentInput, type InvoiceDraftInput, type InvoiceUpdateInput, type InvoiceLineInput, type InvoiceListInput, type SupplyInput, type conversionSchema } from './invoices.schema.js';
 import type { z } from 'zod';
+import { readInvoiceSettlement } from './invoice-settlement.repository.js';
 
 export const invoiceInclude = { lines: { orderBy: { lineNumber: 'asc' as const } }, statusHistory: { orderBy: { version: 'asc' as const } } } satisfies Prisma.InvoiceInclude;
 export type InvoiceRecord = Prisma.InvoiceGetPayload<{ include: typeof invoiceInclude }>;
@@ -133,16 +134,21 @@ export class InvoicesRepository {
     await tx.invoiceStatusHistory.create({ data: { firmId, invoiceId: id, version, changedById: actorId, fromStatus, toStatus } });
   }
   async preview(firmId: number, actorId: number, input: InvoiceDraftInput, scope: DocumentScope) {
-    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+    return withFirmEntitlementTransaction(this.db, firmId, (tx) => this.previewInTransaction(tx, firmId, actorId, input, scope));
+  }
+  async previewInTransaction(tx: Prisma.TransactionClient, firmId: number, actorId: number, input: InvoiceDraftInput, scope: DocumentScope) {
       await this.authorize(tx, firmId, actorId, scope, 'create');
       await this.buyer(tx, firmId, input);
       const { policy } = await this.policy(tx, firmId, input.supply);
       const enriched = await this.enrichLines(tx, firmId, input.lines);
       return { currency: policy.currency, financialPolicy: policy, ...calculateInvoiceLines(enriched.lines, policy, enriched.codes) };
-    });
   }
   async create(firmId: number, actorId: number, input: InvoiceDraftInput, scope: 'INVOICE' | 'PROFORMA', metadata: RequestMetadata) {
-    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+    return withFirmEntitlementTransaction(this.db, firmId, (tx) => this.createInTransaction(tx, firmId, actorId, input, scope, metadata));
+  }
+  // The caller owns the existing firm lock. This keeps outbox completion, draft
+  // history and schedule advancement in the same database transaction.
+  async createInTransaction(tx: Prisma.TransactionClient, firmId: number, actorId: number, input: InvoiceDraftInput, scope: 'INVOICE' | 'PROFORMA', metadata: RequestMetadata) {
       await this.authorize(tx, firmId, actorId, scope, 'create');
       const hash = requestHash({ scope, input });
       const previous = await tx.invoice.findUnique({ where: { firmId_idempotencyKey: { firmId, idempotencyKey: input.idempotencyKey } }, include: invoiceInclude });
@@ -167,7 +173,6 @@ export class InvoicesRepository {
       const record = await this.find(tx, firmId, row.id, scope);
       await this.audit(tx, firmId, actorId, record, AuditAction.CREATE, metadata);
       return serialiseInvoice(record);
-    });
   }
   async update(firmId: number, actorId: number, id: number, input: InvoiceUpdateInput, scope: DocumentScope, metadata: RequestMetadata) {
     return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
@@ -233,6 +238,8 @@ export class InvoicesRepository {
           const eligibility = (old.sourceSnapshot as Prisma.JsonObject).eligibility as { gstReductionEligible: boolean; annualReturnFiledAt: string | null; recipientItcReversalConfirmed: boolean };
           if (policy.registration === 'REGULAR') assertCreditReductionEligibility(dateOnly(source.invoiceDate)!, today, eligibility, Boolean(buyer.gstin));
           await this.assertCreditCapacity(tx, firmId, source, lines);
+          const settlement = await readInvoiceSettlement(tx, firmId, source.id);
+          if (decimal(settlement.adjustedTotal).sub(old.grandTotal).lt(settlement.allocated)) throw new AppError('Credit note would exceed the unallocated invoice balance; correct receipt allocations first', 409);
         }
       }
       const sequence = await reserveDocumentSequence(tx, { firmId, documentType: old.kind, period: financialYear(today).period });
@@ -282,6 +289,7 @@ export class InvoicesRepository {
       if (indiaToday(old.issuedAt!) !== indiaToday()) throw new AppError('Only an unreported document cancelled on its issue date can be voided; use an adjustment otherwise', 409);
       const dependants = await tx.invoice.count({ where: { firmId, OR: [{ sourceInvoiceId: id }, { sourceProformaId: id }] } });
       if (dependants > 0) throw new AppError('A document with adjustments or a conversion cannot be voided', 409);
+      if (scope === 'INVOICE' && decimal((await readInvoiceSettlement(tx, firmId, id)).allocated).gt(0)) throw new AppError('Reverse allocated receipts before voiding this invoice', 409);
       await tx.invoice.updateMany({ where: { id, firmId, status: 'ISSUED', version: expectedVersion }, data: { status: 'VOID', version: { increment: 1 }, voidedAt: new Date(), voidReason: reason, updatedById: actorId } });
       await this.history(tx, firmId, id, old.version + 1, actorId, 'ISSUED', 'VOID');
       const record = await this.find(tx, firmId, id, scope);

@@ -1,10 +1,8 @@
 import { z } from 'zod';
+import { dateOnlySchema } from '../../core/validation/date-only.js';
+export { dateOnlySchema } from '../../core/validation/date-only.js';
 
 export const documentKinds = ['INVOICE', 'PROFORMA', 'CREDIT_NOTE', 'DEBIT_NOTE'] as const;
-export const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}, 'Enter a valid date');
 const amount = z.string().regex(/^\d{1,12}(?:\.\d{1,3})?$/, 'Use a non-negative decimal string with up to three decimal places');
 const quantity = z.string().regex(/^\d{1,9}(?:\.\d{1,3})?$/).refine((v) => /[1-9]/.test(v), 'Quantity must be positive');
 export const taxRateSchema = z.string().regex(/^(?:100(?:\.00?)?|\d{1,2}(?:\.\d{1,2})?)$/);

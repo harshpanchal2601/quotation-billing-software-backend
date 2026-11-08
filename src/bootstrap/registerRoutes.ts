@@ -14,6 +14,8 @@ import { administrationRouter } from '../modules/administration/index.js';
 import { auditLogsRouter } from '../modules/audit-logs/index.js';
 import { notificationsRouter } from '../modules/notifications/index.js';
 import { invoicesRouter, proformasRouter, billingAdjustmentsRouter, billingSettingsRouter } from '../modules/invoices/index.js';
+import { paymentsRouter, receivablesRouter } from '../modules/payments/index.js';
+import { billingSchedulesRouter } from '../modules/billing-schedules/index.js';
 
 export const apiRouter = Router();
 
@@ -33,5 +35,8 @@ apiRouter.use('/invoices', invoicesRouter);
 apiRouter.use('/proformas', proformasRouter);
 apiRouter.use('/billing-adjustments', billingAdjustmentsRouter);
 apiRouter.use('/billing-settings', billingSettingsRouter);
+apiRouter.use('/payments', paymentsRouter);
+apiRouter.use('/receivables', receivablesRouter);
+apiRouter.use('/billing-schedules', billingSchedulesRouter);
 apiRouter.use('/dashboard', dashboardRouter);
 apiRouter.use('/health', healthRouter);

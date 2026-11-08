@@ -1,0 +1,270 @@
+Wave 05 customer payments and recurring billing delivery
+Date: 3 November 2026
+Status: Source changes applied. Runtime verification and wave acceptance pending.
+
+A. Baseline inventory
+
+Repository metadata was read directly without executing Git:
+backend: feat/wave5, HEAD 686716e9ff96c66d7f6450e0a08a2778cb2ccfa0
+frontend: feat/wave5, HEAD c896f09d1b449a768a23e591aa61ee9e2628c4c0
+Working-tree status/diff was not inspected with Git, per the user's restriction.
+These hashes identify the checkout; they do not assert a clean working tree.
+
+Already present: Wave 04 invoice/proforma/adjustment lifecycle and immutable
+issue snapshots; Wave 03 Decimal/currency/tax helpers, outbox leases and required
+audit support; Wave 02 plan entitlements and firm transaction locks; Wave 01
+firm identity and role checks. Existing relevant suites include
+tests/invoices.test.ts, tests/wave04.mysql.test.ts, tests/money-tax.test.ts,
+tests/outbox.test.ts and tests/architecture/dependency-boundaries.test.ts.
+Companies and dashboard repositories and their frontend consumers were inspected.
+Their existing quotation behavior was retained.
+
+Missing at baseline: tenant customer receipts/allocations/refunds/reversals,
+receivable projections, recurring schedules and their UI. Platform PaymentEvent
+records already existed and remain separate from tenant receipts.
+
+No approved customer reminder consent, quiet-hours, grace or suppression policy
+was found in the affected repository paths. NotificationPreference controls
+existing in-app notifications, not customer payment-reminder consent.
+Prior-wave acceptance and deployed database readiness were not runtime verified.
+
+B. Change plan versus executed changes
+
+The planned payment, receivable, recurring, invoice integration, authorization,
+job and UI changes were applied. Shared date validation, request hashing and
+frontend firm/date helpers were added/extracted because multiple affected flows
+need them. Existing invoice creation and calculation remain the single draft
+workflow. No dependency or lockfile changes were made.
+
+Paths below are relative to the named repository. Each row identifies the change
+and the existing behavior or infrastructure it reuses.
+
+Backend file | Kind | Reason and logic / reuse
+prisma/schema.prisma | Edited | Seven tenant financial/schedule models, typed states, relations and ownership/idempotency indexes; existing Company/Firm/User/Invoice.
+prisma/migrations/20261103120000_wave05_customer_payments/migration.sql | Added | Additive tables, checks, indexes and restrictive composite foreign keys; Wave 04 schema.
+src/core/idempotency/request-hash.ts | Added | Canonical JSON request hashing shared by the new payment and schedule commands; node:crypto.
+src/core/validation/date-only.ts | Added | Existing invoice calendar-date validation extracted for shared schemas; Zod.
+src/modules/auth/permissions.ts | Edited | Payment view/record/manage and recurring grants plus implied access; existing grant expansion.
+src/modules/entitlements/feature-registry.ts | Edited | Explicit opt-in payment/recurring features and dependencies; existing evaluator and plan controls.
+src/bootstrap/registerRoutes.ts | Edited | Mount payment, receivable and schedule routers through public indexes.
+src/bootstrap/outbox-worker.ts | Edited | Register transactional recurring handler and bounded due discovery; existing worker and leases.
+src/modules/invoices/invoices.repository.ts | Edited | Share transaction-owned draft preview/create; block settlement-invalidating credits and voids; existing lifecycle/locking/audit.
+src/modules/invoices/invoices.schema.ts | Edited | Reuse/re-export extracted date validation without changing invoice contracts.
+src/modules/invoices/index.ts | Edited | Narrow settlement, calendar and recurring-draft public contracts.
+src/modules/invoices/recurring-drafts.ts | Added | Copy manual draft templates and delegate preview/create to the existing invoice repository; no second calculation engine.
+src/modules/invoices/invoice-settlement.ts | Added | Pure adjusted-total, allocation, outstanding and calendar-ageing projection; existing Decimal money helpers.
+src/modules/invoices/invoice-settlement.repository.ts | Added | Firm-scoped aggregate projection of issued adjustments and valid allocations; existing invoice ownership.
+src/modules/payments/payment-balances.ts | Added | Exact receipt/refund/reversal/unapplied arithmetic and currency precision validation; existing money primitives.
+src/modules/payments/payments.schema.ts | Added | Strict confirmed-manual receipt, allocation, reversal/refund and query schemas; shared date validation.
+src/modules/payments/payments.repository.ts | Added | Transaction-safe append-only commands, request replay/conflict checks, scoped reads and required audit; firm locks/auth/entitlements.
+src/modules/payments/receivables.repository.ts | Added | Current receivables and ageing in separate currency buckets plus unapplied credit; SQL aggregates and invoice projection.
+src/modules/payments/payment-links.ts | Added | Provider-neutral type contract and disabled capabilities; no registered gateway or webhook route.
+src/modules/payments/payments.routes.ts | Added | Validated HTTP contracts with existing authentication, tenant context, permissions and response helpers.
+src/modules/payments/index.ts | Added | Narrow router and provider-type exports.
+src/modules/billing-schedules/billing-periods.ts | Added | Anchor-based monthly/quarterly/yearly period progression and date arithmetic.
+src/modules/billing-schedules/billing-schedules.schema.ts | Added | Schedule/version/approval/retry validation; public invoice draft schema and shared dates.
+src/modules/billing-schedules/billing-schedules.repository.ts | Added | Paused creation, frozen configuration versions, reviewed approval, due discovery, transactional draft generation and durable retries; existing invoices/outbox/auth/audit.
+src/modules/billing-schedules/billing-schedules.routes.ts | Added | Tenant-scoped schedule endpoints with separate recurring and invoice-create authorization.
+src/modules/billing-schedules/index.ts | Added | Explicit router, discovery and worker exports.
+tests/payments.test.ts | Added | Arithmetic, precision, ageing boundaries, month-end anchors, schema authority and grant fixtures.
+tests/wave05.mysql.test.ts | Added | Authenticated two-firm financial/concurrency/retry/negative/audit/quota/regression sources; existing fixture, app and worker.
+tests/helpers/two-firm-fixture.ts | Edited | Support disposable wave05 database names and dependency-ordered cleanup of new tables; existing fixture.
+docs/implementation/wave-05-delivery-report.txt | Added | This file-by-file delivery, acceptance and risk record.
+
+Frontend file | Kind | Reason and logic / reuse
+src/shared/tenancy/useFirmId.ts | Added | Share the existing authenticated/selected firm identity logic.
+src/shared/dates/billingDate.ts | Added | Share the existing Asia/Kolkata billing-date behavior.
+src/shared/routing/paths.ts | Edited | Payment, receivable and recurring navigation paths.
+src/app/router/routeConfig.tsx | Edited | Entitled navigation entries and receipt detail title; existing navigation guards.
+src/app/router/router.tsx | Edited | Lazy routes guarded by payment/recurring/invoice-create grants.
+src/features/auth/model/permissions.ts | Edited | Match the new backend public grants.
+src/features/invoices/model/invoices.query-keys.ts | Edited | Preserve useBillingFirmId as an alias of the shared firm helper.
+src/features/invoices/components/InvoiceDraftForm.tsx | Edited | Reuse shared billing date; preserve existing draft form behavior.
+src/features/invoices/pages/InvoiceDetailsPage.tsx | Edited | Issued-invoice settlement panel, manual-template schedule link and payment cache invalidation after lifecycle commands.
+src/features/invoices/invoices.test.tsx | Edited | Isolate existing invoice tests from the new payment panel; separate payment tests cover it.
+src/features/companies/pages/CompanyDetailsPage.tsx | Edited | Show authorized customer balance/credit in the existing overview.
+src/features/companies/companies.test.tsx | Edited | Isolate existing company tests from the independent balance query.
+src/features/dashboard/pages/DashboardPage.tsx | Edited | Add authorized currency-separated receivable summary after the existing header.
+src/features/dashboard/dashboard.test.tsx | Edited | Isolate existing quotation dashboard tests from the independent financial summary.
+src/features/payments/payments.types.ts | Added | Public receipt, summary, allocation and receivable DTO contracts.
+src/features/payments/payments.api.ts | Added | Existing ApiSuccessResponse unwrapping and API client for payment/receivable endpoints.
+src/features/payments/payments.queries.ts | Added | Firm-specific query keys, currency options and shared date export.
+src/features/payments/AllocationFields.tsx | Added | Paginated eligible invoices and explicit string-valued allocations; no client-side money engine.
+src/features/payments/ReceiptForm.tsx | Added | Customer/currency/method/reference/date receipt entry, confirmation and optional allocations/advance; existing query/mutation/UI patterns.
+src/features/payments/PaymentsPage.tsx | Added | Paginated/searchable receipts, customer filtering, receipt dialog and disabled capability information.
+src/features/payments/PaymentDetailsPage.tsx | Added | Allocations, unapplied/refund/reversal amounts, actor provenance and authorized compensation/refund commands.
+src/features/payments/ReceivablesPanel.tsx | Added | Currency-partitioned ageing/customer credit and paginated outstanding invoices; shared by customer/dashboard/page.
+src/features/payments/InvoiceSettlementPanel.tsx | Added | Ledger-derived invoice status/balance and receipt provenance links.
+src/features/payments/index.ts | Added | Explicit pages and integration panel exports.
+src/features/payments/payments.test.tsx | Added | Receipt confirmation, exact decimal strings, currency partitions, settlement display and denied-read sources.
+src/features/billing-schedules/billing-schedules.api.ts | Added | Schedule, preview, revision, approval, cancellation and retry contracts through existing API client.
+src/features/billing-schedules/BillingSchedulesPage.tsx | Added | Paused template-based creation, reviewed approval, revisions, pause/cancel and latest version/run history with retries.
+src/features/billing-schedules/index.ts | Added | Narrow page export.
+src/features/billing-schedules/billing-schedules.test.tsx | Added | Explicit-preview approval and stale-preview conflict sources.
+
+C. Database migration summary
+
+Adds customer_payments, payment_allocations, payment_reversals, customer_refunds,
+billing_schedules, billing_schedule_versions and billing_schedule_runs.
+Adds one composite unique index to existing invoices; no existing financial
+columns, historical rows, documents or subscription receipts are rewritten.
+Customer credit is a projection, not a separate mutable balance table.
+
+Money columns use DECIMAL(24,3); accepted input respects the existing supported
+currency scales. Allocations reference both receipt and invoice through the same
+(id, firm, customer, currency) tuple. Database checks enforce positive receipt,
+allocation and refund amounts, nonnegative reversal amounts and valid counters.
+Reversal uniqueness permits only one compensating record per receipt.
+Request-key uniqueness and stored payload hashes reject conflicting replays.
+Schedule/period uniqueness and unique generated invoice linkage prevent duplicate
+period invoices. Aggregate read indexes start with firm ownership where needed.
+
+Backfill: none. Historical external settlements must be entered as explicit,
+reconciled receipts; no opening financial balances were guessed.
+Rollout: validate and apply to a disposable MySQL database first, regenerate the
+Prisma client, then run the deferred checks before any production rollout.
+No migration was applied in this session. MySQL CHECK enforcement/version and
+DDL lock duration remain deployment validation items.
+Rollback before financial use can revert application exposure while leaving the
+additive schema in place. After financial use, preserve all records and use a
+reviewed forward fix/compensation; do not drop ledger tables to roll back.
+
+D. API, domain, feature and ownership mapping
+
+All paths below are under /api/v1 and use authenticated server-derived firmId.
+
+GET /payments, /payments/:id, /payments/capabilities
+GET /receivables/aging, /receivables/invoices/:id
+  Permission payments.view; feature payments.record -> billing.invoices -> companies.
+POST /payments; POST /payments/:id/allocate; GET /payments/options/customers
+  Permission payments.record; feature payments.record.
+POST /payments/:id/reverse; POST /payments/:id/refunds
+  Permission payments.manage; feature payments.manage -> payments.record.
+GET/POST /billing-schedules; GET/PATCH /billing-schedules/:id
+GET /billing-schedules/:id/preview
+POST /billing-schedules/:id/approve, /pause, /cancel
+POST /billing-schedules/:id/runs/:runId/retry
+  Permissions billing.recurring AND invoices.create; features billing.recurring
+  and billing.invoices. Workers revalidate the approved actor and both features.
+
+Tenant ownership chart:
+Firm -> Company -> CustomerPayment -> Allocation/Reversal/Refund
+Firm -> Company -> Invoice <- Allocation
+Firm -> Company -> BillingSchedule -> Version -> PeriodRun -> Invoice draft
+Firm -> OutboxEvent -> JobAttempt; durable payload IDs are checked against that firm.
+Firm -> required audit records; existing audit reads remain firm scoped.
+PlatformCharge -> PaymentEvent remains a separate existing subscription ledger.
+
+RBAC and plan checks occur on HTTP actions and again in command transactions.
+Reads use consistent transaction snapshots; writes use the existing firm lock.
+New features are not silently enabled for legacy subscriptions or existing plans.
+The platform owner must explicitly include them in approved plan versions.
+Payment record/manage grants imply view; manage also implies record. Recurring
+grants imply invoice view/create; the backend still checks both actions explicitly.
+No new receipt/schedule quota policy was invented. Existing PDF/storage quotas
+continue to apply when generated drafts use the normal document workflow.
+
+E. Feature and acceptance mapping
+
+Specification section 2:
+1 Payment recording: SOURCE IMPLEMENTED, confirmed manual cash/cleared bank/
+  external receipts with authorization and provenance. Runtime acceptance pending.
+2 Partial/full settlement: SOURCE IMPLEMENTED, explicit multi-invoice allocations
+  under the shared firm transaction lock; no cross-customer/currency allocation.
+3 Advances: SOURCE IMPLEMENTED, unapplied same-customer/currency credit projection.
+4 Reversals/refunds: SOURCE IMPLEMENTED. Refunds cannot exceed unapplied funds;
+  reversal compensates the original amount less historical refunds and invalidates
+  original allocations once. Original records are preserved. No write-offs.
+5 Receivables/ageing: SOURCE IMPLEMENTED, issued adjustments and valid allocations
+  reconcile outstanding, with separate currency buckets and the existing Indian
+  billing-day boundary. No reminder-specific grace policy is inferred.
+6 Payment reminders: BLOCKED / NOT IMPLEMENTED beyond disabled capability UX.
+  No approved customer reminder policy was found. No ReminderAttempt table,
+  customer delivery job or automatic email was introduced without that policy.
+7 Recurring invoices: SOURCE IMPLEMENTED, monthly/quarterly/yearly anchored
+  schedules, frozen template versions, explicit preview/approval, draft-only
+  generation, missed-period catch-up, cancellation and durable retries.
+  Cadence/start changes require explicit cancellation and a new schedule.
+  Unfinished run revisions retain their old outbox payloads/audit before requeue;
+  financial snapshots of generated/issued invoices remain unchanged.
+8 Payment links: NON-LIVE INTERFACE IMPLEMENTED as approved. Live adapter, gateway
+  events and signature verification are NOT IMPLEMENTED pending provider contract.
+9 Permissions/plans: SOURCE IMPLEMENTED with explicit grants and dependencies.
+
+Specification section 11 acceptance checks:
+1 Balance reconciliation: implementation and test sources present; NOT RUN.
+2 Full/partial/advance display: implementation and test sources present; NOT RUN.
+3 Reversal restores balances and history: implementation/test sources present; NOT RUN.
+4 No duplicate recurring period: implementation/test sources present; NOT RUN.
+5 Firm isolation for access/allocation/reversal: implementation/test sources present; NOT RUN.
+6 Critical accounting audit: required transactional audit implemented; NOT RUN.
+  Gateway callback audit is not applicable to the approved non-live interface.
+
+F. Validation and test results
+
+No restricted command was executed. Static source inspection is not a passing
+typecheck, schema validation, test suite, build or runtime acceptance result.
+
+New test sources cover:
+- Decimal precision, partial/advance/multi-invoice allocation and refund/reversal arithmetic.
+- Exact India billing-day ageing boundaries and currency-separated reports.
+- Concurrent receipts and allocations, replay conflicts and required-audit rollback.
+- Foreign receipt/customer/invoice/run IDs; direct-ID and nested probes; scoped audit reads.
+- Recording without reversal authority, denied plans/roles, expired grants, global
+  hard disables and suspended firms.
+- Stable month-end/leap-year periods, duplicate discovery/replays, missed periods,
+  explicit retry, cancellation, revoked worker actors and unfinished version replacement.
+- Ordinary invoice issuance and PDF quota enforcement for a generated recurring draft.
+- Frontend confirmation, string amounts, provenance, currency partitions, denied
+  reads, firm query keys and explicit/stale schedule approval.
+
+Deferred focused commands (NOT RUN; commands intentionally withheld by user):
+backend: npm test -- tests/payments.test.ts tests/wave05.mysql.test.ts tests/invoices.test.ts tests/wave04.mysql.test.ts tests/outbox.test.ts tests/architecture/dependency-boundaries.test.ts
+frontend: npm test -- src/features/payments/payments.test.tsx src/features/billing-schedules/billing-schedules.test.tsx src/features/invoices/invoices.test.tsx src/features/companies/companies.test.tsx src/features/dashboard/dashboard.test.tsx
+
+The MySQL suite requires WAVE05_TEST_DATABASE_URL pointing to a local disposable
+mysql database named wave05_test_<suffix>, the Wave 05 migration already applied,
+and a regenerated Prisma client. It never applies migrations, falls back to a
+production URL, sends external mail or uses shared storage for fixture PDFs.
+Availability of these runtime prerequisites was not checked in this session.
+
+Also NOT RUN in either repository: npm run typecheck, npm run lint, npm test,
+npm run build. Backend npm run prisma:validate and npm run prisma:generate were
+not run. No package installation, migration execution, Git command, Docker
+operation, deployment, live gateway contract test or external financial action ran.
+No actual passing test output is claimed. Browser/end-to-end runtime validation
+and negative-case outcomes remain unverified until the deferred checks run.
+
+Static review confirms the intended root integration: issuance/void/adjustment
+and allocation commands use the same firm lock, balances remain projections,
+invoice calculations/draft creation remain shared, and invoice lifecycle actions
+invalidate payment-balance caches. Public invoice contracts were preserved except
+the added guards required to protect newly allocated money. No duplicate provider,
+calculation engine, mutable paidBalance, temporary diagnostic logs or TODOs were added.
+
+G. Risks, decisions and next-wave recommendation
+
+Approved by the user: same-customer/currency advance credit; explicit allocations;
+refunds limited to unapplied funds; no write-offs; payment links remain non-live.
+
+Pending owner decision: customer reminder consent evidence, overdue grace,
+business sending days/hours, quiet-hours, recipient suppression/opt-out and
+delivery policy. Existing in-app preference is insufficient for these decisions.
+No reminders will send until this portion is separately approved and implemented.
+
+Known validation risks: the new Prisma schema/client, additive SQL and TypeScript
+have not been executed or compiled; MySQL transactional behavior, database checks,
+negative routes and browser behavior remain unverified. Financial data should be
+reconciled on a disposable/staging copy before production use. Confirm Waves 00-04
+acceptance and issued-invoice stability before rollout.
+Operational dependency: the existing OUTBOX_WORKER_ENABLED setting must be enabled
+in an approved runtime for automatic recurring discovery/delivery. No environment
+configuration or running process was changed here.
+Limits: same currency only; current receivables rather than historical as-of
+reports; monthly/quarterly/yearly cadence; latest 100 schedule versions/periods in
+the detail view, with all durable records retained in storage/audit.
+
+Recommendation: NO-GO for accepting this wave, production rollout or a dependent
+next wave until the deferred validation passes and the reminder policy/work is
+resolved or explicitly deferred from acceptance. The source changes are ready
+for review; they are not a claim of production verification.
