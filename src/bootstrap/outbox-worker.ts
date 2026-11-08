@@ -5,6 +5,7 @@ import { OutboxRepository, startOutboxWorker } from '../core/outbox/index.js';
 import { inAppNotificationHandler } from '../modules/notifications/index.js';
 import { billingSchedulesRepository, recurringDraftHandler } from '../modules/billing-schedules/index.js';
 import { workflowHandler, workflowNotificationHandler } from '../modules/automation/index.js';
+import { purgeExpiredAssistantContent } from '../modules/assistant/index.js';
 
 export function startConfiguredOutboxWorker() {
   if (!env.OUTBOX_WORKER_ENABLED) return { stop: async () => undefined };
@@ -14,6 +15,8 @@ export function startConfiguredOutboxWorker() {
     // the existing notification queue from making progress.
     try { await billingSchedulesRepository.dispatchDue(); }
     catch { console.error('Recurring schedule discovery failed; durable schedules retained.'); }
+    try { await purgeExpiredAssistantContent(); }
+    catch { console.error('Assistant content retention sweep failed; pending expirations retained.'); }
     return repository.runOne(workerId);
   } }, `local:${randomUUID()}`, env.OUTBOX_POLL_INTERVAL_MS);
 }

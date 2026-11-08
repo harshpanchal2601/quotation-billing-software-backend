@@ -24,7 +24,8 @@ export const FEATURE_REGISTRY = Object.freeze({
   'purchasing.bills': { description: 'Separate supplier payable documents', module: 'Purchasing', dependencies: ['purchasing'], required: false, legacy: false },
   expenses: { description: 'Classified operating expenses', module: 'Expenses', dependencies: [], required: false, legacy: false },
   automation: { description: 'Tenant workflows, approvals, templates and custom fields', module: 'Automation', dependencies: [], required: false, legacy: false },
-  'ai.credits': { description: 'Reserved entitlement for future AI operations', module: 'AI', dependencies: [], required: false, legacy: false },
+  'assistant.local': { description: 'Local business assistant', module: 'AI', dependencies: [], required: false, legacy: false },
+  'ai.credits': { description: 'Connected LLM business assistant', module: 'AI', dependencies: [], required: false, legacy: false },
 } as const);
 
 for (const definition of Object.values(FEATURE_REGISTRY)) {
@@ -38,6 +39,7 @@ export const QUOTA_KEYS = ['users', 'documents', 'storageBytes', 'aiCredits'] as
 export type QuotaKey = (typeof QUOTA_KEYS)[number];
 
 export const PERMISSION_FEATURES: Readonly<Record<string, FeatureKey>> = Object.freeze({
+  'assistant.local': 'assistant.local', 'assistant.llm': 'ai.credits', 'assistant.settings.manage': 'firm.core',
   'dashboard.view': 'dashboard',
   'companies.view': 'companies', 'companies.manage': 'companies',
   'catalog.view': 'catalog', 'catalog.manage': 'catalog',

@@ -5,8 +5,12 @@ import { calculateQuotationTotals } from '../src/modules/quotations/calculations
 import { validateStatusTransition } from '../src/modules/quotations/quotation-status.js';
 import { QuotationsRepository } from '../src/modules/quotations/quotations.repository.js';
 import { calculationPreviewSchema, quotationCreateSchema } from '../src/modules/quotations/quotations.schema.js';
+import { AppError } from '../src/core/errors/AppError.js';
 
 vi.mock('../src/modules/automation/runtime.js', () => ({ enforceApproval: vi.fn(), emitAutomationEvent: vi.fn(), discountPercentage: vi.fn(() => '0') }));
+const statusAccess = vi.hoisted(() => ({ actor: vi.fn(), feature: vi.fn() }));
+vi.mock('../src/modules/auth/index.js', () => ({ authorizeFirmJobActor: statusAccess.actor }));
+vi.mock('../src/modules/entitlements/index.js', async (original) => ({ ...(await original<typeof import('../src/modules/entitlements/index.js')>()), assertTransactionFeature: statusAccess.feature }));
 
 type MockPrisma = {
   documentSequence: { findUniqueOrThrow: ReturnType<typeof vi.fn> };
@@ -253,6 +257,7 @@ describe('quotations repository', () => {
   let db: MockPrisma;
 
   beforeEach(() => {
+    statusAccess.actor.mockReset(); statusAccess.feature.mockReset();
     db = createMockPrisma();
     db.auditLog.create.mockResolvedValue({ id: 1 });
     db.quotation.updateMany.mockResolvedValue({ count: 1 });
@@ -451,6 +456,15 @@ describe('quotations repository', () => {
     )).rejects.toMatchObject({ statusCode: 409 });
     expect(db.quotationStatusHistory.create).not.toHaveBeenCalled();
     expect(db.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('rechecks actor permission and feature access before entering a quotation status command', async () => {
+    statusAccess.actor.mockRejectedValueOnce(new AppError('Status permission revoked', 403));
+    await expect(new QuotationsRepository(asPrisma(db)).updateQuotationStatus(1, 1, { status: QuotationStatus.SENT }, { firmId: 1, userId: 1 }, 1)).rejects.toMatchObject({ statusCode: 403 });
+    expect(db.quotation.findFirst).not.toHaveBeenCalled();
+    statusAccess.feature.mockRejectedValueOnce(new AppError('Quotation feature disabled', 403));
+    await expect(new QuotationsRepository(asPrisma(db)).updateQuotationStatus(1, 1, { status: QuotationStatus.SENT }, { firmId: 1, userId: 1 }, 1)).rejects.toMatchObject({ statusCode: 403 });
+    expect(db.quotation.updateMany).not.toHaveBeenCalled();
   });
 
   it.each(['history', 'audit'])('propagates %s failures out of the status transaction', async (failurePoint) => {

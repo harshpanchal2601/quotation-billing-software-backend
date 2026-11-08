@@ -68,19 +68,20 @@ export class InventoryRepository {
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
   async adjust(firmId: number, actorId: number, input: z.infer<typeof stockAdjustmentSchema>, metadata: RequestMetadata) {
-    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
-      await this.access(tx, firmId, actorId, PERMISSIONS.STOCK_ADJUST);
-      const result = await operation(tx, firmId, actorId, 'ADJUSTMENT', input);
-      if (result.replayed) return result.row;
-      const { itemId, ...adjustment } = input;
-      await enforceApproval(tx, firmId, actorId, { action: 'STOCK_ADJUST', entityId: itemId, ...adjustment });
-      const quantity = decimal(input.quantity);
-      await postStock(tx, { firmId, actorId, warehouseId: input.warehouseId, itemId: input.itemId, quantity: input.direction === 'IN' ? quantity : quantity.neg(), inboundValue: input.direction === 'IN' ? quantity.mul(decimal(input.unitCost!)) : undefined, sourceType: 'STOCK_OPERATION', sourceId: result.row.id, sourceLineId: 1, eventType: 'ADJUSTMENT', reason: input.reason });
-      await auditInventory(tx, firmId, actorId, 'StockAdjustment', result.row.id, input, metadata);
-      const position = await tx.stockPosition.findUniqueOrThrow({ where: { firmId_warehouseId_itemId: { firmId, warehouseId: input.warehouseId, itemId: input.itemId } } });
-      await emitAutomationEvent(tx, firmId, actorId, `stock-adjustment:${result.row.id}`, { trigger: 'stock.adjusted', entity: 'STOCK_OPERATION', entityId: result.row.id, documentNumber: String(result.row.id), status: 'POSTED', currency: position.currency, total: position.value.abs().toFixed(6), discountPercent: '0' });
-      return result.row;
-    });
+    return withFirmEntitlementTransaction(this.db, firmId, (tx) => this.adjustInTransaction(tx, firmId, actorId, input, metadata));
+  }
+  async adjustInTransaction(tx: Prisma.TransactionClient, firmId: number, actorId: number, input: z.infer<typeof stockAdjustmentSchema>, metadata: RequestMetadata) {
+    await this.access(tx, firmId, actorId, PERMISSIONS.STOCK_ADJUST);
+    const result = await operation(tx, firmId, actorId, 'ADJUSTMENT', input);
+    if (result.replayed) return result.row;
+    const { itemId, ...adjustment } = input;
+    await enforceApproval(tx, firmId, actorId, { action: 'STOCK_ADJUST', entityId: itemId, ...adjustment });
+    const quantity = decimal(input.quantity);
+    await postStock(tx, { firmId, actorId, warehouseId: input.warehouseId, itemId: input.itemId, quantity: input.direction === 'IN' ? quantity : quantity.neg(), inboundValue: input.direction === 'IN' ? quantity.mul(decimal(input.unitCost!)) : undefined, sourceType: 'STOCK_OPERATION', sourceId: result.row.id, sourceLineId: 1, eventType: 'ADJUSTMENT', reason: input.reason });
+    await auditInventory(tx, firmId, actorId, 'StockAdjustment', result.row.id, input, metadata);
+    const position = await tx.stockPosition.findUniqueOrThrow({ where: { firmId_warehouseId_itemId: { firmId, warehouseId: input.warehouseId, itemId: input.itemId } } });
+    await emitAutomationEvent(tx, firmId, actorId, `stock-adjustment:${result.row.id}`, { trigger: 'stock.adjusted', entity: 'STOCK_OPERATION', entityId: result.row.id, documentNumber: String(result.row.id), status: 'POSTED', currency: position.currency, total: position.value.abs().toFixed(6), discountPercent: '0' });
+    return result.row;
   }
   async transfer(firmId: number, actorId: number, input: z.infer<typeof stockTransferSchema>, metadata: RequestMetadata) {
     return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
@@ -134,3 +135,4 @@ export class InventoryRepository {
   }
 }
 export const inventoryRepository = new InventoryRepository(prisma);
+export const adjustStockInTransaction = inventoryRepository.adjustInTransaction.bind(inventoryRepository);

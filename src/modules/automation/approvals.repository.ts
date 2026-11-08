@@ -73,6 +73,7 @@ async function prepare(tx: AutomationTx, firmId: number, actorId: number, input:
   const fingerprint = requestHash({ command, evidence });
   return { command, evidence, fingerprint };
 }
+export { prepare as prepareApprovedCommand };
 async function currentRequest(tx: AutomationTx, firmId: number, actorId: number, fingerprint: string) {
   return tx.approvalRequest.findFirst({ where: { firmId, requesterId: actorId, fingerprint, status: { in: ['PENDING', 'APPROVED'] }, consumedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' }, include: { policy: true, decisions: { orderBy: { id: 'asc' } } } });
 }

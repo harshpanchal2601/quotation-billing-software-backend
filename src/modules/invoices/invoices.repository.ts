@@ -217,73 +217,74 @@ export class InvoicesRepository {
     });
   }
   async issue(firmId: number, actorId: number, id: number, expectedVersion: number, confirmedTotal: string, scope: DocumentScope, metadata: RequestMetadata) {
-    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
-      await this.authorize(tx, firmId, actorId, scope, 'issue');
-      const old = await this.find(tx, firmId, id, scope);
-      if (old.status === 'ISSUED' && old.version === expectedVersion + 1 && old.grandTotal.eq(confirmedTotal)) return serialiseInvoice(old);
-      if (old.status !== 'DRAFT' || old.version !== expectedVersion) throw new AppError('Only the current draft can be issued; reload', 409);
-      if (!old.grandTotal.eq(confirmedTotal)) throw new AppError('Displayed total changed; reload before issuing', 409);
-      if (old.kind === 'INVOICE' || old.kind === 'CREDIT_NOTE') await enforceApproval(tx, firmId, actorId, { action: old.kind === 'INVOICE' ? 'INVOICE_ISSUE' : 'CREDIT_NOTE_ISSUE', entityId: id, expectedVersion, confirmedTotal });
-      if (old.sourceQuotationId) await readAcceptedQuotationForBilling(tx, firmId, old.sourceQuotationId);
-      if (old.sourceSalesOrderId) {
-        await assertTransactionFeature(tx, firmId, 'sales.orders');
-        await authorizeFirmJobActor(tx, firmId, actorId, PERMISSIONS.SALES_ORDERS_VIEW);
-        await readOrderForInvoicing(tx, firmId, old.sourceSalesOrderId);
+    return withFirmEntitlementTransaction(this.db, firmId, (tx) => this.issueInTransaction(tx, firmId, actorId, id, expectedVersion, confirmedTotal, scope, metadata));
+  }
+  async issueInTransaction(tx: Prisma.TransactionClient, firmId: number, actorId: number, id: number, expectedVersion: number, confirmedTotal: string, scope: DocumentScope, metadata: RequestMetadata) {
+    await this.authorize(tx, firmId, actorId, scope, 'issue');
+    const old = await this.find(tx, firmId, id, scope);
+    if (old.status === 'ISSUED' && old.version === expectedVersion + 1 && old.grandTotal.eq(confirmedTotal)) return serialiseInvoice(old);
+    if (old.status !== 'DRAFT' || old.version !== expectedVersion) throw new AppError('Only the current draft can be issued; reload', 409);
+    if (!old.grandTotal.eq(confirmedTotal)) throw new AppError('Displayed total changed; reload before issuing', 409);
+    if (old.kind === 'INVOICE' || old.kind === 'CREDIT_NOTE') await enforceApproval(tx, firmId, actorId, { action: old.kind === 'INVOICE' ? 'INVOICE_ISSUE' : 'CREDIT_NOTE_ISSUE', entityId: id, expectedVersion, confirmedTotal });
+    if (old.sourceQuotationId) await readAcceptedQuotationForBilling(tx, firmId, old.sourceQuotationId);
+    if (old.sourceSalesOrderId) {
+      await assertTransactionFeature(tx, firmId, 'sales.orders');
+      await authorizeFirmJobActor(tx, firmId, actorId, PERMISSIONS.SALES_ORDERS_VIEW);
+      await readOrderForInvoicing(tx, firmId, old.sourceSalesOrderId);
+    }
+    if (old.sourceProformaId && (await this.find(tx, firmId, old.sourceProformaId, 'PROFORMA')).status !== 'ISSUED') throw new AppError('Source proforma is no longer eligible', 409);
+    const policy = invoiceFinancialPolicySchema.parse(old.financialPolicySnapshot);
+    const lines = old.lines.map((line) => lineSnapshotSchema.parse(line.snapshot));
+    const fields = customFieldDefinitionsSchema.parse(old.customFieldSchema);
+    validateCustomFieldValues(fields, old.customFieldValues as Record<string, string | boolean | null>, true);
+    const settings = await readInvoiceSettings(tx, firmId);
+    if (settings.config.registration !== policy.registration || settings.config.sellerStateCode !== policy.sellerStateCode || settings.config.einvoiceRequired === null) throw new AppError('Fiscal configuration changed; review a new draft', 409);
+    const buyer = old.buyerSnapshot as Prisma.JsonObject;
+    if (policy.registration === 'REGULAR' && policy.taxMode !== 'NONE' && old.kind !== 'PROFORMA' && settings.config.einvoiceRequired && buyer.gstin) throw new AppError('This supply requires IRN registration. E-invoice provider integration is required before fiscal issuance', 409, { code: 'EINVOICE_PROVIDER_REQUIRED' });
+    if (buyer.gstin && !isValidGstin(String(buyer.gstin))) throw new AppError('Buyer GSTIN is invalid', 400);
+    if (lines.some((line) => !line.itemName.trim() || (policy.registration !== 'UNREGISTERED' && !/^\d{4}(?:\d{2})?(?:\d{2})?$/.test(line.hsnCode ?? '')))) throw new AppError('Every registered supply requires a valid HSN/SAC and description', 400);
+    const extras = this.sourceExtraCharges(old);
+    const totals = sumInvoiceLines(lines, policy, extras);
+    for (const key of ['subtotal', 'discountAmount', 'taxableAmount', 'taxAmount', 'roundOffAmount', 'grandTotal'] as const) if (!old[key].eq(totals[key])) throw new AppError('Stored totals are inconsistent; review the draft', 409);
+    for (const line of lines) {
+      if (!decimal(line.baseAmount).sub(line.discountAmount).eq(line.taxableAmount) || !decimal(line.cgstAmount).add(line.sgstAmount).add(line.igstAmount).eq(line.taxAmount) || !decimal(line.taxableAmount).add(line.taxAmount).eq(line.lineTotal)) throw new AppError('Stored line totals are inconsistent', 409);
+    }
+    const profile = await tx.businessProfile.findUnique({ where: { firmId } });
+    if (!profile || !profile.legalName.trim() || !profile.addressLine1.trim() || !profile.city.trim() || !profile.postalCode.trim()) throw new AppError('Complete the seller legal profile first', 409);
+    if (policy.registration !== 'UNREGISTERED' && (!profile.gstin || !isValidGstin(profile.gstin) || profile.gstin.slice(0, 2) !== policy.sellerStateCode)) throw new AppError('Seller GSTIN must be valid and match the configured registration state', 409);
+    const today = indiaToday();
+    if (old.dueDate && dateOnly(old.dueDate)! < today) throw new AppError('Due date precedes issuance; update the draft', 409);
+    if (old.sourceInvoiceId) {
+      const source = await this.find(tx, firmId, old.sourceInvoiceId, 'INVOICE');
+      if (source.status !== 'ISSUED') throw new AppError('Adjustment source must remain an issued invoice', 409);
+      if (old.kind === 'CREDIT_NOTE') {
+        const eligibility = (old.sourceSnapshot as Prisma.JsonObject).eligibility as { gstReductionEligible: boolean; annualReturnFiledAt: string | null; recipientItcReversalConfirmed: boolean };
+        if (policy.registration === 'REGULAR') assertCreditReductionEligibility(dateOnly(source.invoiceDate)!, today, eligibility, Boolean(buyer.gstin));
+        await this.assertCreditCapacity(tx, firmId, source, lines);
+        const settlement = await readInvoiceSettlement(tx, firmId, source.id);
+        if (decimal(settlement.adjustedTotal).sub(old.grandTotal).lt(settlement.allocated)) throw new AppError('Credit note would exceed the unallocated invoice balance; correct receipt allocations first', 409);
       }
-      if (old.sourceProformaId && (await this.find(tx, firmId, old.sourceProformaId, 'PROFORMA')).status !== 'ISSUED') throw new AppError('Source proforma is no longer eligible', 409);
-      const policy = invoiceFinancialPolicySchema.parse(old.financialPolicySnapshot);
-      const lines = old.lines.map((line) => lineSnapshotSchema.parse(line.snapshot));
-      const fields = customFieldDefinitionsSchema.parse(old.customFieldSchema);
-      validateCustomFieldValues(fields, old.customFieldValues as Record<string, string | boolean | null>, true);
-      const settings = await readInvoiceSettings(tx, firmId);
-      if (settings.config.registration !== policy.registration || settings.config.sellerStateCode !== policy.sellerStateCode || settings.config.einvoiceRequired === null) throw new AppError('Fiscal configuration changed; review a new draft', 409);
-      const buyer = old.buyerSnapshot as Prisma.JsonObject;
-      if (policy.registration === 'REGULAR' && policy.taxMode !== 'NONE' && old.kind !== 'PROFORMA' && settings.config.einvoiceRequired && buyer.gstin) throw new AppError('This supply requires IRN registration. E-invoice provider integration is required before fiscal issuance', 409, { code: 'EINVOICE_PROVIDER_REQUIRED' });
-      if (buyer.gstin && !isValidGstin(String(buyer.gstin))) throw new AppError('Buyer GSTIN is invalid', 400);
-      if (lines.some((line) => !line.itemName.trim() || (policy.registration !== 'UNREGISTERED' && !/^\d{4}(?:\d{2})?(?:\d{2})?$/.test(line.hsnCode ?? '')))) throw new AppError('Every registered supply requires a valid HSN/SAC and description', 400);
-      const extras = this.sourceExtraCharges(old);
-      const totals = sumInvoiceLines(lines, policy, extras);
-      for (const key of ['subtotal', 'discountAmount', 'taxableAmount', 'taxAmount', 'roundOffAmount', 'grandTotal'] as const) if (!old[key].eq(totals[key])) throw new AppError('Stored totals are inconsistent; review the draft', 409);
-      for (const line of lines) {
-        if (!decimal(line.baseAmount).sub(line.discountAmount).eq(line.taxableAmount) || !decimal(line.cgstAmount).add(line.sgstAmount).add(line.igstAmount).eq(line.taxAmount) || !decimal(line.taxableAmount).add(line.taxAmount).eq(line.lineTotal)) throw new AppError('Stored line totals are inconsistent', 409);
-      }
-      const profile = await tx.businessProfile.findUnique({ where: { firmId } });
-      if (!profile || !profile.legalName.trim() || !profile.addressLine1.trim() || !profile.city.trim() || !profile.postalCode.trim()) throw new AppError('Complete the seller legal profile first', 409);
-      if (policy.registration !== 'UNREGISTERED' && (!profile.gstin || !isValidGstin(profile.gstin) || profile.gstin.slice(0, 2) !== policy.sellerStateCode)) throw new AppError('Seller GSTIN must be valid and match the configured registration state', 409);
-      const today = indiaToday();
-      if (old.dueDate && dateOnly(old.dueDate)! < today) throw new AppError('Due date precedes issuance; update the draft', 409);
-      if (old.sourceInvoiceId) {
-        const source = await this.find(tx, firmId, old.sourceInvoiceId, 'INVOICE');
-        if (source.status !== 'ISSUED') throw new AppError('Adjustment source must remain an issued invoice', 409);
-        if (old.kind === 'CREDIT_NOTE') {
-          const eligibility = (old.sourceSnapshot as Prisma.JsonObject).eligibility as { gstReductionEligible: boolean; annualReturnFiledAt: string | null; recipientItcReversalConfirmed: boolean };
-          if (policy.registration === 'REGULAR') assertCreditReductionEligibility(dateOnly(source.invoiceDate)!, today, eligibility, Boolean(buyer.gstin));
-          await this.assertCreditCapacity(tx, firmId, source, lines);
-          const settlement = await readInvoiceSettlement(tx, firmId, source.id);
-          if (decimal(settlement.adjustedTotal).sub(old.grandTotal).lt(settlement.allocated)) throw new AppError('Credit note would exceed the unallocated invoice balance; correct receipt allocations first', 409);
-        }
-      }
-      const sequence = await reserveDocumentSequence(tx, { firmId, documentType: old.kind, period: financialYear(today).period });
-      const documentNumber = formatBillingNumber(settings.config.prefixes[old.kind], today, sequence);
-      const bank = await tx.bankDetail.findFirst({ where: { businessProfileId: profile.id, deletedAt: null, isDefault: true }, orderBy: { id: 'asc' } });
-      let seller = jsonObject({ legalName: profile.legalName, displayName: profile.displayName, gstin: policy.registration === 'UNREGISTERED' ? null : profile.gstin, pan: profile.pan, addressLine1: profile.addressLine1, addressLine2: profile.addressLine2, city: profile.city, state: profile.state, stateCode: policy.sellerStateCode, stateName: INDIA_STATES[policy.sellerStateCode], postalCode: profile.postalCode, country: profile.country, phone: profile.primaryPhone, email: profile.primaryEmail });
-      if (old.sourceInvoiceId) {
-        const source = await this.find(tx, firmId, old.sourceInvoiceId, 'INVOICE');
-        const originalSeller = source.sellerSnapshot as Prisma.JsonObject;
-        if (originalSeller.gstin !== seller.gstin) throw new AppError('Adjustment seller registration differs from its original invoice', 409);
-        seller = jsonObject(originalSeller);
-      }
-      const bankSnapshot = bank ? { bankName: bank.bankName, accountName: bank.accountName, accountNumber: bank.accountNumber, ifscCode: bank.ifscCode, branchName: bank.branchName, swiftCode: bank.swiftCode, upiId: bank.upiId } : null;
-      const automationPresentation = await resolveDocumentPresentation(tx, firmId, 'INVOICE', id);
-      const snapshot = jsonObject({ ...serialiseInvoice(old), status: 'ISSUED', documentNumber, invoiceDate: today, version: old.version + 1, sellerSnapshot: seller, bankSnapshot, automationPresentation });
-      const updated = await tx.invoice.updateMany({ where: { id, firmId, version: expectedVersion, status: 'DRAFT' }, data: { status: 'ISSUED', version: { increment: 1 }, documentNumber, period: financialYear(today).period, invoiceDate: new Date(today), sellerSnapshot: seller, bankSnapshot: bankSnapshot ?? Prisma.JsonNull, issueSnapshot: snapshot, issuedAt: new Date(), updatedById: actorId } });
-      if (updated.count !== 1) throw new AppError('Draft changed during issuance', 409);
-      await this.history(tx, firmId, id, old.version + 1, actorId, 'DRAFT', 'ISSUED');
-      const record = await this.find(tx, firmId, id, scope);
-      await this.audit(tx, firmId, actorId, record, AuditAction.STATUS_CHANGE, metadata, old);
-      if (old.kind === 'INVOICE' || old.kind === 'CREDIT_NOTE') await emitAutomationEvent(tx, firmId, actorId, `billing:${id}:${record.version}`, { trigger: old.kind === 'INVOICE' ? 'invoice.issued' : 'credit-note.issued', entity: 'INVOICE', entityId: id, documentNumber, status: record.status, currency: record.currency, total: record.grandTotal.toString(), discountPercent: discountPercentage(record.subtotal, record.discountAmount) });
-      return serialiseInvoice(record);
-    });
+    }
+    const sequence = await reserveDocumentSequence(tx, { firmId, documentType: old.kind, period: financialYear(today).period });
+    const documentNumber = formatBillingNumber(settings.config.prefixes[old.kind], today, sequence);
+    const bank = await tx.bankDetail.findFirst({ where: { businessProfileId: profile.id, deletedAt: null, isDefault: true }, orderBy: { id: 'asc' } });
+    let seller = jsonObject({ legalName: profile.legalName, displayName: profile.displayName, gstin: policy.registration === 'UNREGISTERED' ? null : profile.gstin, pan: profile.pan, addressLine1: profile.addressLine1, addressLine2: profile.addressLine2, city: profile.city, state: profile.state, stateCode: policy.sellerStateCode, stateName: INDIA_STATES[policy.sellerStateCode], postalCode: profile.postalCode, country: profile.country, phone: profile.primaryPhone, email: profile.primaryEmail });
+    if (old.sourceInvoiceId) {
+      const source = await this.find(tx, firmId, old.sourceInvoiceId, 'INVOICE');
+      const originalSeller = source.sellerSnapshot as Prisma.JsonObject;
+      if (originalSeller.gstin !== seller.gstin) throw new AppError('Adjustment seller registration differs from its original invoice', 409);
+      seller = jsonObject(originalSeller);
+    }
+    const bankSnapshot = bank ? { bankName: bank.bankName, accountName: bank.accountName, accountNumber: bank.accountNumber, ifscCode: bank.ifscCode, branchName: bank.branchName, swiftCode: bank.swiftCode, upiId: bank.upiId } : null;
+    const automationPresentation = await resolveDocumentPresentation(tx, firmId, 'INVOICE', id);
+    const snapshot = jsonObject({ ...serialiseInvoice(old), status: 'ISSUED', documentNumber, invoiceDate: today, version: old.version + 1, sellerSnapshot: seller, bankSnapshot, automationPresentation });
+    const updated = await tx.invoice.updateMany({ where: { id, firmId, version: expectedVersion, status: 'DRAFT' }, data: { status: 'ISSUED', version: { increment: 1 }, documentNumber, period: financialYear(today).period, invoiceDate: new Date(today), sellerSnapshot: seller, bankSnapshot: bankSnapshot ?? Prisma.JsonNull, issueSnapshot: snapshot, issuedAt: new Date(), updatedById: actorId } });
+    if (updated.count !== 1) throw new AppError('Draft changed during issuance', 409);
+    await this.history(tx, firmId, id, old.version + 1, actorId, 'DRAFT', 'ISSUED');
+    const record = await this.find(tx, firmId, id, scope);
+    await this.audit(tx, firmId, actorId, record, AuditAction.STATUS_CHANGE, metadata, old);
+    if (old.kind === 'INVOICE' || old.kind === 'CREDIT_NOTE') await emitAutomationEvent(tx, firmId, actorId, `billing:${id}:${record.version}`, { trigger: old.kind === 'INVOICE' ? 'invoice.issued' : 'credit-note.issued', entity: 'INVOICE', entityId: id, documentNumber, status: record.status, currency: record.currency, total: record.grandTotal.toString(), discountPercent: discountPercentage(record.subtotal, record.discountAmount) });
+    return serialiseInvoice(record);
   }
   async updateCustomValues(firmId: number, actorId: number, id: number, scope: DocumentScope, expectedVersion: number, input: Record<string, string | boolean | null>, refresh: boolean, metadata: RequestMetadata) {
     return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
@@ -318,23 +319,24 @@ export class InvoicesRepository {
     });
   }
   async void(firmId: number, actorId: number, id: number, expectedVersion: number, reason: string, scope: DocumentScope, metadata: RequestMetadata) {
-    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
-      await this.authorize(tx, firmId, actorId, scope, 'void');
-      const old = await this.find(tx, firmId, id, scope);
-      if (old.status !== 'ISSUED' || old.version !== expectedVersion) throw new AppError('Only the current issued document can be voided', 409);
-      if (scope === 'ADJUSTMENT') throw new AppError('Issued adjustment notes require a compensating document; originals are preserved', 409);
-      if (indiaToday(old.issuedAt!) !== indiaToday()) throw new AppError('Only an unreported document cancelled on its issue date can be voided; use an adjustment otherwise', 409);
-      const dependants = await tx.invoice.count({ where: { firmId, OR: [{ sourceInvoiceId: id }, { sourceProformaId: id }] } });
-      if (dependants > 0) throw new AppError('A document with adjustments or a conversion cannot be voided', 409);
-      if (scope === 'INVOICE' && decimal((await readInvoiceSettlement(tx, firmId, id)).allocated).gt(0)) throw new AppError('Reverse allocated receipts before voiding this invoice', 409);
-      if (scope === 'INVOICE') await enforceApproval(tx, firmId, actorId, { action: 'INVOICE_VOID', entityId: id, expectedVersion, reason, notReportedAndSupplyCancelled: true });
-      await tx.invoice.updateMany({ where: { id, firmId, status: 'ISSUED', version: expectedVersion }, data: { status: 'VOID', version: { increment: 1 }, voidedAt: new Date(), voidReason: reason, updatedById: actorId } });
-      await this.history(tx, firmId, id, old.version + 1, actorId, 'ISSUED', 'VOID');
-      const record = await this.find(tx, firmId, id, scope);
-      await this.audit(tx, firmId, actorId, record, AuditAction.STATUS_CHANGE, metadata, old);
-      if (scope === 'INVOICE') await emitAutomationEvent(tx, firmId, actorId, `billing:${id}:${record.version}`, { trigger: 'invoice.voided', entity: 'INVOICE', entityId: id, documentNumber: record.documentNumber ?? '', status: record.status, currency: record.currency, total: record.grandTotal.toString(), discountPercent: discountPercentage(record.subtotal, record.discountAmount) });
-      return serialiseInvoice(record);
-    });
+    return withFirmEntitlementTransaction(this.db, firmId, (tx) => this.voidInTransaction(tx, firmId, actorId, id, expectedVersion, reason, scope, metadata));
+  }
+  async voidInTransaction(tx: Prisma.TransactionClient, firmId: number, actorId: number, id: number, expectedVersion: number, reason: string, scope: DocumentScope, metadata: RequestMetadata) {
+    await this.authorize(tx, firmId, actorId, scope, 'void');
+    const old = await this.find(tx, firmId, id, scope);
+    if (old.status !== 'ISSUED' || old.version !== expectedVersion) throw new AppError('Only the current issued document can be voided', 409);
+    if (scope === 'ADJUSTMENT') throw new AppError('Issued adjustment notes require a compensating document; originals are preserved', 409);
+    if (indiaToday(old.issuedAt!) !== indiaToday()) throw new AppError('Only an unreported document cancelled on its issue date can be voided; use an adjustment otherwise', 409);
+    const dependants = await tx.invoice.count({ where: { firmId, OR: [{ sourceInvoiceId: id }, { sourceProformaId: id }] } });
+    if (dependants > 0) throw new AppError('A document with adjustments or a conversion cannot be voided', 409);
+    if (scope === 'INVOICE' && decimal((await readInvoiceSettlement(tx, firmId, id)).allocated).gt(0)) throw new AppError('Reverse allocated receipts before voiding this invoice', 409);
+    if (scope === 'INVOICE') await enforceApproval(tx, firmId, actorId, { action: 'INVOICE_VOID', entityId: id, expectedVersion, reason, notReportedAndSupplyCancelled: true });
+    await tx.invoice.updateMany({ where: { id, firmId, status: 'ISSUED', version: expectedVersion }, data: { status: 'VOID', version: { increment: 1 }, voidedAt: new Date(), voidReason: reason, updatedById: actorId } });
+    await this.history(tx, firmId, id, old.version + 1, actorId, 'ISSUED', 'VOID');
+    const record = await this.find(tx, firmId, id, scope);
+    await this.audit(tx, firmId, actorId, record, AuditAction.STATUS_CHANGE, metadata, old);
+    if (scope === 'INVOICE') await emitAutomationEvent(tx, firmId, actorId, `billing:${id}:${record.version}`, { trigger: 'invoice.voided', entity: 'INVOICE', entityId: id, documentNumber: record.documentNumber ?? '', status: record.status, currency: record.currency, total: record.grandTotal.toString(), discountPercent: discountPercentage(record.subtotal, record.discountAmount) });
+    return serialiseInvoice(record);
   }
   private async assertCreditCapacity(tx: Prisma.TransactionClient, firmId: number, source: InvoiceRecord, requested: InvoiceLineSnapshot[]) {
     const notes = await tx.invoice.findMany({ where: { firmId, sourceInvoiceId: source.id, status: 'ISSUED' }, include: { lines: true } });
@@ -522,4 +524,6 @@ export class InvoicesRepository {
   }
 }
 export const invoicesRepository = new InvoicesRepository(prisma);
+export const issueBillingDocumentInTransaction = invoicesRepository.issueInTransaction.bind(invoicesRepository);
+export const voidBillingDocumentInTransaction = invoicesRepository.voidInTransaction.bind(invoicesRepository);
 export const invoiceSettingsRepository = new InvoiceSettingsRepository(prisma);

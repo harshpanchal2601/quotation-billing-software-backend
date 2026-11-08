@@ -10,18 +10,39 @@ export function trackedItem(snapshot: Prisma.JsonValue): number | null {
   return snapshot.itemId;
 }
 
-export async function stockPosition(tx: Prisma.TransactionClient, firmId: number, warehouseId: number, itemId: number, currency?: string) {
+export async function readStockContext(tx: Prisma.TransactionClient, firmId: number, warehouseId: number, itemId: number, currency?: string) {
   await assertTransactionFeature(tx, firmId, 'inventory');
-  const { policy } = await resolveBusinessPolicy(tx, firmId);
+  const { policy, version } = await resolveBusinessPolicy(tx, firmId);
   if (policy.sales?.preset === 'SERVICE') throw new AppError('Inventory is disabled for the service-only business preset', 403);
   if (currency !== undefined && currency !== policy.currency) throw new AppError('Inventory uses the configured firm currency; an approved FX workflow is required for other currencies', 409);
   const warehouse = await tx.warehouse.findFirst({ where: { id: warehouseId, firmId, isActive: true } });
   const item = await tx.item.findFirst({ where: { id: itemId, firmId, deletedAt: null, isActive: true, kind: 'GOODS', stockTracking: true }, include: { measurementUnit: true } });
   if (!warehouse || !item) throw new AppError('Tracked item or warehouse unavailable', 404);
   if (item.measurementUnit.firmId !== firmId || item.measurementUnit.deletedAt || !item.measurementUnit.isActive) throw new AppError('Stock unit is unavailable', 409);
+  return { policy, policyVersion: version, item, warehouse };
+}
+
+export async function stockPosition(tx: Prisma.TransactionClient, firmId: number, warehouseId: number, itemId: number, currency?: string) {
+  const { policy, item } = await readStockContext(tx, firmId, warehouseId, itemId, currency);
   const position = await tx.stockPosition.upsert({ where: { firmId_warehouseId_itemId: { firmId, warehouseId, itemId } }, create: { firmId, warehouseId, itemId, currency: policy.currency }, update: {} });
   if (position.currency !== policy.currency) throw new AppError('Inventory currency cannot change after postings', 409);
   return { position, allowDecimal: item.measurementUnit.allowDecimal };
+}
+
+export async function previewStockAdjustment(tx: Prisma.TransactionClient, firmId: number, input: { warehouseId: number; itemId: number; direction: 'IN' | 'OUT'; quantity: string; unitCost?: string }) {
+  const context = await readStockContext(tx, firmId, input.warehouseId, input.itemId);
+  const existing = await tx.stockPosition.findUnique({ where: { firmId_warehouseId_itemId: { firmId, warehouseId: input.warehouseId, itemId: input.itemId } } });
+  const position = existing ?? { onHand: decimal('0'), reserved: decimal('0'), value: decimal('0'), currency: context.policy.currency };
+  if (position.currency !== context.policy.currency) throw new AppError('Inventory currency cannot change after postings', 409);
+  const quantity = decimal(input.quantity).mul(input.direction === 'IN' ? 1 : -1);
+  assertStockQuantity(quantity, context.item.measurementUnit.allowDecimal);
+  if (input.direction === 'IN' && input.unitCost === undefined) throw new AppError('Inbound adjustments require a cost', 400);
+  const projected = projectStock(position, quantity, input.direction === 'IN' ? quantity.mul(decimal(input.unitCost!)) : undefined);
+  const movement = await tx.stockMovement.findFirst({ where: { firmId, itemId: input.itemId, warehouseId: input.warehouseId }, orderBy: { id: 'desc' }, select: { id: true } });
+  return {
+    before: { currency: position.currency, onHand: position.onHand.toString(), reserved: position.reserved.toString(), inventoryValue: position.value.toString(), policyVersion: context.policyVersion, itemUpdatedAt: context.item.updatedAt.toISOString(), lastMovementId: movement?.id ?? null, warehouse: context.warehouse.code, unit: context.item.measurementUnit.symbol },
+    after: { onHand: projected.onHand.toString(), inventoryValue: projected.value.toString(), currency: position.currency },
+  };
 }
 
 export function assertStockQuantity(quantity: Prisma.Decimal, allowDecimal: boolean) {

@@ -982,6 +982,8 @@ model User {
   approvalRequests ApprovalRequest[]
   approvalDecisions ApprovalDecision[]
   customFieldValueVersions CustomFieldValueVersion[]
+  assistantConversations AssistantConversation[]
+  assistantSettings AssistantSetting[]
 
   @@index([firmId])
   @@unique([id, firmId])
@@ -1052,12 +1054,106 @@ model Firm {
   customFieldValues CustomFieldValueVersion[]
   automationPreferences AutomationRecipientPreference[]
 
+  assistantSetting AssistantSetting?
+  assistantConversations AssistantConversation[]
+
   @@index([status])
   @@index([deletedAt])
   @@map("firms")
 }
 
 // Published definitions are append-only. Rollback publishes another version.
+model AssistantSetting {
+  firmId Int @id @map("firm_id")
+  version Int @default(1)
+  llmEnabled Boolean @default(false) @map("llm_enabled")
+  dailyLlmRequests Int? @map("daily_llm_requests")
+  retainContentDays Int? @map("retain_content_days")
+  updatedById Int @map("updated_by_id")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "assistant_setting_firm_fk")
+  administrator User @relation(fields: [updatedById, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "assistant_setting_actor_fk")
+  @@index([updatedById, firmId], map: "assistant_setting_actor_idx")
+  @@map("assistant_settings")
+}
+
+model AssistantConversation {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "assistant_conversation_firm_fk")
+  actor User @relation(fields: [actorId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "assistant_conversation_actor_fk")
+  messages AssistantMessage[]
+  proposals AssistantActionProposal[]
+  @@unique([id, firmId, actorId], map: "assistant_conversation_owner_key")
+  @@index([firmId, actorId, deletedAt, createdAt], map: "assistant_conversation_history_idx")
+  @@map("assistant_conversations")
+}
+
+// A message is one idempotent request/reply exchange. Content is opt-in;
+// minimal request, usage and action evidence survives content erasure.
+model AssistantMessage {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  conversationId String @map("conversation_id") @db.VarChar(36)
+  requestId String @map("request_id") @db.VarChar(36)
+  requestHash String @map("request_hash") @db.Char(64)
+  mode String @db.VarChar(10)
+  provider String @db.VarChar(40)
+  model String? @db.VarChar(100)
+  tool String? @db.VarChar(40)
+  status String @default("PENDING") @db.VarChar(20)
+  errorCode String? @map("error_code") @db.VarChar(60)
+  inputText String? @map("input_text") @db.VarChar(4000)
+  response Json?
+  contentExpiresAt DateTime? @map("content_expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  conversation AssistantConversation @relation(fields: [conversationId, firmId, actorId], references: [id, firmId, actorId], onDelete: Restrict, onUpdate: Restrict, map: "assistant_message_conversation_fk")
+  @@unique([firmId, actorId, requestId], map: "assistant_message_request_key")
+  @@index([conversationId, firmId, actorId], map: "assistant_message_conversation_idx")
+  @@index([firmId, provider, createdAt], map: "assistant_message_usage_idx")
+  @@index([firmId, createdAt], map: "assistant_message_rate_idx")
+  @@index([contentExpiresAt], map: "assistant_message_retention_idx")
+  @@map("assistant_messages")
+}
+
+model AssistantActionProposal {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  conversationId String @map("conversation_id") @db.VarChar(36)
+  mode String @db.VarChar(10)
+  command Json
+  evidence Json
+  fingerprint String @db.Char(64)
+  nonceHash String @map("nonce_hash") @db.Char(64)
+  status String @default("PENDING") @db.VarChar(20)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  conversation AssistantConversation @relation(fields: [conversationId, firmId, actorId], references: [id, firmId, actorId], onDelete: Restrict, onUpdate: Restrict, map: "assistant_proposal_conversation_fk")
+  execution AssistantExecution?
+  @@unique([id, firmId, actorId], map: "assistant_proposal_owner_key")
+  @@index([conversationId, firmId, actorId], map: "assistant_proposal_conversation_idx")
+  @@index([firmId, actorId, status, createdAt], map: "assistant_proposal_history_idx")
+  @@map("assistant_action_proposals")
+}
+
+model AssistantExecution {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  proposalId String @unique(map: "assistant_execution_proposal_key") @map("proposal_id") @db.VarChar(36)
+  result Json
+  createdAt DateTime @default(now()) @map("created_at")
+  proposal AssistantActionProposal @relation(fields: [proposalId, firmId, actorId], references: [id, firmId, actorId], onDelete: Restrict, onUpdate: Restrict, map: "assistant_execution_proposal_fk")
+  @@unique([proposalId, firmId, actorId], map: "assistant_execution_owner_key")
+  @@index([firmId, actorId, createdAt], map: "assistant_execution_history_idx")
+  @@map("assistant_executions")
+}
+
 model AutomationDefinitionVersion {
   id            Int      @id @default(autoincrement())
   firmId        Int      @map("firm_id")

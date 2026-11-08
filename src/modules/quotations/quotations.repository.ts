@@ -5,7 +5,9 @@ import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log
 import { prisma } from '../../core/database/prisma.js';
 import { getOrCreateQuotationSettings } from '../settings/index.js';
 import { discountPercentage, emitAutomationEvent, enforceApproval } from '../automation/runtime.js';
-import { withFirmEntitlementTransaction } from '../entitlements/index.js';
+import { assertTransactionFeature, withFirmEntitlementTransaction } from '../entitlements/index.js';
+import { authorizeFirmJobActor } from '../auth/index.js';
+import { PERMISSIONS } from '../auth/permissions.js';
 import { calculateQuotationTotals } from './calculations/quotation-calculations.js';
 import { quotationPolicySnapshot } from './calculations/quotation-policy.js';
 import {
@@ -709,34 +711,41 @@ export class QuotationsRepository {
     userId: number,
   ) {
     await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
-      const existing = await tx.quotation.findFirst({
-        where: { id, firmId, deletedAt: null },
-      });
-      if (!existing) throw new AppError('Quotation not found.', 404);
-      if (!existing.isLatestRevision) {
-        throw new AppError('Only the latest quotation revision can change status.', 409);
-      }
-      validateStatusTransition(existing.status, input.status);
-      if (input.status === QuotationStatus.SENT || input.status === QuotationStatus.ACCEPTED && existing.sentAt === null) await enforceApproval(tx, firmId, userId, { action: 'QUOTATION_SEND', entityId: id, status: input.status, ...(input.comment === undefined ? {} : { comment: input.comment }) });
-
-      const updated = await tx.quotation.updateMany({
-        where: { id, firmId, deletedAt: null, isLatestRevision: true,
-          status: existing.status, updatedAt: existing.updatedAt },
-        data: { status: input.status, updatedById: userId, ...getStatusTimestampUpdate(input.status) },
-      });
-      if (updated.count !== 1) {
-        throw new AppError('Quotation changed concurrently. Refresh and try again.', 409);
-      }
-      await recordStatusHistory(tx, id, existing.status, input.status, userId, input.comment);
-      await createAuditLog(tx, {
-        policy: 'REQUIRED',
-        metadata: { ...metadata, firmId, userId },
-        entityType: 'Quotation', entityId: String(id), action: AuditAction.STATUS_CHANGE,
-        oldValues: { status: existing.status }, newValues: { status: input.status },
-      });
-      if (input.status === QuotationStatus.SENT) await emitAutomationEvent(tx, firmId, userId, `quotation:${id}:sent`, { trigger: 'quotation.sent', entity: 'QUOTATION', entityId: id, documentNumber: existing.quotationNumber, status: input.status, currency: existing.currency, total: existing.grandTotal.toString(), discountPercent: discountPercentage(existing.subtotal, existing.itemDiscountAmount.add(existing.quotationDiscountAmount)) });
+      await this.updateQuotationStatusInTransaction(tx, firmId, id, input, metadata, userId);
     });
     return this.getQuotation(firmId, id);
+  }
+
+  async updateQuotationStatusInTransaction(tx: Prisma.TransactionClient, firmId: number, id: number, input: QuotationStatusUpdateInput, metadata: RequestMetadata, userId: number) {
+    await authorizeFirmJobActor(tx, firmId, userId, PERMISSIONS.QUOTATIONS_STATUS);
+    await assertTransactionFeature(tx, firmId, 'quotations');
+    const existing = await tx.quotation.findFirst({
+      where: { id, firmId, deletedAt: null },
+    });
+    if (!existing) throw new AppError('Quotation not found.', 404);
+    if (!existing.isLatestRevision) {
+      throw new AppError('Only the latest quotation revision can change status.', 409);
+    }
+    validateStatusTransition(existing.status, input.status);
+    if (input.status === QuotationStatus.SENT || input.status === QuotationStatus.ACCEPTED && existing.sentAt === null) await enforceApproval(tx, firmId, userId, { action: 'QUOTATION_SEND', entityId: id, status: input.status, ...(input.comment === undefined ? {} : { comment: input.comment }) });
+
+    const updated = await tx.quotation.updateMany({
+      where: { id, firmId, deletedAt: null, isLatestRevision: true,
+        status: existing.status, updatedAt: existing.updatedAt },
+      data: { status: input.status, updatedById: userId, ...getStatusTimestampUpdate(input.status) },
+    });
+    if (updated.count !== 1) {
+      throw new AppError('Quotation changed concurrently. Refresh and try again.', 409);
+    }
+    await recordStatusHistory(tx, id, existing.status, input.status, userId, input.comment);
+    await createAuditLog(tx, {
+      policy: 'REQUIRED',
+      metadata: { ...metadata, firmId, userId },
+      entityType: 'Quotation', entityId: String(id), action: AuditAction.STATUS_CHANGE,
+      oldValues: { status: existing.status }, newValues: { status: input.status },
+    });
+    if (input.status === QuotationStatus.SENT) await emitAutomationEvent(tx, firmId, userId, `quotation:${id}:sent`, { trigger: 'quotation.sent', entity: 'QUOTATION', entityId: id, documentNumber: existing.quotationNumber, status: input.status, currency: existing.currency, total: existing.grandTotal.toString(), discountPercent: discountPercentage(existing.subtotal, existing.itemDiscountAmount.add(existing.quotationDiscountAmount)) });
+    return { id, status: input.status };
   }
 
   async deleteQuotation(firmId: number, id: number, metadata: RequestMetadata) {
@@ -785,6 +794,7 @@ export class QuotationsRepository {
 }
 
 export const quotationsRepository = new QuotationsRepository(prisma);
+export const changeQuotationStatusInTransaction = quotationsRepository.updateQuotationStatusInTransaction.bind(quotationsRepository);
 
 function validateValidUntilDate(quotationDate: Date, validUntil: Date | null) {
   if (!validUntil) return;

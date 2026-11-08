@@ -1,4 +1,7 @@
 export const PERMISSIONS = {
+  ASSISTANT_LOCAL: 'assistant.local',
+  ASSISTANT_LLM: 'assistant.llm',
+  ASSISTANT_SETTINGS_MANAGE: 'assistant.settings.manage',
   AUTOMATION_MANAGE: 'automation.manage',
   AUTOMATION_VIEW: 'automation.view',
   DASHBOARD_VIEW: 'dashboard.view',
@@ -62,6 +65,8 @@ export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS) as Permission[];
 
 export const ASSIGNABLE_PERMISSIONS: Permission[] = [
+  PERMISSIONS.ASSISTANT_LOCAL,
+  PERMISSIONS.ASSISTANT_LLM,
   PERMISSIONS.AUTOMATION_VIEW,
   PERMISSIONS.DASHBOARD_VIEW,
   PERMISSIONS.COMPANIES_VIEW,

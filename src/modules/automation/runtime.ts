@@ -3,3 +3,4 @@ export { enforceApproval, discountPercentage, assertQuotationPublicationApproved
 export { emitAutomationEvent } from './workflows.repository.js';
 export { resolveDocumentPresentation, renderDocumentPresentation } from './document-presentation.js';
 export { mapInvoiceFieldConfiguration } from './invoice-field-mapping.js';
+export { prepareApprovedCommand } from './approvals.repository.js';
