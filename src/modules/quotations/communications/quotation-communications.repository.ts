@@ -494,7 +494,7 @@ export class QuotationCommunicationsRepository {
             statusTransitioned,
           },
         });
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+      });
     } catch (error) {
       // SMTP acceptance is irreversible. Make the outcome explicit to prevent a blind resend.
       const failure = new AppError(

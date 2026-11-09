@@ -110,7 +110,7 @@ databaseSuite('platform entitlements against disposable MySQL', () => {
     expect(access.firmId).toBe(a.firm.id);
     expect(access.quotas.find((quota) => quota.resource === 'users')?.limit).toBe('4');
     await data(await request('GET', '/companies', a.admin.id));
-    for (const route of ['/platform/plans', '/platform/features', `/platform/firms/${b.firm.id}/subscription`, `/platform/firms/${b.firm.id}/overrides`, `/platform/usage?firmId=${b.firm.id}`, `/platform/firms/${b.firm.id}/usage/events`, `/platform/audit?firmId=${b.firm.id}`]) await expectDenied(await request('GET', route, a.admin.id), 403);
+    for (const route of ['/platform/plans', '/platform/features', '/platform/subscription-options', `/platform/firms/${b.firm.id}/subscription`, `/platform/firms/${b.firm.id}/overrides`, `/platform/usage?firmId=${b.firm.id}`, `/platform/firms/${b.firm.id}/usage/events`, `/platform/audit?firmId=${b.firm.id}`]) await expectDenied(await request('GET', route, a.admin.id), 403);
     await expectDenied(await request('PUT', `/platform/firms/${b.firm.id}/subscription`, a.admin.id, {}), 403);
     await expectDenied(await request('POST', `/platform/firms/${b.firm.id}/overrides`, a.admin.id, {}), 403);
   });

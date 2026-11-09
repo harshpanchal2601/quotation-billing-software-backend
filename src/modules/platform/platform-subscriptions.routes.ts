@@ -21,6 +21,7 @@ function respond(work: (req: Request) => Promise<unknown>, status = 200) {
   });
 }
 
+platformSubscriptionsRouter.get('/subscription-options', respond(() => repository.options()));
 platformSubscriptionsRouter.get('/features', respond(async () => ({ features: await repository.features() })));
 platformSubscriptionsRouter.patch('/features/:key', respond((req) => repository.switchFeature(platformFeatureKeySchema.parse(req.params).key, featureSwitchSchema.parse(req.body), actor(req))));
 platformSubscriptionsRouter.get('/plans', respond((req) => { const query = platformPageSchema.parse(req.query); return repository.plans(query.page, query.limit); }));

@@ -38,7 +38,7 @@ export async function previewStockAdjustment(tx: Prisma.TransactionClient, firmI
   assertStockQuantity(quantity, context.item.measurementUnit.allowDecimal);
   if (input.direction === 'IN' && input.unitCost === undefined) throw new AppError('Inbound adjustments require a cost', 400);
   const projected = projectStock(position, quantity, input.direction === 'IN' ? quantity.mul(decimal(input.unitCost!)) : undefined);
-  const movement = await tx.stockMovement.findFirst({ where: { firmId, itemId: input.itemId, warehouseId: input.warehouseId }, orderBy: { id: 'desc' }, select: { id: true } });
+  const movement = await tx.stockMovement.findFirst({ where: { firmId, position: { firmId, itemId: input.itemId, warehouseId: input.warehouseId } }, orderBy: { id: 'desc' }, select: { id: true } });
   return {
     before: { currency: position.currency, onHand: position.onHand.toString(), reserved: position.reserved.toString(), inventoryValue: position.value.toString(), policyVersion: context.policyVersion, itemUpdatedAt: context.item.updatedAt.toISOString(), lastMovementId: movement?.id ?? null, warehouse: context.warehouse.code, unit: context.item.measurementUnit.symbol },
     after: { onHand: projected.onHand.toString(), inventoryValue: projected.value.toString(), currency: position.currency },

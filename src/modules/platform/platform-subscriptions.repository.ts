@@ -2,8 +2,19 @@ import { createHash } from 'node:crypto';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { prisma } from '../../core/database/prisma.js';
 import { AppError } from '../../core/errors/AppError.js';
+import { CURRENCY_SCALES } from '../../core/money/index.js';
 import { FEATURE_KEYS, FEATURE_REGISTRY, LEGACY_POLICY, QUOTA_KEYS, getFirmEntitlements, loadEntitlements, reconcileFirmUsage, subscriptionPolicySchema, validateFeatureSelection, withFirmEntitlementTransaction, type EntitlementTransaction } from '../entitlements/index.js';
 import type { FirmOverrideInput, PlanVersionInput, PlatformChargeInput, PlatformPaymentInput, SubscriptionAssignmentInput } from './platform-subscriptions.schema.js';
+import { platformOverrideEffectSchema, platformPaymentKindSchema, subscriptionStatusSchema } from './platform-subscriptions.schema.js';
+
+const optionLabels: Record<string, string> = {
+  MANUAL: 'Manual', MONTHLY: 'Monthly', ANNUAL: 'Annual', IMMEDIATE: 'Immediately', END_OF_TERM: 'At end of current term',
+  AT_RENEWAL: 'At renewal', RETAIN: 'Retain firm data', LATEST_EFFECTIVE_REPLACEMENT: 'Latest effective override replaces earlier overrides',
+  TRIAL: 'Trial', ACTIVE: 'Active', PAST_DUE: 'Past due', CANCELLED: 'Cancelled', SUSPENDED: 'Suspended',
+  ALLOW: 'Allow', DENY: 'Deny', LIMIT: 'Replace limit', PAYMENT: 'Payment', REFUND: 'Refund',
+};
+function options<T extends string>(values: readonly T[]) { return values.map((value) => ({ value, label: optionLabels[value] ?? value })); }
+const currencyNames = new Intl.DisplayNames(['en'], { type: 'currency' });
 
 const versionInclude = { features: true, quotas: true } satisfies Prisma.PlanVersionInclude;
 function json(value: unknown): Prisma.InputJsonValue { return JSON.parse(JSON.stringify(value, (_key, item: unknown) => typeof item === 'bigint' ? item.toString() : item)) as Prisma.InputJsonValue; }
@@ -28,6 +39,29 @@ export class PlatformSubscriptionsRepository {
 
   effectiveAccess(firmId: number, permissions: readonly string[]) {
     return getFirmEntitlements(this.db, firmId, permissions);
+  }
+
+  async options() {
+    const [versions, charges, profiles] = await Promise.all([
+      this.db.planVersion.groupBy({ by: ['currency'], where: { currency: { not: null } } }),
+      this.db.platformCharge.groupBy({ by: ['currency'] }),
+      this.db.businessProfile.groupBy({ by: ['defaultCurrency'] }),
+    ]);
+    const codes = new Set<string>(Object.keys(CURRENCY_SCALES));
+    for (const value of [...versions.map((entry) => entry.currency), ...charges.map((entry) => entry.currency), ...profiles.map((entry) => entry.defaultCurrency)]) {
+      if (value !== null && /^[A-Z]{3}$/.test(value)) codes.add(value);
+    }
+    const policy = subscriptionPolicySchema.shape;
+    return {
+      currencies: [...codes].sort().map((value) => { const name = currencyNames.of(value); return { value, label: name && name !== value ? `${value} — ${name}` : value }; }),
+      policy: {
+        billingCycle: options(policy.billingCycle.options), cancellationAccess: options(policy.cancellationAccess.options),
+        downgradeTiming: options(policy.downgradeTiming.options), retention: options([policy.retention.value]),
+        overridePrecedence: options([policy.overridePrecedence.value]),
+      },
+      subscriptionStatuses: options(subscriptionStatusSchema.options), overrideEffects: options(platformOverrideEffectSchema.options),
+      paymentKinds: options(platformPaymentKindSchema.options),
+    };
   }
 
   async features() {
@@ -139,7 +173,7 @@ export class PlatformSubscriptionsRepository {
   async firmDetails(firmId: number, permissions: readonly string[], pages = { subscriptions: 1, overrides: 1, charges: 1 }) {
     const access = await getFirmEntitlements(this.db, firmId, permissions);
     const [subscriptions, overrides, charges, subscriptionCount, overrideCount, chargeCount] = await Promise.all([
-      this.db.firmSubscription.findMany({ where: { firmId }, orderBy: { effectiveFrom: 'desc' }, skip: (pages.subscriptions - 1) * 20, take: 20 }),
+      this.db.firmSubscription.findMany({ where: { firmId }, orderBy: { effectiveFrom: 'desc' }, skip: (pages.subscriptions - 1) * 20, take: 20, include: { planVersion: { select: { revision: true, plan: { select: { name: true } } } } } }),
       this.db.firmFeatureOverride.findMany({ where: { firmId }, orderBy: [{ startsAt: 'desc' }, { id: 'desc' }], skip: (pages.overrides - 1) * 20, take: 20 }),
       this.db.platformCharge.findMany({ where: { firmId }, orderBy: { id: 'desc' }, skip: (pages.charges - 1) * 20, take: 20, include: { payments: true } }),
       this.db.firmSubscription.count({ where: { firmId } }), this.db.firmFeatureOverride.count({ where: { firmId } }), this.db.platformCharge.count({ where: { firmId } }),

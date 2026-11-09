@@ -39,9 +39,12 @@ export const planVersionSchema = z.object({
 });
 export const reasonSchema = z.object({ reason }).strict();
 export const planPublishSchema = z.object({ reason, previewToken: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
+export const subscriptionStatusSchema = z.enum(['TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELLED', 'SUSPENDED']);
+export const platformOverrideEffectSchema = z.enum(['ALLOW', 'DENY', 'LIMIT']);
+export const platformPaymentKindSchema = z.enum(['PAYMENT', 'REFUND']);
 export const subscriptionAssignmentSchema = z.object({
   planVersionId: z.number().int().positive(), expectedSubscriptionId: z.number().int().positive().nullable(),
-  status: z.enum(['TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELLED', 'SUSPENDED']),
+  status: subscriptionStatusSchema,
   effectiveFrom: z.coerce.date(), effectiveUntil: z.coerce.date().nullable(),
   trialEndsAt: z.coerce.date().nullable(), graceEndsAt: z.coerce.date().nullable(),
   currentPeriodEndsAt: z.coerce.date().nullable(), renewalAt: z.coerce.date().nullable(), reason,
@@ -49,7 +52,7 @@ export const subscriptionAssignmentSchema = z.object({
 export const firmOverrideSchema = z.object({
   target: z.string().refine((value) => value.startsWith('feature:') ? isFeatureKey(value.slice(8)) :
     value.startsWith('quota:') && (QUOTA_KEYS as readonly string[]).includes(value.slice(6)), 'Unknown override target'),
-  effect: z.enum(['ALLOW', 'DENY', 'LIMIT']), limit: limit.nullable(),
+  effect: platformOverrideEffectSchema, limit: limit.nullable(),
   startsAt: z.coerce.date(), expiresAt: z.coerce.date().nullable(), reason,
 }).strict().superRefine((input, context) => {
   if ((input.target.startsWith('quota:')) !== (input.effect === 'LIMIT')) context.addIssue({ code: z.ZodIssueCode.custom, message: 'Quota overrides require LIMIT; feature overrides require ALLOW or DENY' });
@@ -58,7 +61,7 @@ export const firmOverrideSchema = z.object({
   if (input.expiresAt !== null && input.expiresAt <= input.startsAt) context.addIssue({ code: z.ZodIssueCode.custom, message: 'Override expiry must follow its start' });
 });
 export const platformChargeSchema = z.object({ idempotencyKey: identifier, amount: money.refine((value) => !/^0(?:\.0{1,2})?$/.test(value), 'Amount must be positive'), currency, reason }).strict();
-export const platformPaymentSchema = z.object({ idempotencyKey: identifier, kind: z.enum(['PAYMENT', 'REFUND']), amount: money.refine((value) => !/^0(?:\.0{1,2})?$/.test(value), 'Amount must be positive'), reference: z.string().trim().min(1).max(191), reason }).strict();
+export const platformPaymentSchema = z.object({ idempotencyKey: identifier, kind: platformPaymentKindSchema, amount: money.refine((value) => !/^0(?:\.0{1,2})?$/.test(value), 'Amount must be positive'), reference: z.string().trim().min(1).max(191), reason }).strict();
 
 export type PlanVersionInput = z.infer<typeof planVersionSchema>;
 export type SubscriptionAssignmentInput = z.infer<typeof subscriptionAssignmentSchema>;
