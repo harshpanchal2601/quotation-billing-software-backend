@@ -5,7 +5,7 @@ import { currencyCode, money } from '../../core/money/index.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { billingToday, readInvoiceSettlement } from '../invoices/index.js';
 import { authorizePayment } from './payments.repository.js';
-import type { ReceivablesQuery } from './payments.schema.js';
+import { receivablesQuerySchema, type ReceivablesQuery } from './payments.schema.js';
 
 type BalanceRow = { id: number; company_id: number; company_name: string; document_number: string; currency: string; due_date: Date | null; adjusted_total: Prisma.Decimal; allocated: Prisma.Decimal; outstanding: Prisma.Decimal };
 type AgeingRow = { currency: string; bucket: string; amount: Prisma.Decimal; count: bigint };
@@ -36,7 +36,8 @@ export class ReceivablesRepository {
     return this.db.$transaction((tx) => this.readAging(tx, firmId, actorId, query), { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
   async summary(tx: Prisma.TransactionClient, firmId: number, actorId: number, currency?: string, now?: Date) {
-    const result = await this.readAging(tx, firmId, actorId, { currency, page: 1, limit: 20, overdueOnly: 'false' }, false, now);
+    const query = receivablesQuerySchema.parse({ currency, page: 1, limit: 20, overdueOnly: 'false' });
+    const result = await this.readAging(tx, firmId, actorId, query, false, now);
     return { asOf: result.asOf, timezone: result.timezone, buckets: result.buckets, customerCredits: result.customerCredits };
   }
   private async readAging(tx: Prisma.TransactionClient, firmId: number, actorId: number, query: ReceivablesQuery, includeRows = true, now?: Date) {

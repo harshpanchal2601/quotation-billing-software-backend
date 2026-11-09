@@ -78,6 +78,13 @@ describe('Wave 10 domain report definitions', () => {
       expect(sql.sql).not.toContain('LIMIT'); expect(sql.sql).toContain('r.id IS NULL');
     }
   });
+  it('rejects unsupported receivables currencies before querying balances', async () => {
+    const raw = vi.fn();
+    await expect(new ReceivablesRepository({} as never).summary({ $queryRaw: raw } as unknown as Prisma.TransactionClient, 10, 20, 'AUD')).rejects.toMatchObject({
+      name: 'ZodError', issues: [expect.objectContaining({ path: ['currency'] })],
+    });
+    expect(raw).not.toHaveBeenCalled();
+  });
   it('rejects unreconciled balances instead of reporting a plausible zero', async () => {
     const raw = vi.fn().mockResolvedValue([{ count: 1n }]);
     await expect(new ReceivablesRepository({} as never).summary({ $queryRaw: raw } as unknown as Prisma.TransactionClient, 10, 20)).rejects.toMatchObject({ statusCode: 409 });
