@@ -33,15 +33,21 @@ function projection(firmId: number, query: ReceivablesQuery) {
 export class ReceivablesRepository {
   constructor(private readonly db: PrismaClient) {}
   async aging(firmId: number, actorId: number, query: ReceivablesQuery) {
-    return this.db.$transaction(async (tx) => {
+    return this.db.$transaction((tx) => this.readAging(tx, firmId, actorId, query), { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  }
+  async summary(tx: Prisma.TransactionClient, firmId: number, actorId: number, currency?: string, now?: Date) {
+    const result = await this.readAging(tx, firmId, actorId, { currency, page: 1, limit: 20, overdueOnly: 'false' }, false, now);
+    return { asOf: result.asOf, timezone: result.timezone, buckets: result.buckets, customerCredits: result.customerCredits };
+  }
+  private async readAging(tx: Prisma.TransactionClient, firmId: number, actorId: number, query: ReceivablesQuery, includeRows = true, now?: Date) {
       await authorizePayment(tx, firmId, actorId, PERMISSIONS.PAYMENTS_VIEW);
       if (query.companyId && !await tx.company.findFirst({ where: { id: query.companyId, firmId }, select: { id: true } })) throw new AppError('Customer not found', 404);
-      const today = billingToday();
+      const today = billingToday(now);
       const source = projection(firmId, query);
       const invalid = await tx.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*) AS count FROM (${source}) p WHERE p.outstanding < 0 OR p.adjusted_total < 0`;
       if (Number(invalid[0]?.count ?? 0) > 0) throw new AppError('Receivables do not reconcile; review allocations and adjustments', 409);
       const predicate = Prisma.sql`p.outstanding > 0 ${query.overdueOnly === 'true' ? Prisma.sql`AND p.due_date < ${today}` : Prisma.empty}`;
-      const rows = await tx.$queryRaw<BalanceRow[]>`SELECT p.* FROM (${source}) p WHERE ${predicate} ORDER BY p.id DESC LIMIT ${query.limit} OFFSET ${(query.page - 1) * query.limit}`;
+      const rows = includeRows ? await tx.$queryRaw<BalanceRow[]>`SELECT p.* FROM (${source}) p WHERE ${predicate} ORDER BY p.id DESC LIMIT ${query.limit} OFFSET ${(query.page - 1) * query.limit}` : [];
       const buckets = await tx.$queryRaw<AgeingRow[]>`SELECT p.currency,
         CASE WHEN p.due_date IS NULL OR p.due_date >= ${today} THEN 'CURRENT'
           WHEN DATEDIFF(${today}, p.due_date) <= 30 THEN 'DAYS_1_30'
@@ -68,7 +74,6 @@ export class ReceivablesRepository {
         customerCredits: credits.map((row) => ({ currency: row.currency, unapplied: money(row.unapplied, currencyCode(row.currency)).amount })),
         pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) },
       };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
   async invoice(firmId: number, actorId: number, id: number) {
     return this.db.$transaction(async (tx) => {
@@ -80,3 +85,4 @@ export class ReceivablesRepository {
   }
 }
 export const receivablesRepository = new ReceivablesRepository(prisma);
+export const readReceivablesSummary = receivablesRepository.summary.bind(receivablesRepository);

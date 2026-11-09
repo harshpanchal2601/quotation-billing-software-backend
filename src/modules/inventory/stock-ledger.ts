@@ -60,7 +60,7 @@ export function projectStock(position: Pick<StockPosition, 'onHand' | 'reserved'
   return { onHand, value: nextValue, movementValue: value };
 }
 
-type Posting = { firmId: number; warehouseId: number; itemId: number; currency?: string; quantity: Prisma.Decimal; inboundValue?: Prisma.Decimal; reversalValue?: Prisma.Decimal; sourceType: string; sourceId: number; sourceLineId: number; eventType: string; actorId: number; reason: string; originalMovementId?: number };
+type Posting = { firmId: number; warehouseId: number; itemId: number; currency?: string; quantity: Prisma.Decimal; inboundValue?: Prisma.Decimal; reversalValue?: Prisma.Decimal; sourceType: string; sourceId: number; sourceLineId: number; eventType: string; actorId: number; reason: string; originalMovementId?: number; workOrderId?: number };
 
 // Caller owns authorization and withFirmEntitlementTransaction. There is no
 // update/delete path for a posted movement or arbitrary balance assignment.
@@ -71,10 +71,11 @@ export async function postStock(tx: Prisma.TransactionClient, input: Posting) {
   const replay = await tx.stockMovement.findUnique({ where: { firmId_sourceType_sourceId_sourceLineId_eventType: key } });
   if (replay) {
     if (replay.positionId !== position.id || !replay.quantity.eq(input.quantity)) throw new AppError('Stock source event conflict', 409);
+    if (input.workOrderId !== undefined && replay.workOrderId !== input.workOrderId) throw new AppError('Stock work order source conflict', 409);
     return replay;
   }
   const next = projectStock(position, input.quantity, input.inboundValue, input.reversalValue);
-  const movement = await tx.stockMovement.create({ data: { ...key, positionId: position.id, quantity: input.quantity, value: next.movementValue, actorId: input.actorId, reason: input.reason, originalMovementId: input.originalMovementId } });
+  const movement = await tx.stockMovement.create({ data: { ...key, positionId: position.id, quantity: input.quantity, value: next.movementValue, actorId: input.actorId, reason: input.reason, originalMovementId: input.originalMovementId, ...(input.workOrderId === undefined ? {} : { workOrderId: input.workOrderId }) } });
   await tx.stockPosition.update({ where: { id: position.id }, data: { onHand: next.onHand, value: next.value } });
   return movement;
 }

@@ -2,6 +2,9 @@
 export const FEATURE_REGISTRY = Object.freeze({
   'firm.core': { description: 'Firm settings, identity administration and access diagnostics', module: 'System', dependencies: [], required: true, legacy: true },
   dashboard: { description: 'Business dashboard', module: 'Dashboard', dependencies: [], required: false, legacy: true },
+  reports: { description: 'Source-based cross-module analytics and private saved views', module: 'Reports', dependencies: [], required: false, legacy: false },
+  'reports.exports': { description: 'Audited financial report CSV exports', module: 'Reports', dependencies: ['reports'], required: false, legacy: false },
+  manufacturing: { description: 'Basic BOM versions and stock-ledger work orders', module: 'Manufacturing', dependencies: ['inventory'], required: false, legacy: false },
   companies: { description: 'Customers, contacts and addresses', module: 'Companies', dependencies: [], required: false, legacy: true },
   catalog: { description: 'Categories and measurement units', module: 'Catalog', dependencies: [], required: false, legacy: true },
   items: { description: 'Item catalog and images', module: 'Items', dependencies: ['catalog'], required: false, legacy: true },
@@ -41,6 +44,8 @@ export type QuotaKey = (typeof QUOTA_KEYS)[number];
 export const PERMISSION_FEATURES: Readonly<Record<string, FeatureKey>> = Object.freeze({
   'assistant.local': 'assistant.local', 'assistant.llm': 'ai.credits', 'assistant.settings.manage': 'firm.core',
   'dashboard.view': 'dashboard',
+  'reports.view': 'reports', 'reports.export': 'reports.exports',
+  'manufacturing.view': 'manufacturing', 'manufacturing.manage': 'manufacturing', 'manufacturing.post': 'manufacturing',
   'companies.view': 'companies', 'companies.manage': 'companies',
   'catalog.view': 'catalog', 'catalog.manage': 'catalog',
   'items.view': 'items', 'items.manage': 'items',

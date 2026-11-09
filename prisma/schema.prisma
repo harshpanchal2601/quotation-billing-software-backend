@@ -331,6 +331,9 @@ model Opportunity {
   @@unique([id, firmId])
   @@index([firmId, stage, id])
   @@index([firmId, ownerId, id])
+  @@index([firmId, createdAt, id], map: "opportunities_reporting_period_idx")
+  @@index([firmId, ownerId, createdAt, id], map: "opportunities_reporting_owner_idx")
+  @@index([firmId, createdById, createdAt, id], map: "opportunities_reporting_creator_idx")
   @@index([companyId, firmId])
   @@map("opportunities")
 }
@@ -451,6 +454,7 @@ model Warehouse {
   firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
   positions StockPosition[]
   receipts GoodsReceipt[]
+  workOrders WorkOrder[]
   @@unique([id, firmId])
   @@unique([firmId, code])
   @@map("warehouses")
@@ -489,6 +493,7 @@ model StockMovement {
   quantity Decimal @db.Decimal(18,3)
   value Decimal @db.Decimal(30,6)
   originalMovementId Int? @map("original_movement_id")
+  workOrderId Int? @map("work_order_id")
   reason String @db.VarChar(2000)
   actorId Int @map("actor_id")
   postedAt DateTime @default(now()) @map("posted_at")
@@ -497,10 +502,13 @@ model StockMovement {
   position StockPosition @relation(fields: [positionId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
   original StockMovement? @relation("StockCorrection", fields: [originalMovementId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
   corrections StockMovement[] @relation("StockCorrection")
+  workOrder WorkOrder? @relation(fields: [workOrderId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "stock_movements_work_order_owner_fkey")
   @@unique([id, firmId])
   @@unique([firmId, sourceType, sourceId, sourceLineId, eventType], map: "stock_movement_source_event_key")
   @@index([positionId, firmId, postedAt, id], map: "stock_movement_position_period_idx")
+  @@index([firmId, postedAt, positionId], map: "stock_movement_reporting_period_idx")
   @@index([originalMovementId, firmId])
+  @@index([workOrderId, firmId])
   @@map("stock_movements")
 }
 
@@ -571,6 +579,7 @@ model PurchaseOrder {
   @@unique([firmId, idempotencyKey])
   @@index([supplierId, firmId])
   @@index([firmId, status, id])
+  @@index([firmId, createdAt, id], map: "purchase_order_reporting_period_idx")
   @@map("purchase_orders")
 }
 
@@ -681,6 +690,7 @@ model SupplierBill {
   @@unique([firmId, supplierId, supplierReference], map: "supplier_bill_reference_key")
   @@index([supplierId, firmId])
   @@index([firmId, status, id])
+  @@index([firmId, billDate, id], map: "supplier_bill_reporting_period_idx")
   @@map("supplier_bills")
 }
 
@@ -939,6 +949,9 @@ model User {
   documents         GeneratedDocument[]      @relation("GeneratedDocumentGeneratedBy")
   communications    QuotationCommunication[] @relation("QuotationCommunicationSender")
   importBatches     ImportBatch[]            @relation("ImportBatchStartedBy")
+  savedReportViews  SavedReportView[]
+  bomsCreated BillOfMaterials[]
+  workOrdersCreated WorkOrder[]
   auditLogs         AuditLog[]
 
   invoicesCreated   Invoice[]              @relation("InvoiceCreatedBy")
@@ -1019,6 +1032,10 @@ model Firm {
   billingSchedules  BillingSchedule[]
   termsTemplates    TermsTemplate[]
   importBatches     ImportBatch[]
+  savedReportViews  SavedReportView[]
+  billsOfMaterials BillOfMaterials[]
+  bomComponents BomComponent[]
+  workOrders WorkOrder[]
   auditLogs         AuditLog[]
 
   subscriptions     FirmSubscription[]
@@ -1570,6 +1587,8 @@ model Item {
   createdBy           User?           @relation("ItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy           User?           @relation("ItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   firm                Firm            @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  manufacturingOutputs BillOfMaterials[]
+  manufacturingComponents BomComponent[]
   quotationItems      QuotationItem[]
   invoiceLines        InvoiceLine[]
   stockPositions      StockPosition[]
@@ -2135,6 +2154,104 @@ model TermsTemplate {
 
   @@index([firmId, termType])
   @@map("terms_templates")
+}
+
+model BillOfMaterials {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  code String @db.VarChar(50)
+  name String @db.VarChar(191)
+  revision Int
+  outputItemId Int @map("output_item_id")
+  outputQuantity Decimal @map("output_quantity") @db.Decimal(18,3)
+  outputUnitId Int @map("output_unit_id")
+  outputName String @map("output_name") @db.VarChar(191)
+  outputUnit String @map("output_unit") @db.VarChar(50)
+  actorId Int @map("actor_id")
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  outputItem Item @relation(fields: [outputItemId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "bills_of_materials_output_owner_fkey")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  components BomComponent[]
+  workOrders WorkOrder[]
+  @@unique([id, firmId])
+  @@unique([firmId, code, revision])
+  @@unique([firmId, idempotencyKey])
+  @@index([outputItemId, firmId])
+  @@map("bills_of_materials")
+}
+
+model BomComponent {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  bomId Int @map("bom_id")
+  itemId Int @map("item_id")
+  quantity Decimal @db.Decimal(18,3)
+  unitId Int @map("unit_id")
+  name String @db.VarChar(191)
+  unit String @db.VarChar(50)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  bom BillOfMaterials @relation(fields: [bomId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "bom_components_bom_owner_fkey")
+  item Item @relation(fields: [itemId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "bom_components_item_owner_fkey")
+  @@unique([bomId, itemId])
+  @@index([bomId, firmId])
+  @@index([itemId, firmId])
+  @@map("bom_components")
+}
+
+model WorkOrder {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  bomId Int @map("bom_id")
+  warehouseId Int @map("warehouse_id")
+  quantity Decimal @db.Decimal(18,3)
+  currency String @db.VarChar(3)
+  status String @default("DRAFT") @db.VarChar(20)
+  version Int @default(1)
+  snapshot Json
+  actorId Int @map("actor_id")
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  completionKey String? @map("completion_key") @db.VarChar(100)
+  completionHash String? @map("completion_hash") @db.Char(64)
+  cancellationKey String? @map("cancellation_key") @db.VarChar(100)
+  cancellationHash String? @map("cancellation_hash") @db.Char(64)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  bom BillOfMaterials @relation(fields: [bomId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "work_orders_bom_owner_fkey")
+  warehouse Warehouse @relation(fields: [warehouseId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "work_orders_warehouse_owner_fkey")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  movements StockMovement[]
+  @@unique([id, firmId])
+  @@unique([firmId, idempotencyKey])
+  @@unique([firmId, completionKey])
+  @@unique([firmId, cancellationKey])
+  @@index([bomId, firmId])
+  @@index([warehouseId, firmId])
+  @@index([firmId, status, id])
+  @@map("work_orders")
+}
+
+model SavedReportView {
+  id            String   @id @db.VarChar(36)
+  firmId        Int      @map("firm_id")
+  actorId       Int      @map("actor_id")
+  name          String   @db.VarChar(100)
+  version       Int      @default(1)
+  filterVersion Int      @default(1) @map("filter_version")
+  filters       Json
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  firm          Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor         User     @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([id, firmId])
+  @@unique([firmId, actorId, name])
+  @@index([firmId, actorId, updatedAt, id])
+  @@map("saved_report_views")
 }
 
 model ImportBatch {

@@ -6,6 +6,7 @@ import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log
 import { requestHash } from '../../core/idempotency/request-hash.js';
 import { jsonObject as json } from '../../core/serialization/json.js';
 import { currencyCode, decimal, money } from '../../core/money/index.js';
+import type { DateWindow } from '../../core/validation/date-window.js';
 import { authorizeFirmJobActor } from '../auth/index.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { assertTransactionFeature, withFirmEntitlementTransaction } from '../entitlements/index.js';
@@ -21,6 +22,15 @@ export class CrmRepository {
     return user.accountType !== 'FIRM_USER' || (Array.isArray(user.firmRole?.permissions) && user.firmRole.permissions.includes(PERMISSIONS.CRM_VIEW_ALL));
   }
   private scope(all: boolean, actorId: number, assignment = 'ownerId') { return all ? {} : assignment === 'assignedToId' ? { OR: [{ assignedToId: actorId }, { createdById: actorId }] } : { OR: [{ ownerId: actorId }, { createdById: actorId }] }; }
+  async pipelineReport(tx: Prisma.TransactionClient, firmId: number, actorId: number, window: DateWindow, currency?: string) {
+    const all = await this.access(tx, firmId, actorId);
+    const rows = await tx.opportunity.groupBy({
+      by: ['currency', 'stage'],
+      where: { firmId, currency, ...this.scope(all, actorId), createdAt: { gte: window.from, lt: window.until } },
+      _sum: { value: true }, _count: { _all: true }, orderBy: [{ currency: 'asc' }, { stage: 'asc' }],
+    });
+    return { scope: all ? 'FIRM' as const : 'OWNED_OR_CREATED' as const, currencies: rows.map((row) => ({ currency: row.currency, stage: row.stage, count: row._count._all, value: money(row._sum.value ?? '0', currencyCode(row.currency)).amount })) };
+  }
   private async owner(tx: Prisma.TransactionClient, firmId: number, ownerId: number) {
     if (!await tx.user.findFirst({ where: { id: ownerId, firmId, status: 'ACTIVE', deletedAt: null }, select: { id: true } })) throw new AppError('Assigned owner unavailable', 404);
   }
@@ -210,3 +220,4 @@ export class CrmRepository {
   }
 }
 export const crmRepository = new CrmRepository(prisma);
+export const readPipelineReport = crmRepository.pipelineReport.bind(crmRepository);

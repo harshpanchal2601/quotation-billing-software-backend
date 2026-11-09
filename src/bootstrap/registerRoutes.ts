@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { assistantRouter } from '../modules/assistant/index.js';
+import { reportsRouter } from '../modules/reports/index.js';
+import { manufacturingRouter } from '../modules/manufacturing/index.js';
 import { automationRouter, approvalsRouter, templatesRouter, notificationRulesRouter, customFieldsRouter } from '../modules/automation/index.js';
 
 import { healthRouter } from '../routes/health.routes.js';
@@ -25,6 +27,8 @@ import { warehousesRouter, stockRouter } from '../modules/inventory/index.js';
 import { purchaseOrdersRouter, goodsReceiptsRouter, supplierBillsRouter, expensesRouter } from '../modules/purchasing/index.js';
 
 export const apiRouter = Router();
+apiRouter.use('/reports', reportsRouter);
+apiRouter.use('/manufacturing', manufacturingRouter);
 apiRouter.use('/assistant', assistantRouter);
 apiRouter.use('/automation', automationRouter);
 apiRouter.use('/approvals', approvalsRouter);

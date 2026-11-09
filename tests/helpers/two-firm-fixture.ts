@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { AccountType, AddressType, PrismaClient } from '@prisma/client';
 import { expect } from 'vitest';
 
-export function assertDisposableTenantDatabase(value: string, wave: '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' = '01') {
+export function assertDisposableTenantDatabase(value: string, wave: '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' | '10' = '01') {
   const url = new URL(value);
   if (url.protocol !== 'mysql:' ||
       !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
@@ -73,6 +73,7 @@ export class TwoFirmFixture {
     // Immutable platform events intentionally survive fixture actor deletion.
     // Their scalar snapshots remain evidence; no production or shared data is removed.
     await this.db.$transaction(async (tx) => {
+      await tx.savedReportView.deleteMany({ where: { firmId } });
       await tx.assistantExecution.deleteMany({ where: { firmId } });
       await tx.assistantActionProposal.deleteMany({ where: { firmId } });
       await tx.assistantMessage.deleteMany({ where: { firmId } });
@@ -87,6 +88,9 @@ export class TwoFirmFixture {
       await tx.automationDefinitionVersion.deleteMany({ where: { firmId } });
       await tx.stockMovement.deleteMany({ where: { firmId, originalMovementId: { not: null } } });
       await tx.stockMovement.deleteMany({ where: { firmId } });
+      await tx.workOrder.deleteMany({ where: { firmId } });
+      await tx.bomComponent.deleteMany({ where: { firmId } });
+      await tx.billOfMaterials.deleteMany({ where: { firmId } });
       await tx.stockReservation.deleteMany({ where: { firmId } });
       await tx.stockPosition.deleteMany({ where: { firmId } });
       await tx.stockOperation.deleteMany({ where: { firmId } });
