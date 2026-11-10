@@ -1,0 +1,117 @@
+Wave 10 verification matrix
+Updated: 10 November 2026
+Status of EVERY executable check below: NOT RUN. Source coverage is not a pass.
+Reason: direct user prohibition on package, test/build/lint/format, migration,
+Git, Docker and deployment commands. No application/provider was exercised.
+
+1. Reports and source reconciliation
+Entry: reports.routes -> ReportsRepository -> existing domain report readers.
+Evidence sources: tests/wave10.reporting.test.ts, wave10.reports.test.ts,
+wave10.mysql.test.ts and frontend src/features/reports/reports.test.tsx.
+Required: reconcile issued/void/credit/debit sources, unreversed allocations,
+stock valuation and purchases per currency and period; unavailable source grants
+must not masquerade as zero; foreign/customer-owned scope must not leak totals.
+Saved views: direct foreign/other-actor IDs, pagination, version conflicts,
+required-audit failure, identical retry and revoked access.
+Remaining: production-shaped query plans, incremental reporting strategy and
+actual dashboard/browser reconciliation. None measured or certified.
+
+2. Direct export and private queued artifacts
+Evidence sources: tests/wave10.formats.test.ts, wave10.mysql.test.ts,
+outbox.test.ts; frontend reports.test.tsx. reports.formats owns the format map.
+Required: CSV formula protection/escaping/input limits; text-only exact XLSX;
+HTML escaping; source rights before snapshot and before output; private paths,
+actor/firm checks, hash/size integrity, idempotent request keys and storage quota.
+The MySQL source exercises a real queued CSV artifact, real private download and
+quota accounting with outbound services intercepted. A filesystem deletion fault
+is injected after commit: repeat DELETE must remove the retained file and leave
+exactly one quota release and deletion audit. Foreign DELETE remains unavailable.
+Outbox source exercises preparation reauthorization, rollback cleanup and fencing.
+MySQL sources also inject exhausted storage quota and required completion-audit
+failure, verify rolled-back usage/reference and removed temporary files, then
+retry the same job. Storage uses a private temporary test root. All are NOT RUN.
+Remaining: actual storage-byte quota exhaustion evidence, real Office viewers,
+Hindi/Gujarati PDF fonts, actual Puppeteer rendering and concurrent generation,
+process death between storage write and commit, orphan reconciliation rehearsal.
+
+3. Controlled customer/item imports
+Evidence: tests/wave10.formats.test.ts, wave10.mysql.test.ts;
+frontend src/features/imports/imports.test.tsx.
+Required: strict headers/row/byte limits, case-insensitive duplicate identifiers,
+same-actor command idempotency, foreign unit/category/batch/row IDs, concurrent
+commit version conflict, required audit rollback and infrastructure retry.
+Compensation requires the same full scalar fingerprint under source row lock;
+same-timestamp edits must be refused. It deactivates unchanged imported data,
+never deletes financial/stock history. Tracked-item compensation is refused.
+Remaining: complete browser workflow and real database concurrency evidence.
+
+4. Scoped external report API
+Evidence: tests/wave10.api-keys.test.ts, wave10.mysql.test.ts;
+frontend src/features/connections/connections.test.tsx and auth routing tests.
+Required: hashes only at rest, one-time secret presentation, fixed stored firm
+despite a foreign header, expiry/revocation/rotation, each scope independently,
+issuer identity/RBAC/plan recheck after computation, foreign management IDs,
+request budgets, no credentials in lists, audit or React Query caches.
+Remaining: actual proxy/cluster rate-limit behavior and credential recovery drill.
+Rate limits are process-local; no distributed enforcement is claimed.
+
+5. Outgoing signed webhooks
+Evidence: tests/wave10.webhooks.test.ts, wave10.mysql.test.ts, outbox.test.ts.
+Required: exact raw-byte signature, timestamp/replay window, delivery ID dedup
+contract, firm/version-bound encryption, retained-key decryption, old signing
+version on retries, destination/public IPv4 validation, disabled endpoint and
+revoked issuer/source access. Retry attempts and immutable metadata use outbox.
+The DB source intercepts transport; it is not a real receiver/TLS sandbox test.
+Remaining: real DNS/connection/timeout tests, receiver duplicate acceptance,
+TLS failure/redirect proof, crash-after-remote-acceptance and key rotation drill.
+
+6. Accounting mapping and journals
+Evidence: tests/wave10.accounting.test.ts; source schemas/repository/journal.
+Required: exact balanced issue/void events, credit inversion and signed rounding,
+immutable snapshots, mapping version, currency separation, stable source_event,
+malformed/unbalanced snapshots fail closed. Mapping publication is append-only.
+Remaining: full authenticated mapping/export DB lifecycle/audit/role matrix and
+downstream importer reconciliation. Receipt/purchase/expense/stock journal
+contracts and recognition policy are NOT IMPLEMENTED; no parallel GL exists.
+
+7. Localization
+Evidence: tests/wave10.localization.test.ts, wave08.mysql.test.ts;
+frontend shared/localization/presentation.test.ts and reports.test.tsx.
+Required: exact large/negative decimal display, UTC source dates, IANA display
+timezone, locale/language selection and frozen issued preferences after edits.
+Legal strings and raw CSV/XLSX values remain source contracts. Locale does not
+change currency, rates, tax treatment, document numbering or fiscal periods.
+Remaining: full application translation, quotation presentation, approved legal
+wording, actual fonts/screens/PDFs and all supported browser locale smoke tests.
+
+8. Manufacturing
+Evidence: tests/wave10.manufacturing.test.ts, wave10.mysql.test.ts;
+frontend src/features/manufacturing/manufacturing.test.tsx.
+Required: BOM version/source ownership, exact scaled quantities, shared stock
+ledger, component/output value conservation, concurrent identical completion,
+audit rollback, cancellation/reversal order and refusal after output consumption.
+Foreign BOM, component, unit, warehouse and order probes must all fail safely.
+No MRP, payroll, separate production ledger or inferred costing policy added.
+
+9. Provider and India launch boundaries
+India is the user-confirmed primary launch country. Gateway/tax activation has
+not been approved or verified by selecting that geography. Existing SMTP is
+present; Razorpay/IRP/e-way implementations and verified account mappings are
+NOT IMPLEMENTED. No external charge, email or tax submission ran here. Required
+IRN issuance refusal remains the existing safety boundary, not tax certification.
+
+10. Permission/plan and performance coverage
+MySQL source matrices include imports, integrations.api, integrations.webhooks,
+accounting.exports and reports.exports: authorized/denied role, missing/excluded
+plan, expired grants, global hard-off and suspended firm. Current source access
+is also checked during asynchronous execution and protected artifact release.
+Quota evidence is incomplete; the export exhaustion source above is NOT RUN.
+The opt-in wave10.performance.mysql.test.ts creates separate large A/B fixtures
+and reconciles distinguishable totals under concurrent source reads. It requires
+an explicit disposable URL and owner-defined latency budget; no p95 exists yet.
+
+Acceptance
+No row above is VERIFIED/PASS. The continuation report contains exact deferred
+commands and prerequisites. Wave 10 source gaps, DB/provider behavior, full UI,
+performance and migration/restore evidence prevent acceptance. Wave 11 hardening
+does not turn these source tests into runtime evidence.

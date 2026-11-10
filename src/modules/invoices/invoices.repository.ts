@@ -277,7 +277,9 @@ export class InvoicesRepository {
     }
     const bankSnapshot = bank ? { bankName: bank.bankName, accountName: bank.accountName, accountNumber: bank.accountNumber, ifscCode: bank.ifscCode, branchName: bank.branchName, swiftCode: bank.swiftCode, upiId: bank.upiId } : null;
     const automationPresentation = await resolveDocumentPresentation(tx, firmId, 'INVOICE', id);
-    const snapshot = jsonObject({ ...serialiseInvoice(old), status: 'ISSUED', documentNumber, invoiceDate: today, version: old.version + 1, sellerSnapshot: seller, bankSnapshot, automationPresentation });
+    const business = await resolveBusinessPolicy(tx, firmId);
+    const localization = business.policy.presentation ? { localizationSnapshot: { ...business.policy.presentation, policyVersion: business.version } } : {};
+    const snapshot = jsonObject({ ...serialiseInvoice(old), status: 'ISSUED', documentNumber, invoiceDate: today, version: old.version + 1, sellerSnapshot: seller, bankSnapshot, automationPresentation, ...localization });
     const updated = await tx.invoice.updateMany({ where: { id, firmId, version: expectedVersion, status: 'DRAFT' }, data: { status: 'ISSUED', version: { increment: 1 }, documentNumber, period: financialYear(today).period, invoiceDate: new Date(today), sellerSnapshot: seller, bankSnapshot: bankSnapshot ?? Prisma.JsonNull, issueSnapshot: snapshot, issuedAt: new Date(), updatedById: actorId } });
     if (updated.count !== 1) throw new AppError('Draft changed during issuance', 409);
     await this.history(tx, firmId, id, old.version + 1, actorId, 'DRAFT', 'ISSUED');

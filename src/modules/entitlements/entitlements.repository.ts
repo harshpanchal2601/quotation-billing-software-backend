@@ -139,16 +139,17 @@ export async function recordStorageReplacement(tx: EntitlementTransaction, firmI
 }
 
 export async function reconcileFirmUsage(tx: EntitlementTransaction, firmId: number) {
-  const [users, documents, attachments, images, profile, billingDocuments] = await Promise.all([
+  const [users, documents, attachments, images, profile, billingDocuments, exportArtifacts] = await Promise.all([
     tx.user.count({ where: { firmId, deletedAt: null } }),
     tx.generatedDocument.findMany({ where: { quotation: { firmId } }, select: { filePath: true } }),
     tx.quotationAttachment.findMany({ where: { quotation: { firmId }, deletedAt: null }, select: { filePath: true } }),
     tx.item.findMany({ where: { firmId, imagePath: { not: null } }, select: { imagePath: true } }),
     tx.businessProfile.findUnique({ where: { firmId }, select: { logoPath: true, signaturePath: true, stampPath: true } }),
     tx.invoiceDocument.findMany({ where: { firmId }, select: { filePath: true } }),
+    tx.reportExportJob.findMany({ where: { firmId, deletedAt: null, filePath: { not: null } }, select: { filePath: true } }),
   ]);
   const paths = new Set([
-    ...documents.map((entry) => entry.filePath), ...billingDocuments.map((entry) => entry.filePath), ...attachments.map((entry) => entry.filePath),
+    ...documents.map((entry) => entry.filePath), ...billingDocuments.map((entry) => entry.filePath), ...attachments.map((entry) => entry.filePath), ...exportArtifacts.map((entry) => entry.filePath),
     ...images.map((entry) => entry.imagePath), profile?.logoPath, profile?.signaturePath, profile?.stampPath,
   ].filter((value): value is string => typeof value === 'string').map((value) => value.replace(/^\/?storage\//, '')));
   let bytes = 0n;

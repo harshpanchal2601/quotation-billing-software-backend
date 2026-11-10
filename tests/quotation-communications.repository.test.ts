@@ -340,7 +340,7 @@ describe('quotation email communication lifecycle', () => {
   });
 
   it('records failed SMTP attempts without changing quotation status', async () => {
-    mocks.sendMail.mockRejectedValueOnce(Object.assign(new Error('Auth failed'), { code: 'EAUTH' }));
+    mocks.sendMail.mockRejectedValueOnce(Object.assign(new Error('private-smtp-password-and-recipient'), { code: 'EAUTH' }));
 
     await expect(
       quotationCommunicationsRepository.sendQuotationEmail(
@@ -359,6 +359,7 @@ describe('quotation email communication lifecycle', () => {
       statusCode: 502,
       message: 'Failed to send quotation email. Please check SMTP settings or recipient addresses.',
     });
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('private-smtp-password-and-recipient');
 
     expect(mocks.prisma.quotationCommunication.update).toHaveBeenCalledWith({
       where: { id: 100 },

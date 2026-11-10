@@ -1,0 +1,174 @@
+Wave 11 whole-platform verification matrix
+Updated: 10 November 2026
+Primary launch country: India, user confirmed.
+All outcomes: NOT RUN / NOT VERIFIED. Source locations below are candidate
+coverage, not certification. No mocked or skipped suite is accepted as a pass.
+
+Evidence rules
+
+For each future run record candidate commit/artifact identity, runtime/DB/browser
+versions, exact authorized command, isolated environment, synthetic fixture seed,
+time, expected/actual result, redacted output, failure issue and reviewer. Record
+SKIPPED separately from PASSED. A missing optional database URL currently skips
+its suite: a green aggregate without those suites is not integration acceptance.
+Use dedicated wave-specific local disposable database names accepted by each
+suite's guard. Migrate each through the full current schema and generate the
+matching client first; old wave fixtures now reference newer relations. Never
+fall back to the application's DATABASE_URL or point a restore clone at live
+SMTP/payment/tax/AI/webhook providers. No migrations are performed by the fixture.
+
+1. End-to-end business journeys
+
+Manual quotation -> generated immutable revision -> invoice issue -> partial and
+full payment allocation -> credit/reversal/refund -> reconciled receivables:
+existing quotation suites, wave04.mysql.test.ts and wave05.mysql.test.ts provide
+module/transaction coverage sources. A complete composed browser/API journey
+with the same records across all steps is NOT IMPLEMENTED/NOT VERIFIED.
+
+Accepted quotation revision -> order -> reservation -> dispatch/fulfillment ->
+linked invoice -> cancellation/compensation: wave06.mysql.test.ts and
+wave07.mysql.test.ts. Verify direct service invoicing remains independent of
+order/stock, duplicate retries do not repeat business effects, source version
+pins are immutable and cancelled drafts release only their own commitments.
+
+Plan/subscription change -> permission change -> current API denial -> queued
+action reauthorization: platform-entitlements.mysql.test.ts and wave03/05/06/
+07/08/09/10.mysql.test.ts. Whole-platform route-by-route coverage remains pending.
+
+Assistant search -> explicit target -> draft/proposal -> user confirmation ->
+existing domain command -> audit/retry: wave09.mysql.test.ts and frontend
+ProposalReview.test.tsx. Test foreign IDs, revoked access, stale target, expired
+proposal, prompt injection, provider failure and per-firm/daily credit limits.
+
+2. Tenant and role negative matrix
+
+Base sources: tests/helpers/two-firm-fixture.ts, tenant-isolation.mysql.test.ts,
+tenant-context.test.ts, auth.middleware.test.ts, audit-logs.repository.test.ts,
+platform-entitlements.mysql.test.ts and wave04..wave10.mysql.test.ts.
+
+For EVERY API family in wave-11-source-inventory.txt expand each declared or
+loop-generated endpoint, and record these cases independently:
+- A admin/user cannot list/count/search/read/export/mutate B data.
+- Foreign direct and nested company/item/unit/warehouse/owner/source/file IDs.
+- Actor A cannot get another actor's private imports/keys/webhooks/jobs/views.
+- Firm-header/body spoofing cannot override a firm user, portal session or key.
+- Super admin requires explicit selected firm and required platform access audit.
+- Portal contact sees only explicit company/revision grants; revoked identity,
+  invitation/session/grant, expired access and bad CSRF/origin all fail safely.
+- Job/notification/workflow/webhook/AI output retains durable firm/source/actor
+  ownership across lease recovery, retry and permission changes.
+- Private documents/attachments/artifacts cannot be reached by public static
+  paths; active public branding/image rules do not grant private downloads.
+- Audit/history/error/CSV/PDF/preview/options cannot leak foreign joins or totals.
+
+Keep realistic distinguishable A/B values, similar names, separate currencies,
+different roles and source counts. Compare denied bodies, pagination and timing
+where meaningful. Negative assertions must prove absence of foreign output and
+absence of effects; a generic status assertion alone is not a full proof.
+Existing tests do not yet prove every line of this full matrix.
+
+3. Entitlement and permission matrix
+
+For each route/job/portal/AI action: allowed plan + allowed role; denied plan +
+allowed role; allowed plan + denied role; platform hard-off; tenant deny/allow;
+expired/revoked/superseded overrides; inactive/deleted actor; suspended/deleted
+firm; each quota at/exceeding capacity; same request after rights change.
+Dependencies and required feature keys come from the existing feature registry;
+navigation hiding is never server authorization. Quota exhaustion must leave no
+resource, orphan reference, numbering change or usage increment after rollback.
+Sources exist across platform and wave suites; exhaustive certification pending.
+
+4. Financial and stock invariants
+
+Sources: document-sequence.test.ts, wave03.mysql.test.ts, wave04.mysql.test.ts,
+wave05.mysql.test.ts, wave07.mysql.test.ts, wave08.mysql.test.ts,
+wave10.mysql.test.ts, wave10.accounting.test.ts and wave10.reporting.test.ts.
+Verify per-firm concurrent issue high-water marks, failed-audit rollback,
+retained voided numbers, exact issue/revision/policy/template/localization
+snapshots, Decimal/rounding precision, currency partitions and no inferred FX.
+Reconcile allocation/reversal/refund capacity, stock positions to movements,
+reservation/return/cancellation capacity and manufacturing value conservation.
+Export journal events must be balanced by original currency and mapping version,
+with immutable source-event identity; current journal scope is issue/void only.
+Restored data must reconcile against the same source fixtures before resuming.
+
+5. New infrastructure failure coverage
+
+tests/wave11.operations.test.ts: shared stalled probe with bounded HTTP wait,
+settled success/failure cache and recovery, enabled worker first-cycle/failure/
+staleness, concurrent drain, repeated signals, deadline, failed drain and failed
+disconnect. These are injected dependency tests, NOT actual OS signal/DB drills.
+tests/health.test.ts: independent liveness, safe DB readiness, enabled worker
+failure and shutdown beginning while a DB check is pending. The async route
+driver now waits for response/next rather than a void wrapper return.
+tests/wave11.http.test.ts: local HTTP source for URL/header/provider-message
+redaction, generated request IDs, malformed/oversized JSON, generic 404, response
+already started, required-vs-best-effort audit and drain refusal. It does not
+cover the production reverse proxy, collector or live database client.
+tests/outbox.test.ts: synchronous/rejected cycle recovery and observer status,
+in-flight stop, preparation fencing/reauthorization and artifact cleanup.
+tests/env.test.ts: origin normalization/invalid values, production HTTPS and
+distinct/non-example signing keys, bounded timeout/freshness configuration.
+tests/quotation-communications.repository.test.ts: SMTP exception log redaction
+alongside existing accepted/failed delivery and audit behaviors.
+tests/wave10.mysql.test.ts: artifact deletion failure/retry, exhausted storage
+quota and required completion-audit rollback with same-job recovery, isolated
+temporary storage, plus tenant/RBAC/plan/import/manufacturing/integration matrix.
+
+Actual signals/startup failure, stalled DB driver, lease-expiry process death,
+log collector outage, failover and disk-full/permission failures remain NOT RUN.
+
+6. Browser, accessibility and performance
+
+Run all existing frontend tests and architecture-boundaries.test.ts. Role smoke:
+super admin firm selection, firm admin, delegated firm user, portal contact,
+denied plan/role, revoked credentials and active firm switch while fetching or
+downloading. Verify caches and one-time secrets do not cross actor/firm contexts.
+Use supported browsers, narrow/wide layouts, keyboard-only paths, focus return,
+dialogs, error recovery, screen readers and contrast checks. Complete browser/
+accessibility certification and tooling evidence are NOT IMPLEMENTED/NOT RUN.
+India launch does not remove currency/locale/timezone or historical-document
+compatibility checks. English/Hindi/Gujarati source labels are partial coverage.
+
+wave10.performance.mysql.test.ts is explicit opt-in with large distinguishable
+A/B source fixtures and an owner-provided latency budget. Record p95, query
+plans, memory/CPU/pool/lock/queue behavior and reconciled totals. No measurements
+exist. Real PDF concurrency, files, proxy limits, writes and complete customer
+journey load need additional approved scenarios; this is not a full load harness.
+
+7. Provider, migration, recovery and privacy gates
+
+Follow wave-11-operations-runbook.txt for isolated upgrade from the original
+snapshot, partial-DDL/forward fix, consistent DB/files/key restore, financial
+reconciliation, duplicate-external-effect recovery and measured RPO/RTO drills.
+No upgrade, backup integrity, restore or disaster recovery evidence exists yet.
+
+Razorpay gateway, IRP/e-way adapters and their sandbox contracts are NOT
+IMPLEMENTED/NOT VERIFIED. Keep them unavailable. Existing SMTP, assistant and
+outgoing webhook mechanics still need approved test accounts/receiver evidence;
+mocked transport is not sandbox evidence. India launch compliance review remains
+a named owner/provider/legal responsibility; this code asserts no certification.
+
+Privacy retention/export/deletion policy, verified support process, legal holds,
+secret rotation rehearsal, vulnerability/license/secret scanning, private release
+packaging and approved customer release notes remain pending. Do not hard-delete
+immutable financial/stock/audit history to manufacture a privacy test pass.
+
+8. Deferred commands and acceptance record
+
+See wave-11-delivery-report.txt F for the exact recorded commands, all NOT RUN.
+Command restrictions are the current primary blocker, not a passing check or
+missing optional test URL. After explicit execution authorization, establish
+isolated dependencies and data before running them. Provider sandboxes, service
+objectives, scale, retention, incident/support/recovery/rollout owners and enabled
+optional modules remain further prerequisites even when local checks can run.
+
+Acceptance checklist (all unchecked):
+[ ] Earlier wave acceptance rechecked with actual evidence and explicit exceptions.
+[ ] Complete tenant/plan/permission matrices have no critical open failures.
+[ ] Financial/stock balances and historical records reconcile after retries/restore.
+[ ] Migration, backup/restore, security configuration and runbooks rehearsed.
+[ ] Staged rollback/forward fix, dashboards, paging and packaging verified.
+[ ] Unverified providers, tax/compliance and autonomous AI capabilities excluded.
+
+Decision: NO-GO for Wave 11 acceptance or production release.

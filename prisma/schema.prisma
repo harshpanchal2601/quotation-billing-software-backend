@@ -220,6 +220,8 @@ model OutboxEvent {
   jobAttempts    JobAttempt[]
   notifications NotificationDelivery[]
   workflowRun WorkflowRun?
+  webhookDelivery WebhookDelivery?
+  reportExportJob ReportExportJob?
 
   @@unique([firmId, idempotencyKey])
   @@unique([id, firmId])
@@ -950,6 +952,10 @@ model User {
   communications    QuotationCommunication[] @relation("QuotationCommunicationSender")
   importBatches     ImportBatch[]            @relation("ImportBatchStartedBy")
   savedReportViews  SavedReportView[]
+  apiKeys ApiKey[]
+  accountingMappings AccountingMappingVersion[]
+  reportExportJobs ReportExportJob[]
+  webhookEndpoints WebhookEndpoint[]
   bomsCreated BillOfMaterials[]
   workOrdersCreated WorkOrder[]
   auditLogs         AuditLog[]
@@ -1033,6 +1039,11 @@ model Firm {
   termsTemplates    TermsTemplate[]
   importBatches     ImportBatch[]
   savedReportViews  SavedReportView[]
+  apiKeys ApiKey[]
+  accountingMappings AccountingMappingVersion[]
+  reportExportJobs ReportExportJob[]
+  webhookEndpoints WebhookEndpoint[]
+  webhookDeliveries WebhookDelivery[]
   billsOfMaterials BillOfMaterials[]
   bomComponents BomComponent[]
   workOrders WorkOrder[]
@@ -2254,11 +2265,110 @@ model SavedReportView {
   @@map("saved_report_views")
 }
 
+model ReportExportJob {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  requestKey String @map("request_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  format String @db.VarChar(8)
+  filters Json
+  eventId String @map("event_id") @db.VarChar(36)
+  reportSnapshot Json? @map("report_snapshot")
+  filePath String? @map("file_path") @db.VarChar(191)
+  fileHash String? @map("file_hash") @db.Char(64)
+  fileSize Int? @map("file_size")
+  createdAt DateTime @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+  deletedAt DateTime? @map("deleted_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  event OutboxEvent @relation(fields: [eventId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([firmId, actorId, requestKey])
+  @@unique([eventId, firmId])
+  @@index([firmId, actorId, createdAt])
+  @@map("report_export_jobs")
+}
+
+model AccountingMappingVersion {
+  firmId Int @map("firm_id")
+  version Int
+  mapping Json
+  actorId Int @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@id([firmId, version])
+  @@map("accounting_mapping_versions")
+}
+
+model ApiKey {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  name String @db.VarChar(100)
+  tokenHash String @unique @map("token_hash") @db.Char(64)
+  scopes Json
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([firmId, createdAt])
+  @@map("api_keys")
+}
+
+model WebhookEndpoint {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  name String @db.VarChar(100)
+  url String @db.VarChar(1000)
+  enabled Boolean @default(false)
+  secretVersion Int @default(1) @map("secret_version")
+  encryptedSecret String @map("encrypted_secret") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  deliveries WebhookDelivery[]
+
+  @@unique([id, firmId])
+  @@index([firmId, enabled])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  endpointId String @map("endpoint_id") @db.VarChar(36)
+  outboxEventId String @map("outbox_event_id") @db.VarChar(36)
+  sourceEventId String @map("source_event_id") @db.VarChar(36)
+  secretVersion Int @map("secret_version")
+  encryptedSecret String @map("encrypted_secret") @db.Text
+  body String @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  endpoint WebhookEndpoint @relation(fields: [endpointId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  event OutboxEvent @relation(fields: [outboxEventId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([endpointId, sourceEventId])
+  @@unique([outboxEventId, firmId])
+  @@index([endpointId, firmId])
+  @@index([firmId, createdAt])
+  @@map("webhook_deliveries")
+}
+
 model ImportBatch {
   id                Int               @id @default(autoincrement())
   firmId            Int               @map("firm_id")
   sourceType        ItemSourceType    @map("source_type")
   sourceUrl         String?           @map("source_url") @db.VarChar(500)
+  target            String?           @db.VarChar(20)
+  contentHash       String?           @map("content_hash") @db.Char(64)
+  version           Int               @default(1)
   status            ImportBatchStatus @default(PENDING)
   totalRecords      Int               @default(0) @map("total_records")
   successfulRecords Int               @default(0) @map("successful_records")
@@ -2272,6 +2382,8 @@ model ImportBatch {
   rows              ImportRow[]
 
   @@index([firmId, status])
+  @@unique([firmId, startedById, target, contentHash], map: "import_batches_firm_actor_target_hash_key")
+  @@index([firmId, target, startedAt], map: "import_batches_firm_target_started_idx")
   @@map("import_batches")
 }
 
@@ -2283,11 +2395,17 @@ model ImportRow {
   processedData    Json?           @map("processed_data")
   status           ImportRowStatus @default(PENDING)
   errorMessage     String?         @map("error_message") @db.Text
+  targetId         Int?            @map("target_id")
+  importedAt       DateTime?       @map("imported_at")
+  targetUpdatedAt  DateTime?       @map("target_updated_at")
+  targetFingerprint String?        @map("target_fingerprint") @db.Char(64)
+  compensatedAt    DateTime?       @map("compensated_at")
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
   importBatch      ImportBatch     @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
 
   @@index([importBatchId])
+  @@index([sourceIdentifier, status, importBatchId], map: "import_rows_source_status_batch_idx")
   @@index([status])
   @@map("import_rows")
 }

@@ -7,6 +7,7 @@ import { reportQuerySchema } from '../src/modules/reports/reports.schema.js';
 
 const mocks = vi.hoisted(() => ({ actor: vi.fn(), feature: vi.fn(), quotations: vi.fn(), sales: vi.fn(), receivables: vi.fn(), stock: vi.fn(), pipeline: vi.fn(), purchasing: vi.fn() }));
 vi.mock('../src/core/database/prisma.js', () => ({ prisma: {} }));
+vi.mock('../src/modules/connections/events.js', () => ({ enqueueReportExported: vi.fn() }));
 vi.mock('../src/modules/auth/index.js', () => ({ authorizeFirmJobActor: mocks.actor }));
 vi.mock('../src/modules/entitlements/index.js', () => ({ assertTransactionFeature: mocks.feature, withFirmEntitlementTransaction: (db: PrismaClient, _firm: number, work: (tx: Prisma.TransactionClient) => Promise<unknown>) => db.$transaction(work) }));
 vi.mock('../src/modules/quotations/index.js', () => ({ readQuotationReport: mocks.quotations }));

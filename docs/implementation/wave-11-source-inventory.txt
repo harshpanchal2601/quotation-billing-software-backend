@@ -1,0 +1,579 @@
+Wave 11 source inventory
+Captured: 10 November 2026
+Launch geography: India (user confirmed).
+Status: static declarations only; no runtime certification or clean-tree assertion.
+
+Repository metadata read without Git commands
+backend: refs/heads/feat/wave11; HEAD 7126b9972e12f1853b301e6738a7dfb6be0670fa
+frontend: refs/heads/feat/wave11; HEAD d1d0d73cc44e15b426b83e95067a52bc82742490
+
+Registered API families (all under /api/v1)
+Mount | Router export
+/reports | reportsRouter
+/accounting-exports | accountingRouter
+/exports | exportJobsRouter
+/imports | importsRouter
+/api-keys | apiKeysRouter
+/integrations | providersRouter
+/webhooks | webhooksRouter
+/external/v1 | externalApiRouter
+/manufacturing | manufacturingRouter
+/assistant | assistantRouter
+/automation | automationRouter
+/approvals | approvalsRouter
+/templates | templatesRouter
+/custom-fields | customFieldsRouter
+/notification-rules | notificationRulesRouter
+/warehouses | warehousesRouter
+/stock | stockRouter
+/purchase-orders | purchaseOrdersRouter
+/goods-receipts | goodsReceiptsRouter
+/supplier-bills | supplierBillsRouter
+/expenses | expensesRouter
+/auth | authRouter
+/leads | leadsRouter
+/opportunities | opportunitiesRouter
+/tasks | tasksRouter
+/customer-timeline | customerTimelineRouter
+/sales-orders | salesOrdersRouter
+/fulfillments | fulfillmentsRouter
+/portal-access | portalAccessRouter
+/customer-portal | customerPortalRouter
+/platform | platformRouter
+/entitlements | firmEntitlementsRouter
+/administration | administrationRouter
+/audit-logs | auditLogsRouter
+/settings | settingsRouter
+/notifications | notificationsRouter
+/companies | companiesRouter
+/categories | categoriesRouter
+/measurement-units | measurementUnitsRouter
+/items | itemsRouter
+/quotations | quotationsRouter
+/invoices | invoicesRouter
+/proformas | proformasRouter
+/billing-adjustments | billingAdjustmentsRouter
+/billing-settings | billingSettingsRouter
+/payments | paymentsRouter
+/receivables | receivablesRouter
+/billing-schedules | billingSchedulesRouter
+/dashboard | dashboardRouter
+/health | healthRouter
+
+Route declarations by source (local paths; parent mounts above)
+This inventory records declared first arguments, including arrays/templates.
+Loop-generated routes and nested .use mounts require expansion during acceptance.
+It is not an OpenAPI schema or proof of middleware/entitlement coverage.
+src/modules/administration/administration.routes.ts:112 | administrationRouter | GET | '/permissions'
+src/modules/administration/administration.routes.ts:117 | administrationRouter | GET | '/roles'
+src/modules/administration/administration.routes.ts:118 | administrationRouter | POST | '/roles'
+src/modules/administration/administration.routes.ts:119 | administrationRouter | PUT | '/roles/:id'
+src/modules/administration/administration.routes.ts:120 | administrationRouter | DELETE | '/roles/:id'
+src/modules/administration/administration.routes.ts:121 | administrationRouter | GET | '/users'
+src/modules/administration/administration.routes.ts:122 | administrationRouter | POST | '/users'
+src/modules/administration/administration.routes.ts:123 | administrationRouter | PUT | '/users/:id'
+src/modules/administration/administration.routes.ts:124 | administrationRouter | POST | '/users/:id/reset-password'
+src/modules/administration/administration.routes.ts:129 | administrationRouter | DELETE | '/users/:id'
+src/modules/assistant/assistant.routes.ts:24 | assistantRouter | GET | '/usage'
+src/modules/assistant/assistant.routes.ts:25 | assistantRouter | GET | '/settings'
+src/modules/assistant/assistant.routes.ts:26 | assistantRouter | PUT | '/settings'
+src/modules/assistant/assistant.routes.ts:27 | assistantRouter | POST | '/chat'
+src/modules/assistant/assistant.routes.ts:28 | assistantRouter | POST | '/search'
+src/modules/assistant/assistant.routes.ts:32 | assistantRouter | GET | '/history'
+src/modules/assistant/assistant.routes.ts:33 | assistantRouter | DELETE | '/history/:id'
+src/modules/assistant/assistant.routes.ts:37 | assistantRouter | POST | '/proposals'
+src/modules/assistant/assistant.routes.ts:38 | assistantRouter | POST | '/proposals/:id/confirm'
+src/modules/assistant/assistant.routes.ts:42 | assistantRouter | POST | '/proposals/:id/cancel'
+src/modules/assistant/assistant.routes.ts:46 | assistantRouter | POST | '/extractions'
+src/modules/audit-logs/audit-logs.routes.ts:19 | auditLogsRouter | GET | '/'
+src/modules/auth/auth.routes.ts:201 | authRouter | POST | '/login'
+src/modules/auth/auth.routes.ts:202 | authRouter | POST | '/refresh'
+src/modules/auth/auth.routes.ts:203 | authRouter | POST | '/logout'
+src/modules/auth/auth.routes.ts:204 | authRouter | GET | '/me'
+src/modules/auth/auth.routes.ts:205 | authRouter | POST | '/change-password'
+src/modules/automation/automation.routes.ts:24 | router | GET | `${prefix}/:key`
+src/modules/automation/automation.routes.ts:25 | router | POST | `${prefix}/:key/publish`
+src/modules/automation/automation.routes.ts:29 | router | POST | `${prefix}/:key/preview`
+src/modules/automation/automation.routes.ts:33 | router | POST | `${prefix}/:key/rollback`
+src/modules/billing-schedules/billing-schedules.routes.ts:15 | billingSchedulesRouter | GET | '/'
+src/modules/billing-schedules/billing-schedules.routes.ts:16 | billingSchedulesRouter | POST | '/'
+src/modules/billing-schedules/billing-schedules.routes.ts:17 | billingSchedulesRouter | GET | '/:id'
+src/modules/billing-schedules/billing-schedules.routes.ts:18 | billingSchedulesRouter | PATCH | '/:id'
+src/modules/billing-schedules/billing-schedules.routes.ts:19 | billingSchedulesRouter | GET | '/:id/preview'
+src/modules/billing-schedules/billing-schedules.routes.ts:20 | billingSchedulesRouter | POST | '/:id/approve'
+src/modules/billing-schedules/billing-schedules.routes.ts:21 | billingSchedulesRouter | POST | `/:id/${action}`
+src/modules/billing-schedules/billing-schedules.routes.ts:22 | billingSchedulesRouter | POST | '/:id/runs/:runId/retry'
+src/modules/categories/categories.routes.ts:167 | categoriesRouter | GET | '/'
+src/modules/categories/categories.routes.ts:168 | categoriesRouter | GET | '/options'
+src/modules/categories/categories.routes.ts:173 | categoriesRouter | POST | '/'
+src/modules/categories/categories.routes.ts:174 | categoriesRouter | GET | '/:id'
+src/modules/categories/categories.routes.ts:175 | categoriesRouter | PUT | '/:id'
+src/modules/categories/categories.routes.ts:176 | categoriesRouter | PATCH | '/:id/status'
+src/modules/categories/categories.routes.ts:177 | categoriesRouter | DELETE | '/:id'
+src/modules/categories/categories.routes.ts:178 | categoriesRouter | PATCH | '/:id/restore'
+src/modules/companies/companies.routes.ts:143 | companiesRouter | GET | '/'
+src/modules/companies/companies.routes.ts:148 | companiesRouter | POST | '/'
+src/modules/companies/companies.routes.ts:149 | companiesRouter | GET | '/:id'
+src/modules/companies/companies.routes.ts:154 | companiesRouter | PUT | '/:id'
+src/modules/companies/companies.routes.ts:155 | companiesRouter | PATCH | '/:id/status'
+src/modules/companies/companies.routes.ts:156 | companiesRouter | DELETE | '/:id'
+src/modules/companies/companies.routes.ts:157 | companiesRouter | PATCH | '/:id/restore'
+src/modules/companies/companies.routes.ts:158 | companiesRouter | GET | '/:id/quotations'
+src/modules/companies/companies.routes.ts:160 | companiesRouter | POST | '/:companyId/contacts'
+src/modules/companies/companies.routes.ts:161 | companiesRouter | PUT | '/:companyId/contacts/:contactId'
+src/modules/companies/companies.routes.ts:162 | companiesRouter | DELETE | '/:companyId/contacts/:contactId'
+src/modules/companies/companies.routes.ts:163 | companiesRouter | PATCH | '/:companyId/contacts/:contactId/primary'
+src/modules/companies/companies.routes.ts:165 | companiesRouter | POST | '/:companyId/addresses'
+src/modules/companies/companies.routes.ts:166 | companiesRouter | PUT | '/:companyId/addresses/:addressId'
+src/modules/companies/companies.routes.ts:167 | companiesRouter | DELETE | '/:companyId/addresses/:addressId'
+src/modules/companies/companies.routes.ts:168 | companiesRouter | PATCH | '/:companyId/addresses/:addressId/primary'
+src/modules/connections/external-api.routes.ts:18 | externalApiRouter | GET | '/reports/overview'
+src/modules/connections/external-api.routes.ts:25 | externalApiRouter | GET | `/reports/export.${format}`
+src/modules/customer-portal/portal.routes.ts:24 | portalAccessRouter | POST | '/identity/:id/restore'
+src/modules/customer-portal/portal.routes.ts:25 | portalAccessRouter | GET | '/'
+src/modules/customer-portal/portal.routes.ts:26 | portalAccessRouter | GET | '/contacts'
+src/modules/customer-portal/portal.routes.ts:27 | portalAccessRouter | POST | '/invitations'
+src/modules/customer-portal/portal.routes.ts:28 | portalAccessRouter | POST | '/grants'
+src/modules/customer-portal/portal.routes.ts:29 | portalAccessRouter | POST | `/${kind}/:id/revoke`
+src/modules/customer-portal/portal.routes.ts:36 | customerPortalRouter | POST | '/exchange'
+src/modules/customer-portal/portal.routes.ts:41 | customerPortalRouter | POST | '/session'
+src/modules/customer-portal/portal.routes.ts:42 | customerPortalRouter | GET | '/documents'
+src/modules/customer-portal/portal.routes.ts:43 | customerPortalRouter | GET | '/documents/:id'
+src/modules/customer-portal/portal.routes.ts:44 | customerPortalRouter | POST | '/decisions'
+src/modules/customer-portal/portal.routes.ts:45 | customerPortalRouter | POST | '/logout'
+src/modules/dashboard/dashboard.routes.ts:25 | dashboardRouter | GET | '/overview'
+src/modules/imports/imports.routes.ts:23 | importsRouter | GET | '/'
+src/modules/imports/imports.routes.ts:27 | importsRouter | POST | '/preview'
+src/modules/imports/imports.routes.ts:32 | importsRouter | GET | '/:id'
+src/modules/imports/imports.routes.ts:33 | importsRouter | POST | '/:id/commit'
+src/modules/imports/imports.routes.ts:34 | importsRouter | POST | '/:id/rows/:rowId/compensate'
+src/modules/inventory/inventory.routes.ts:16 | warehousesRouter | GET | '/'
+src/modules/inventory/inventory.routes.ts:17 | warehousesRouter | POST | '/'
+src/modules/inventory/inventory.routes.ts:20 | stockRouter | GET | '/reference-options'
+src/modules/inventory/inventory.routes.ts:21 | stockRouter | GET | '/availability'
+src/modules/inventory/inventory.routes.ts:22 | stockRouter | GET | '/reports'
+src/modules/inventory/inventory.routes.ts:23 | stockRouter | GET | '/movements'
+src/modules/inventory/inventory.routes.ts:24 | stockRouter | GET | '/reservations'
+src/modules/inventory/inventory.routes.ts:25 | stockRouter | POST | '/adjustments'
+src/modules/inventory/inventory.routes.ts:26 | stockRouter | POST | '/transfers'
+src/modules/inventory/inventory.routes.ts:27 | stockRouter | POST | '/returns'
+src/modules/inventory/inventory.routes.ts:28 | stockRouter | POST | '/reservations'
+src/modules/inventory/inventory.routes.ts:29 | stockRouter | POST | '/reservations/:id/release'
+src/modules/inventory/inventory.routes.ts:30 | stockRouter | PUT | '/reorder-level'
+src/modules/invoices/invoices.routes.ts:23 | router | POST | '/:id/cancel-order-draft'
+src/modules/invoices/invoices.routes.ts:27 | router | POST | '/from-sales-order'
+src/modules/invoices/invoices.routes.ts:28 | router | GET | '/'
+src/modules/invoices/invoices.routes.ts:30 | router | POST | '/calculate'
+src/modules/invoices/invoices.routes.ts:31 | router | POST | '/'
+src/modules/invoices/invoices.routes.ts:32 | router | GET | '/options/customers'
+src/modules/invoices/invoices.routes.ts:36 | router | GET | '/options/customers/:id/addresses'
+src/modules/invoices/invoices.routes.ts:37 | router | GET | '/options/items'
+src/modules/invoices/invoices.routes.ts:41 | router | POST | '/'
+src/modules/invoices/invoices.routes.ts:42 | router | POST | '/from-quotation'
+src/modules/invoices/invoices.routes.ts:43 | router | POST | '/:id/convert'
+src/modules/invoices/invoices.routes.ts:44 | router | GET | '/:id'
+src/modules/invoices/invoices.routes.ts:45 | router | GET | '/:id/custom-fields/history'
+src/modules/invoices/invoices.routes.ts:46 | router | PATCH | '/:id'
+src/modules/invoices/invoices.routes.ts:47 | router | PATCH | '/:id/custom-fields'
+src/modules/invoices/invoices.routes.ts:51 | router | POST | '/:id/issue'
+src/modules/invoices/invoices.routes.ts:55 | router | POST | '/:id/void'
+src/modules/invoices/invoices.routes.ts:59 | router | GET | '/:id/documents'
+src/modules/invoices/invoices.routes.ts:60 | router | POST | '/:id/pdf'
+src/modules/invoices/invoices.routes.ts:61 | router | GET | `/:id/documents/:documentId/${disposition}`
+src/modules/invoices/invoices.routes.ts:75 | billingSettingsRouter | GET | '/'
+src/modules/invoices/invoices.routes.ts:76 | billingSettingsRouter | PUT | '/'
+src/modules/invoices/invoices.routes.ts:80 | billingSettingsRouter | PUT | '/fields'
+src/modules/items/items.routes.ts:99 | itemsRouter | GET | '/'
+src/modules/items/items.routes.ts:100 | itemsRouter | GET | '/options'
+src/modules/items/items.routes.ts:105 | itemsRouter | POST | '/'
+src/modules/items/items.routes.ts:106 | itemsRouter | GET | '/:id'
+src/modules/items/items.routes.ts:111 | itemsRouter | PUT | '/:id'
+src/modules/items/items.routes.ts:112 | itemsRouter | PUT | '/:id/inventory'
+src/modules/items/items.routes.ts:113 | itemsRouter | PATCH | '/:id/status'
+src/modules/items/items.routes.ts:114 | itemsRouter | DELETE | '/:id'
+src/modules/items/items.routes.ts:115 | itemsRouter | PATCH | '/:id/restore'
+src/modules/items/items.routes.ts:117 | itemsRouter | POST | '/:id/image'
+src/modules/items/items.routes.ts:127 | itemsRouter | DELETE | '/:id/image'
+src/modules/manufacturing/manufacturing.routes.ts:24 | manufacturingRouter | GET | '/reference-options'
+src/modules/manufacturing/manufacturing.routes.ts:25 | manufacturingRouter | GET | `/${kind}`
+src/modules/manufacturing/manufacturing.routes.ts:26 | manufacturingRouter | POST | '/boms'
+src/modules/manufacturing/manufacturing.routes.ts:27 | manufacturingRouter | POST | '/work-orders'
+src/modules/manufacturing/manufacturing.routes.ts:28 | manufacturingRouter | GET | '/work-orders/:id'
+src/modules/manufacturing/manufacturing.routes.ts:29 | manufacturingRouter | POST | `/work-orders/:id/${action}`
+src/modules/measurement-units/measurement-units.routes.ts:173 | measurementUnitsRouter | GET | '/'
+src/modules/measurement-units/measurement-units.routes.ts:174 | measurementUnitsRouter | GET | '/options'
+src/modules/measurement-units/measurement-units.routes.ts:179 | measurementUnitsRouter | POST | '/'
+src/modules/measurement-units/measurement-units.routes.ts:180 | measurementUnitsRouter | GET | '/:id'
+src/modules/measurement-units/measurement-units.routes.ts:181 | measurementUnitsRouter | PUT | '/:id'
+src/modules/measurement-units/measurement-units.routes.ts:182 | measurementUnitsRouter | PATCH | '/:id/status'
+src/modules/measurement-units/measurement-units.routes.ts:183 | measurementUnitsRouter | DELETE | '/:id'
+src/modules/measurement-units/measurement-units.routes.ts:184 | measurementUnitsRouter | PATCH | '/:id/restore'
+src/modules/notifications/notifications.routes.ts:13 | notificationsRouter | GET | '/jobs'
+src/modules/notifications/notifications.routes.ts:17 | notificationsRouter | POST | '/jobs/:id/retry'
+src/modules/notifications/notifications.routes.ts:22 | notificationsRouter | GET | '/'
+src/modules/payments/payments.routes.ts:18 | paymentsRouter | GET | '/capabilities'
+src/modules/payments/payments.routes.ts:19 | paymentsRouter | GET | '/options/customers'
+src/modules/payments/payments.routes.ts:20 | paymentsRouter | GET | '/'
+src/modules/payments/payments.routes.ts:21 | paymentsRouter | POST | '/'
+src/modules/payments/payments.routes.ts:22 | paymentsRouter | GET | '/:id'
+src/modules/payments/payments.routes.ts:23 | paymentsRouter | POST | '/:id/allocate'
+src/modules/payments/payments.routes.ts:24 | paymentsRouter | POST | '/:id/reverse'
+src/modules/payments/payments.routes.ts:25 | paymentsRouter | POST | '/:id/refunds'
+src/modules/payments/payments.routes.ts:28 | receivablesRouter | GET | '/aging'
+src/modules/payments/payments.routes.ts:29 | receivablesRouter | GET | '/invoices/:id'
+src/modules/platform/firm-entitlements.routes.ts:11 | firmEntitlementsRouter | GET | '/me'
+src/modules/platform/platform-subscriptions.routes.ts:24 | platformSubscriptionsRouter | GET | '/subscription-options'
+src/modules/platform/platform-subscriptions.routes.ts:25 | platformSubscriptionsRouter | GET | '/features'
+src/modules/platform/platform-subscriptions.routes.ts:26 | platformSubscriptionsRouter | PATCH | '/features/:key'
+src/modules/platform/platform-subscriptions.routes.ts:27 | platformSubscriptionsRouter | GET | '/plans'
+src/modules/platform/platform-subscriptions.routes.ts:28 | platformSubscriptionsRouter | POST | '/plans'
+src/modules/platform/platform-subscriptions.routes.ts:29 | platformSubscriptionsRouter | GET | '/plans/:id'
+src/modules/platform/platform-subscriptions.routes.ts:30 | platformSubscriptionsRouter | PUT | '/plans/:id'
+src/modules/platform/platform-subscriptions.routes.ts:31 | platformSubscriptionsRouter | DELETE | '/plans/:id'
+src/modules/platform/platform-subscriptions.routes.ts:32 | platformSubscriptionsRouter | POST | '/plans/:id/versions'
+src/modules/platform/platform-subscriptions.routes.ts:33 | platformSubscriptionsRouter | PUT | '/plans/:id/versions/:versionId'
+src/modules/platform/platform-subscriptions.routes.ts:34 | platformSubscriptionsRouter | DELETE | '/plans/:id/versions/:versionId'
+src/modules/platform/platform-subscriptions.routes.ts:35 | platformSubscriptionsRouter | GET | '/plans/:id/versions/:versionId/preview'
+src/modules/platform/platform-subscriptions.routes.ts:36 | platformSubscriptionsRouter | POST | '/plans/:id/versions/:versionId/publish'
+src/modules/platform/platform-subscriptions.routes.ts:37 | platformSubscriptionsRouter | GET | '/firms/:id/subscription'
+src/modules/platform/platform-subscriptions.routes.ts:38 | platformSubscriptionsRouter | PUT | '/firms/:id/subscription'
+src/modules/platform/platform-subscriptions.routes.ts:39 | platformSubscriptionsRouter | DELETE | '/firms/:id/subscription/:versionId'
+src/modules/platform/platform-subscriptions.routes.ts:40 | platformSubscriptionsRouter | GET | '/firms/:id/overrides'
+src/modules/platform/platform-subscriptions.routes.ts:41 | platformSubscriptionsRouter | POST | '/firms/:id/overrides'
+src/modules/platform/platform-subscriptions.routes.ts:42 | platformSubscriptionsRouter | DELETE | '/firms/:id/overrides/:overrideId'
+src/modules/platform/platform-subscriptions.routes.ts:43 | platformSubscriptionsRouter | GET | '/usage'
+src/modules/platform/platform-subscriptions.routes.ts:44 | platformSubscriptionsRouter | GET | '/firms/:id/usage/events'
+src/modules/platform/platform-subscriptions.routes.ts:45 | platformSubscriptionsRouter | POST | '/firms/:id/usage/reconcile'
+src/modules/platform/platform-subscriptions.routes.ts:46 | platformSubscriptionsRouter | GET | '/audit'
+src/modules/platform/platform-subscriptions.routes.ts:47 | platformSubscriptionsRouter | POST | '/firms/:id/charges'
+src/modules/platform/platform-subscriptions.routes.ts:48 | platformSubscriptionsRouter | POST | '/firms/:id/charges/:chargeId/payments'
+src/modules/platform/platform.routes.ts:68 | platformRouter | GET | '/firms'
+src/modules/platform/platform.routes.ts:69 | platformRouter | POST | '/firms'
+src/modules/platform/platform.routes.ts:70 | platformRouter | GET | '/firms/:id'
+src/modules/platform/platform.routes.ts:71 | platformRouter | PUT | '/firms/:id'
+src/modules/platform/platform.routes.ts:72 | platformRouter | PATCH | '/firms/:id/status'
+src/modules/platform/platform.routes.ts:73 | platformRouter | POST | '/firms/:id/administrator/reset-password'
+src/modules/purchasing/purchasing.routes.ts:24 | purchaseOrdersRouter | POST | '/'
+src/modules/purchasing/purchasing.routes.ts:25 | purchaseOrdersRouter | POST | `/:id/${action}`
+src/modules/purchasing/purchasing.routes.ts:26 | goodsReceiptsRouter | POST | '/'
+src/modules/purchasing/purchasing.routes.ts:27 | goodsReceiptsRouter | POST | '/:id/returns'
+src/modules/purchasing/purchasing.routes.ts:28 | goodsReceiptsRouter | GET | '/:id/returns'
+src/modules/purchasing/purchasing.routes.ts:29 | goodsReceiptsRouter | POST | '/:id/cancel'
+src/modules/purchasing/purchasing.routes.ts:30 | supplierBillsRouter | POST | '/'
+src/modules/purchasing/purchasing.routes.ts:31 | supplierBillsRouter | POST | `/:id/${action}`
+src/modules/purchasing/purchasing.routes.ts:32 | expensesRouter | POST | '/'
+src/modules/purchasing/purchasing.routes.ts:33 | expensesRouter | POST | '/:id/void'
+src/modules/quotations/attachments/quotation-attachments.routes.ts:36 | quotationAttachmentsRouter | GET | '/:quotationId/attachments'
+src/modules/quotations/attachments/quotation-attachments.routes.ts:50 | quotationAttachmentsRouter | POST | '/:quotationId/attachments'
+src/modules/quotations/attachments/quotation-attachments.routes.ts:111 | quotationAttachmentsRouter | GET | '/:quotationId/attachments/:attachmentId/preview'
+src/modules/quotations/attachments/quotation-attachments.routes.ts:135 | quotationAttachmentsRouter | GET | '/:quotationId/attachments/:attachmentId/download'
+src/modules/quotations/attachments/quotation-attachments.routes.ts:159 | quotationAttachmentsRouter | DELETE | '/:quotationId/attachments/:attachmentId'
+src/modules/quotations/documents/quotation-documents.routes.ts:29 | quotationDocumentsRouter | POST | '/:id/pdf'
+src/modules/quotations/documents/quotation-documents.routes.ts:158 | quotationDocumentsRouter | GET | '/:id/pdf/:documentId/preview'
+src/modules/quotations/documents/quotation-documents.routes.ts:162 | quotationDocumentsRouter | GET | '/:id/pdf/:documentId/download'
+src/modules/quotations/email/quotation-email.routes.ts:34 | quotationEmailRouter | GET | '/:quotationId/documents'
+src/modules/quotations/email/quotation-email.routes.ts:52 | quotationEmailRouter | GET | '/:quotationId/communications'
+src/modules/quotations/email/quotation-email.routes.ts:70 | quotationEmailRouter | POST | '/:quotationId/email'
+src/modules/quotations/quotations.routes.ts:40 | quotationsRouter | GET | '/'
+src/modules/quotations/quotations.routes.ts:50 | quotationsRouter | POST | '/calculate'
+src/modules/quotations/quotations.routes.ts:60 | quotationsRouter | POST | '/'
+src/modules/quotations/quotations.routes.ts:72 | quotationsRouter | GET | '/:id'
+src/modules/quotations/quotations.routes.ts:82 | quotationsRouter | POST | '/:id/revisions'
+src/modules/quotations/quotations.routes.ts:94 | quotationsRouter | PUT | '/:id'
+src/modules/quotations/quotations.routes.ts:107 | quotationsRouter | PATCH | '/:id/status'
+src/modules/quotations/quotations.routes.ts:120 | quotationsRouter | DELETE | '/:id'
+src/modules/reports/accounting.routes.ts:17 | accountingRouter | GET | '/mapping'
+src/modules/reports/accounting.routes.ts:18 | accountingRouter | POST | '/mapping'
+src/modules/reports/accounting.routes.ts:19 | accountingRouter | GET | '/export.csv'
+src/modules/reports/export-jobs.routes.ts:18 | exportJobsRouter | GET | '/'
+src/modules/reports/export-jobs.routes.ts:19 | exportJobsRouter | POST | '/'
+src/modules/reports/export-jobs.routes.ts:20 | exportJobsRouter | GET | '/:id/download'
+src/modules/reports/export-jobs.routes.ts:27 | exportJobsRouter | DELETE | '/:id'
+src/modules/reports/reports.routes.ts:24 | reportsRouter | GET | '/overview'
+src/modules/reports/reports.routes.ts:25 | reportsRouter | GET | '/export.csv'
+src/modules/reports/reports.routes.ts:34 | reportsRouter | GET | `/export.${format}`
+src/modules/reports/reports.routes.ts:43 | reportsRouter | GET | '/saved-views'
+src/modules/reports/reports.routes.ts:44 | reportsRouter | POST | '/saved-views'
+src/modules/reports/reports.routes.ts:45 | reportsRouter | PUT | '/saved-views/:id'
+src/modules/reports/reports.routes.ts:46 | reportsRouter | DELETE | '/saved-views/:id'
+src/modules/sales-orders/sales-orders.routes.ts:15 | salesOrdersRouter | GET | '/'
+src/modules/sales-orders/sales-orders.routes.ts:16 | salesOrdersRouter | POST | '/from-quotation'
+src/modules/sales-orders/sales-orders.routes.ts:17 | salesOrdersRouter | GET | '/:id'
+src/modules/sales-orders/sales-orders.routes.ts:18 | salesOrdersRouter | POST | '/:id/cancel'
+src/modules/sales-orders/sales-orders.routes.ts:21 | fulfillmentsRouter | GET | '/warehouse-options'
+src/modules/sales-orders/sales-orders.routes.ts:22 | fulfillmentsRouter | POST | '/'
+src/modules/sales-orders/sales-orders.routes.ts:23 | fulfillmentsRouter | POST | '/:id/cancel'
+src/modules/settings/settings.routes.ts:133 | settingsRouter | GET | '/branding'
+src/modules/settings/settings.routes.ts:134 | settingsRouter | GET | '/business-policy'
+src/modules/settings/settings.routes.ts:138 | settingsRouter | PUT | '/business-policy'
+src/modules/settings/settings.routes.ts:143 | settingsRouter | GET | '/business-profile'
+src/modules/settings/settings.routes.ts:144 | settingsRouter | PUT | '/business-profile'
+src/modules/settings/settings.routes.ts:147 | settingsRouter | POST | `/business-profile/${assetType}`
+src/modules/settings/settings.routes.ts:160 | settingsRouter | DELETE | `/business-profile/${assetType}`
+src/modules/settings/settings.routes.ts:166 | settingsRouter | GET | '/quotation'
+src/modules/settings/settings.routes.ts:167 | settingsRouter | PUT | '/quotation'
+src/modules/settings/settings.routes.ts:169 | settingsRouter | GET | '/bank-details'
+src/modules/settings/settings.routes.ts:170 | settingsRouter | POST | '/bank-details'
+src/modules/settings/settings.routes.ts:171 | settingsRouter | PUT | '/bank-details/:id'
+src/modules/settings/settings.routes.ts:172 | settingsRouter | DELETE | '/bank-details/:id'
+src/modules/settings/settings.routes.ts:173 | settingsRouter | PATCH | '/bank-details/:id/default'
+src/routes/health.routes.ts:12 | healthRouter | GET | ['/', '/live']
+src/routes/health.routes.ts:21 | healthRouter | GET | '/ready'
+src/routes/health.routes.ts:33 | healthRouter | GET | '/worker'
+src/routes/health.routes.ts:38 | healthRouter | GET | '/database'
+
+Prisma model declarations (not an inspected live schema)
+DocumentSequence
+FirmBusinessPolicy
+OutboxEvent
+JobAttempt
+NotificationPreference
+NotificationDelivery
+Lead
+Opportunity
+SalesTask
+SalesActivity
+SalesOrder
+SalesOrderLine
+Warehouse
+StockPosition
+StockMovement
+StockReservation
+StockOperation
+PurchaseOrder
+PurchaseOrderLine
+GoodsReceipt
+GoodsReceiptLine
+GoodsReceiptReturn
+SupplierBill
+SupplierBillLine
+Expense
+Fulfillment
+FulfillmentLine
+SalesOrderInvoiceLine
+SalesOrderHistory
+PortalIdentity
+PortalInvitation
+PortalSession
+PortalGrant
+DocumentAcceptance
+User
+Firm
+AssistantSetting
+AssistantConversation
+AssistantMessage
+AssistantActionProposal
+AssistantExecution
+AutomationDefinitionVersion
+WorkflowRun
+WorkflowActionResult
+ApprovalRequest
+ApprovalDecision
+CustomFieldValueVersion
+AutomationRecipientPreference
+FirmRole
+AuthSession
+BusinessProfile
+BankDetail
+QuotationSetting
+Company
+CompanyContact
+CompanyAddress
+ItemCategory
+MeasurementUnit
+Item
+Invoice
+CustomerPayment
+PaymentAllocation
+PaymentReversal
+CustomerRefund
+BillingSchedule
+BillingScheduleVersion
+BillingScheduleRun
+InvoiceSetting
+InvoiceDocument
+InvoiceLine
+InvoiceStatusHistory
+Quotation
+QuotationItem
+QuotationStatusHistory
+QuotationVersion
+QuotationAttachment
+GeneratedDocument
+QuotationCommunication
+TermsTemplate
+BillOfMaterials
+BomComponent
+WorkOrder
+SavedReportView
+ReportExportJob
+AccountingMappingVersion
+ApiKey
+WebhookEndpoint
+WebhookDelivery
+ImportBatch
+ImportRow
+AuditLog
+PlatformFeatureSwitch
+Plan
+PlanVersion
+PlanFeatureEntitlement
+PlanQuota
+FirmSubscription
+FirmFeatureOverride
+UsageCounter
+UsageEvent
+SubscriptionEvent
+PlatformCharge
+PaymentEvent
+
+Versioned migration sources; SHA-256 (not applied or validated)
+20260725153357_init_database_schema | 4309506aaefcac8d5e5c3e6e9e51c96bb2af5cc1356e4ca6931b531afaed1abc
+20260726230000_quotation_revision_families | 33875088cee3dba9e53dfaf78beb1ffe19cdd3db4aec34857e19e33390a8503c
+20260726233000_quotation_communications | ae820d86c8b76f0f6110e54cb0cf1c0f7e04f19b66b041a1ebf2fd52fbe4c66b
+20261007120000_add_multi_firm_foundation | a190e51f08a15eccfc26f16c1844b9f427e851fa83a25f3504e7691d934b020b
+20261022090000_wave01_identity_boundaries | aa68807e261b6610820d2ecda281e547afd0b9692e0ea47366d9714377d2c86b
+20261026090000_wave02_platform_entitlements | 7d138b8ac61dcdab960608fe9a7dba014652b2f9bab26ec2dff3f9023c54bed4
+20261027090000_wave03_business_infrastructure | 0ba2de743f2420005c624bea5313da307fc7d87137ced4b9e87f9ac758a6f9c6
+20261027120000_wave04_billing_documents | e6bd182c7f7dd1d66d2a14f12840e73200e5ba3574f7c2d483eee1ed7a330b06
+20261103120000_wave05_customer_payments | 743324f3b7f6aaa5b71fa1e885f8e796559716dd3336d7529fcb714bafcd56f7
+20261108090000_wave06_sales_collaboration | 07f254d4462ca9cec2f1ee6b43ba8d83827dbe7b96d0175f5be9d908c5d87528
+20261108120000_wave07_inventory_purchasing | d6b34fc8f4905483a02780b1ce15263930a5c345a638a3c3aa281f33dce876e3
+20261108150000_wave08_tenant_automation | e80c22e4da53984dc5b062bb707e3701b4fa4f3d93c67e9ded58be6108bb1cd9
+20261109090000_wave09_business_assistant | b1e8575014942c7d47f4da6f1245bb8737945a59cdfb338fa6cd3260e2f64435
+20261109100000_wave09_execution_relation_unique | d847cb9846a9ceb4598d537a4165a623c3c20df48ae543946ca22d991ece400f
+20261109110000_wave10_source_reporting | bf2ada34a525bfb30e2193c06f33f1e409502f7e5e936742d2afd8dfbb04a0f3
+20261109120000_wave10_basic_manufacturing | a032d5e51f7f310b99fba157918c9a7270e4d06d43b62c463cb6dc0964c48ba5
+20261109130000_wave10_import_lifecycle | cbb9ce7b81350f9f05314087d48839fff9f0c25f801e9b674b62b3356a44b9c5
+20261109140000_wave10_scoped_integrations | 0f5cadf4c5ea37912da1dfbe732f5d5f72b8ed88c9d5355c9a09493854377e8e
+20261109150000_wave10_accounting_mappings | 5a8ed68eae730bad509acf3e9c877d8afe9c290eff6f41334e6bef995a83bac8
+20261109160000_wave10_export_jobs | 551a098fc1f306d233242820b38495e5732fdc79fb1130f48143aa28cb5eb264
+
+Feature registry declarations and permission mapping (not grants)
+Source: src/modules/entitlements/feature-registry.ts
+firm.core
+dashboard
+reports
+reports.exports
+imports
+integrations.api
+accounting.exports
+integrations.webhooks
+manufacturing
+companies
+catalog
+items
+quotations
+quotations.documents
+quotations.email
+quotations.attachments
+audit
+billing.invoices
+billing.proforma
+billing.adjustments
+payments.record
+payments.manage
+billing.recurring
+crm
+sales.orders
+customer.portal
+inventory
+purchasing
+purchasing.bills
+expenses
+automation
+assistant.local
+ai.credits
+
+Permission | Feature
+assistant.local | assistant.local
+assistant.llm | ai.credits
+assistant.settings.manage | firm.core
+dashboard.view | dashboard
+reports.view | reports
+reports.export | reports.exports
+imports.manage | imports
+api-keys.manage | integrations.api
+webhooks.manage | integrations.webhooks
+accounting.export | accounting.exports
+accounting.manage | accounting.exports
+manufacturing.view | manufacturing
+manufacturing.manage | manufacturing
+manufacturing.post | manufacturing
+companies.view | companies
+companies.manage | companies
+catalog.view | catalog
+catalog.manage | catalog
+items.view | items
+items.manage | items
+quotations.view | quotations
+quotations.create | quotations
+quotations.edit | quotations
+quotations.status | quotations
+quotations.delete | quotations
+quotations.documents | quotations.documents
+quotations.email | quotations.email
+quotations.attachments | quotations.attachments
+audit.view | audit
+invoices.view | billing.invoices
+invoices.create | billing.invoices
+invoices.edit | billing.invoices
+invoices.issue | billing.invoices
+invoices.void | billing.invoices
+invoices.documents | billing.invoices
+proformas.view | billing.proforma
+proformas.manage | billing.proforma
+billing-adjustments.view | billing.adjustments
+billing-adjustments.manage | billing.adjustments
+firm.invoice-fields.manage | billing.invoices
+firm.billing-settings.manage | billing.invoices
+payments.view | payments.record
+payments.record | payments.record
+payments.manage | payments.manage
+billing.recurring | billing.recurring
+crm.view | crm
+crm.manage | crm
+crm.view-all | crm
+sales-orders.view | sales.orders
+sales-orders.manage | sales.orders
+fulfillments.manage | sales.orders
+portal.manage | customer.portal
+inventory.view | inventory
+inventory.manage | inventory
+inventory.adjust | inventory
+purchasing.view | purchasing
+purchasing.manage | purchasing
+purchasing.approve | purchasing
+supplier-bills.view | purchasing.bills
+supplier-bills.manage | purchasing.bills
+expenses.view | expenses
+expenses.manage | expenses
+automation.manage | automation
+automation.view | automation
+firm.profile.manage | firm.core
+firm.quotation-settings.manage | firm.core
+firm.bank-details.manage | firm.core
+firm.users.manage | firm.core
+firm.roles.manage | firm.core
+
+Configured durable job handlers (disabled unless worker explicitly enabled)
+notifications.in-app.v1 | inAppNotificationHandler
+billing.recurring-draft.v1 | recurringDraftHandler
+automation.workflow.v1 | workflowHandler
+automation.notification.v1 | workflowNotificationHandler
+integrations.webhook.v1 | webhookHandler
+reports.export.v1 | reportExportHandler
+
+Asset / integration boundaries
+Public static prefixes only: items, logos, signatures, stamps, firm-assets.
+Provider enforcement remains in src/integrations/storage; public filenames are not general private-document routes.
+Private: quotation attachments/documents, invoice documents and report-exports; verify direct HTTP denial and protected downloads.
+Providers present: local storage, SMTP, Puppeteer, bounded signed outgoing webhooks, assistant provider boundary.
+Razorpay gateway and tax submission adapters: NOT IMPLEMENTED; unavailable in diagnostics.
+No callback or payment-provider readiness is implied by server/worker readiness.
+
+Inventory limits
+Static source may change after this capture. Regenerate/review on each release candidate.
+Every declared endpoint still needs schema, actor/firm, plan/RBAC, quota, audit and negative-case evidence.
+No DB metadata, environment files, credentials or customer records were read into this artifact.
+No restricted command was executed.

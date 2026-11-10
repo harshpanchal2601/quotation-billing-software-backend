@@ -133,11 +133,19 @@ suite('Wave 08 authenticated tenant automation and transactional execution', () 
     failFinancialAudit = true; try { expect((await request('POST', `/invoices/${edited.id}/issue`, issue)).status).toBe(500); } finally { failFinancialAudit = false; }
     expect((await db.approvalRequest.findUniqueOrThrow({ where: { id: approved.id } })).consumedAt).toBeNull();
     expect((await db.invoice.findUniqueOrThrow({ where: { id: edited.id } })).status).toBe('DRAFT');
+    const policyBeforeIssue = await db.firmBusinessPolicy.findFirst({ where: { firmId: a.firm.id }, orderBy: { version: 'desc' } });
+    const { DEFAULT_BUSINESS_POLICY } = await import('../src/modules/settings/business-policy/business-policy.repository.js');
+    const issuePolicy = { ...DEFAULT_BUSINESS_POLICY, presentation: { language: 'gu', locale: 'gu-IN', timezone: 'Asia/Kolkata' } };
+    const presentationVersion = (policyBeforeIssue?.version ?? 0) + 1;
+    await db.firmBusinessPolicy.create({ data: { firmId: a.firm.id, actorId: a.admin.id, version: presentationVersion, policy: issuePolicy } });
     const issued = (await data<{ document: Invoice }>(await request('POST', `/invoices/${edited.id}/issue`, issue))).document;
     await publish('/templates', 'INVOICE', { ...template.definition, heading: 'New future brand' }, template.version);
     const snapshot = (await db.invoice.findUniqueOrThrow({ where: { id: issued.id } })).issueSnapshot;
+    expect(snapshot).toMatchObject({ localizationSnapshot: { language: 'gu', locale: 'gu-IN', timezone: 'Asia/Kolkata', policyVersion: presentationVersion }, grandTotal: issued.grandTotal });
+    await db.firmBusinessPolicy.create({ data: { firmId: a.firm.id, actorId: a.admin.id, version: presentationVersion + 1, policy: { ...issuePolicy, presentation: { language: 'en', locale: 'en-US', timezone: 'America/New_York' } } } });
     const { renderInvoiceHtml } = await import('../src/modules/invoices/documents/invoice-document.template.js');
     expect(renderInvoiceHtml(snapshot)).toContain('Approved original brand'); expect(renderInvoiceHtml(snapshot)).not.toContain('New future brand');
+    expect((await db.invoice.findUniqueOrThrow({ where: { id: issued.id } })).issueSnapshot).toEqual(snapshot);
     await publish('/approvals/policies', 'CREDIT_NOTE_ISSUE', policy('CREDIT_NOTE_ISSUE'));
     const credit = (await data<{ document: Invoice }>(await request('POST', '/billing-adjustments', { sourceInvoiceId: issued.id, kind: 'CREDIT_NOTE', reason: 'Fixture partial service credit', idempotencyKey: randomUUID(), gstReductionEligible: false, annualReturnFiledAt: null, recipientItcReversalConfirmed: false, lines: [{ sourceLineNumber: 1, quantity: '1', unitRate: '5.00' }], customFieldValues: {} }), 201)).document;
     const creditIssue = { expectedVersion: credit.version, confirmedTotal: credit.grandTotal }; expect((await request('POST', `/billing-adjustments/${credit.id}/issue`, creditIssue)).status).toBe(409);

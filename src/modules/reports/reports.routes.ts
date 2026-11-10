@@ -30,6 +30,16 @@ reportsRouter.get('/export.csv', requirePermission(PERMISSIONS.REPORTS_EXPORT), 
   res.setHeader('X-Content-Type-Options', 'nosniff');
   return res.status(200).send(csv);
 }));
+for (const format of ['xlsx', 'pdf'] as const) {
+  reportsRouter.get(`/export.${format}`, requirePermission(PERMISSIONS.REPORTS_EXPORT), asyncHandler(async (req, res) => {
+    const query = reportQuerySchema.parse(req.query);
+    const output = await repository.exportReport(getFirmId(req), actor(req), query, metadata(req), format);
+    res.setHeader('Content-Type', format === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="reports-${query.dateFrom}-${query.dateTo}.${format}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    return res.status(200).send(output);
+  }));
+}
 reportsRouter.get('/saved-views', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Saved reports retrieved', await repository.listViews(getFirmId(req), actor(req), savedViewsQuerySchema.parse(req.query)))));
 reportsRouter.post('/saved-views', asyncHandler(async (req, res) => sendSuccess(res, 201, 'Report view saved', { view: await repository.saveView(getFirmId(req), actor(req), savedViewCreateSchema.parse(req.body), metadata(req)) })));
 reportsRouter.put('/saved-views/:id', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Report view updated', { view: await repository.saveView(getFirmId(req), actor(req), savedViewUpdateSchema.parse(req.body), metadata(req), savedViewIdSchema.parse(req.params.id)) })));

@@ -1,4 +1,5 @@
 import type { AuditAction, Prisma, PrismaClient } from '@prisma/client';
+import { logOperationalEvent } from '../observability/logger.js';
 
 export type RequestMetadata = {
   userId?: number;
@@ -35,8 +36,7 @@ export async function createAuditLog(
     });
   } catch (error) {
     if (input.policy === 'REQUIRED') throw error;
-    console.warn(`${input.entityType} audit log could not be created.`);
-    console.warn(error instanceof Error ? error.message : 'Unknown audit error');
+    logOperationalEvent('warn', { event: 'audit.best_effort.failed' });
   }
 }
 

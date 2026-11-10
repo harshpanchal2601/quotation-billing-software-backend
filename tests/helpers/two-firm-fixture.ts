@@ -73,6 +73,11 @@ export class TwoFirmFixture {
     // Immutable platform events intentionally survive fixture actor deletion.
     // Their scalar snapshots remain evidence; no production or shared data is removed.
     await this.db.$transaction(async (tx) => {
+      await tx.reportExportJob.deleteMany({ where: { firmId } });
+      await tx.webhookDelivery.deleteMany({ where: { firmId } });
+      await tx.webhookEndpoint.deleteMany({ where: { firmId } });
+      await tx.apiKey.deleteMany({ where: { firmId } });
+      await tx.accountingMappingVersion.deleteMany({ where: { firmId } });
       await tx.savedReportView.deleteMany({ where: { firmId } });
       await tx.assistantExecution.deleteMany({ where: { firmId } });
       await tx.assistantActionProposal.deleteMany({ where: { firmId } });

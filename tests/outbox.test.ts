@@ -169,4 +169,39 @@ describe('durable outbox dispatch', () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(runOne).toHaveBeenCalledTimes(1);
   });
+  it('reports worker-cycle failure, recovers after a synchronous adapter error and stops cleanly', async () => {
+    const started = vi.fn(); const finished = vi.fn();
+    const runOne = vi.fn().mockImplementationOnce(() => { throw new Error('private adapter error'); }).mockResolvedValue(false);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const worker = startOutboxWorker({ runOne }, 'worker-a', 100, { started, finished });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(finished).toHaveBeenLastCalledWith(false);
+      expect(JSON.stringify(error.mock.calls)).not.toContain('private adapter error');
+      await vi.advanceTimersByTimeAsync(100);
+      expect(started).toHaveBeenCalledTimes(2);
+      expect(finished).toHaveBeenLastCalledWith(true);
+      await worker.stop();
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(runOne).toHaveBeenCalledTimes(2);
+    } finally { error.mockRestore(); }
+  });
+  it('reauthorizes after preparation and cleans the artifact if access was revoked', async () => {
+    const fixture = memoryDatabase(); const cleanup = vi.fn(); const execute = vi.fn(); const prepare = vi.fn(async () => ({ value: { path: 'private-fixture' }, cleanup }));
+    const authorize = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new AppError('Access revoked during rendering', 403));
+    await new OutboxRepository(fixture.db, { 'fixture.v1': { retry: 'TRANSACTIONAL', authorize, prepare, execute } }).runOne('worker-a');
+    expect(prepare).toHaveBeenCalledTimes(1); expect(execute).not.toHaveBeenCalled();
+    expect(cleanup).toHaveBeenCalledWith(false); expect(fixture.state.event.status).toBe('DEAD');
+  });
+  it('keeps a committed artifact and removes a rolled-back artifact after audit failure', async () => {
+    for (const auditFailure of [false, true]) {
+      const fixture = memoryDatabase(); const cleanup = vi.fn(); const value = { path: 'private-fixture' };
+      if (auditFailure) fixture.tx.auditLog.create.mockImplementation(async ({ data }) => { if ((data as { newValues: { decision: string } }).newValues.decision === 'SUCCEEDED') throw new Error('Audit unavailable'); });
+      const execute = vi.fn(async () => fixture.effect());
+      await new OutboxRepository(fixture.db, { 'fixture.v1': { retry: 'TRANSACTIONAL', authorize: async () => {}, prepare: async () => ({ value, cleanup }), execute } }).runOne('worker-a');
+      expect(execute).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ firmId: 1 }), value);
+      expect(cleanup).toHaveBeenCalledWith(!auditFailure);
+      expect(fixture.state.effects).toBe(auditFailure ? 0 : 1);
+    }
+  });
 });

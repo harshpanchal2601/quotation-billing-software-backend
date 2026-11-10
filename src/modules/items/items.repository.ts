@@ -6,6 +6,8 @@ import { PERMISSIONS } from '../auth/permissions.js';
 import { resolveBusinessPolicy } from '../settings/index.js';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
+import { requestHash } from '../../core/idempotency/request-hash.js';
+import { jsonObject } from '../../core/serialization/json.js';
 import { assertTransactionFeature, prepareStorageUsage, recordStorageReplacement, withFirmEntitlementTransaction } from '../entitlements/index.js';
 import { formatItemCode, findLatestItemCodeSequence } from './code/item-code.js';
 import { removeStoredItemImage, toItemRelativePath } from './images/item-image.policy.js';
@@ -112,12 +114,16 @@ export class ItemsRepository {
   }
 
   async createItem(firmId: number, input: ItemCreateInput, metadata: RequestMetadata) {
-    const categoryId = await this.resolveAndValidateCategory(firmId, input.categoryId);
-    await this.validateMeasurementUnit(firmId, input.measurementUnitId);
+    return this.createItemRecord(this.db, firmId, input, metadata);
+  }
 
-    const itemCode = await this.generateUniqueItemCodeWithRetry(firmId);
+  async createItemRecord(db: PrismaClient | Prisma.TransactionClient, firmId: number, input: ItemCreateInput, metadata: RequestMetadata, sourceExternalId?: string) {
+    const categoryId = await this.resolveAndValidateCategory(firmId, input.categoryId, db);
+    await this.validateMeasurementUnit(firmId, input.measurementUnitId, db);
 
-    const item = await this.db.item.create({
+    const itemCode = await this.generateUniqueItemCodeWithRetry(firmId, db);
+
+    const item = await db.item.create({
       data: {
         firmId,
         itemCode,
@@ -132,9 +138,9 @@ export class ItemsRepository {
         defaultRate: new Prisma.Decimal(input.defaultRate ?? '0.00'),
         hsnCode: input.hsnCode ?? null,
         gstRate: new Prisma.Decimal(input.gstRate ?? '18.00'),
-        sourceType: ItemSourceType.MANUAL,
+        sourceType: sourceExternalId === undefined ? ItemSourceType.MANUAL : ItemSourceType.CSV_IMPORT,
         sourceUrl: null,
-        sourceExternalId: null,
+        sourceExternalId: sourceExternalId ?? null,
         isActive: input.isActive ?? true,
         createdById: metadata.userId ?? null,
         updatedById: metadata.userId ?? null,
@@ -142,7 +148,7 @@ export class ItemsRepository {
       include: itemDetailInclude,
     });
 
-    await this.auditItem(AuditAction.CREATE, item, metadata);
+    await this.auditItem(AuditAction.CREATE, item, metadata, undefined, db);
     return serialiseItemDetail(item);
   }
 
@@ -411,21 +417,21 @@ export class ItemsRepository {
     return formatItemCode(maxNum + 1);
   }
 
-  private async generateUniqueItemCodeWithRetry(firmId: number): Promise<string> {
+  private async generateUniqueItemCodeWithRetry(firmId: number, db: PrismaClient | Prisma.TransactionClient = this.db): Promise<string> {
     let currentNum: number | null = null;
 
     for (let attempt = 0; attempt < MAX_ITEM_CODE_RETRIES; attempt += 1) {
       let candidate: string;
 
       if (currentNum === null) {
-        candidate = await this.generateNextItemCode(this.db, firmId);
+        candidate = await this.generateNextItemCode(db, firmId);
         currentNum = parseItemCodeFromMatch(candidate) ?? 1;
       } else {
         currentNum += 1;
         candidate = formatItemCode(currentNum);
       }
 
-      const existing = await this.db.item.findFirst({
+      const existing = await db.item.findFirst({
         where: { firmId, itemCode: candidate },
         select: { id: true },
       });
@@ -451,9 +457,9 @@ export class ItemsRepository {
     return item;
   }
 
-  private async resolveAndValidateCategory(firmId: number, categoryId?: number): Promise<number> {
+  private async resolveAndValidateCategory(firmId: number, categoryId?: number, db: PrismaClient | Prisma.TransactionClient = this.db): Promise<number> {
     if (categoryId !== undefined) {
-      const category = await this.db.itemCategory.findFirst({
+      const category = await db.itemCategory.findFirst({
         where: { id: categoryId, firmId, deletedAt: null },
       });
 
@@ -464,7 +470,7 @@ export class ItemsRepository {
       return category.id;
     }
 
-    const defaultCategory = await this.db.itemCategory.findFirst({
+    const defaultCategory = await db.itemCategory.findFirst({
       where: { firmId, slug: UNCATEGORISED_SLUG, deletedAt: null },
     });
 
@@ -475,8 +481,8 @@ export class ItemsRepository {
     return defaultCategory.id;
   }
 
-  private async validateMeasurementUnit(firmId: number, measurementUnitId: number): Promise<void> {
-    const unit = await this.db.measurementUnit.findFirst({
+  private async validateMeasurementUnit(firmId: number, measurementUnitId: number, db: PrismaClient | Prisma.TransactionClient = this.db): Promise<void> {
+    const unit = await db.measurementUnit.findFirst({
       where: { id: measurementUnitId, firmId, deletedAt: null },
     });
 
@@ -553,3 +559,8 @@ function createItemSearchFilter(search: string): Prisma.ItemWhereInput {
 }
 
 export const itemsRepository = new ItemsRepository(prisma);
+export async function createItemForImport(tx: Prisma.TransactionClient, firmId: number, input: ItemCreateInput, metadata: RequestMetadata, sourceExternalId: string) {
+  const created = await itemsRepository.createItemRecord(tx, firmId, input, metadata, sourceExternalId);
+  const record = await tx.item.findUniqueOrThrow({ where: { id: created.id } });
+  return { id: record.id, updatedAt: record.updatedAt, fingerprint: requestHash(jsonObject(record)) };
+}

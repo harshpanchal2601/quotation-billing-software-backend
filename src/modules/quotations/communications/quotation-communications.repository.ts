@@ -12,6 +12,7 @@ import { mailConfig } from '../../../config/mail.config.js';
 import { storageConfig } from '../../../config/storage.config.js';
 import { AppError } from '../../../core/errors/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../../core/audit/audit-log.service.js';
+import { logOperationalEvent } from '../../../core/observability/logger.js';
 import { prisma } from '../../../core/database/prisma.js';
 import { mailService } from '../../../integrations/mail/index.js';
 import { storageService } from '../../../integrations/storage/index.js';
@@ -401,7 +402,7 @@ export class QuotationCommunicationsRepository {
       if (err instanceof AppError && err.statusCode === 503) {
         throw err;
       }
-      console.error('SMTP Send Error:', err instanceof Error ? err.message : 'Unknown SMTP error');
+      logOperationalEvent('error', { event: 'smtp.failed' });
       const failure = safeFailureSummary(err);
       await this.db.quotationCommunication.update({
         where: { id: attempt.id },

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { AuditAction, Prisma, type PrismaClient, type SavedReportView } from '@prisma/client';
 import type { z } from 'zod';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
@@ -9,6 +9,7 @@ import { dateWindow } from '../../core/validation/date-window.js';
 import { authorizeFirmJobActor } from '../auth/index.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { readPipelineReport } from '../crm/index.js';
+import { enqueueReportExported } from '../connections/events.js';
 import { assertTransactionFeature, withFirmEntitlementTransaction } from '../entitlements/index.js';
 import { readStockValuation } from '../inventory/index.js';
 import { readSalesReport } from '../invoices/index.js';
@@ -16,6 +17,7 @@ import { readReceivablesSummary } from '../payments/index.js';
 import { readPurchasingReport } from '../purchasing/index.js';
 import { readQuotationReport } from '../quotations/index.js';
 import { reportCsv } from './reports.csv.js';
+import { reportPdf, reportXlsx } from './reports.formats.js';
 import { reportQuerySchema, type ReportQuery, type ReportSectionKey, type savedViewCreateSchema, type savedViewUpdateSchema, type savedViewsQuerySchema } from './reports.schema.js';
 import type { ReportMetric, ReportOverview, ReportSection, ReportSectionData } from './reports.types.js';
 
@@ -105,27 +107,55 @@ export class ReportsRepository {
     }
   }
 
-  private async overviewInTransaction(tx: Prisma.TransactionClient, firmId: number, actorId: number, query: ReportQuery): Promise<ReportOverview> {
+  async overviewInTransaction(tx: Prisma.TransactionClient, firmId: number, actorId: number, query: ReportQuery): Promise<ReportOverview> {
     await this.access(tx, firmId, actorId);
     const generatedAt = new Date();
     const sections: ReportSection[] = [];
     // One repeatable-read transaction keeps all domain queries on the same DB snapshot.
     for (const key of query.sections) sections.push(await this.section(tx, firmId, actorId, key, query, generatedAt));
-    return { schemaVersion: 1, firmId, generatedAt: generatedAt.toISOString(), dateFrom: query.dateFrom, dateTo: query.dateTo, currency: query.currency ?? null, currencyPolicy: 'SEGMENTED_NO_CONVERSION', sections };
+    if (sections.reduce((count, section) => count + (section.status === 'AVAILABLE' ? section.data.metrics.length : 0), 0) > 10_000) throw new AppError('Report exceeds 10000 metrics; narrow its sections or currency', 413);
+    const localization: Pick<ReportOverview, 'localizationSnapshot'> = query.locale || query.language || query.timezone ? { localizationSnapshot: { locale: query.locale ?? 'en-IN', language: query.language ?? 'en', timezone: query.timezone ?? 'UTC' } } : {};
+    return { schemaVersion: 1, firmId, generatedAt: generatedAt.toISOString(), dateFrom: query.dateFrom, dateTo: query.dateTo, currency: query.currency ?? null, currencyPolicy: 'SEGMENTED_NO_CONVERSION', sections, ...localization };
   }
 
   async overview(firmId: number, actorId: number, query: ReportQuery) {
     return this.db.$transaction((tx) => this.overviewInTransaction(tx, firmId, actorId, query), { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 30_000 });
   }
 
+  async assertExportAccess(tx: Prisma.TransactionClient, firmId: number, actorId: number, query?: ReportQuery, report?: ReportOverview) {
+    await this.access(tx, firmId, actorId, true);
+    if (!report) return;
+    if (!query) throw new Error('Export filters are required to validate a snapshot');
+    if (report.firmId !== firmId) throw new AppError('Report ownership is invalid', 409);
+    for (const section of report.sections) {
+      if (section.status !== 'AVAILABLE') continue;
+      const current = await this.section(tx, firmId, actorId, section.key, query, new Date(report.generatedAt));
+      if (current.status !== 'AVAILABLE' || current.data.scope !== section.data.scope) throw new AppError('Report access changed; rerun the export', 403);
+    }
+  }
+
   async exportCsv(firmId: number, actorId: number, query: ReportQuery, metadata: RequestMetadata) {
-    return this.db.$transaction(async (tx) => {
+    return this.exportReport(firmId, actorId, query, metadata, 'csv') as Promise<string>;
+  }
+
+  async exportReport(firmId: number, actorId: number, query: ReportQuery, metadata: RequestMetadata, format: 'csv' | 'xlsx' | 'pdf') {
+    const exportId = randomUUID();
+    const report = await this.db.$transaction(async (tx) => {
       await this.access(tx, firmId, actorId, true);
       const report = await this.overviewInTransaction(tx, firmId, actorId, query);
-      const csv = reportCsv(report);
-      await createAuditLog(tx, { metadata: { ...metadata, firmId, userId: actorId }, entityType: 'ReportExport', entityId: randomUUID(), action: AuditAction.CREATE, policy: 'REQUIRED', newValues: jsonObject({ format: 'CSV', schemaVersion: report.schemaVersion, filters: query, generatedAt: report.generatedAt, sections: report.sections.map((section) => ({ key: section.key, status: section.status })) }) });
-      return csv;
+      await createAuditLog(tx, { metadata: { ...metadata, firmId, userId: actorId }, entityType: 'ReportExport', entityId: exportId, action: AuditAction.CREATE, policy: 'REQUIRED', newValues: jsonObject({ format: format.toUpperCase(), schemaVersion: report.schemaVersion, filters: query, generatedAt: report.generatedAt, sections: report.sections.map((section) => ({ key: section.key, status: section.status })) }) });
+      return report;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 30_000 });
+    // Browser work must not hold a database transaction open.
+    const output = format === 'csv' ? reportCsv(report) : format === 'xlsx' ? reportXlsx(report) : await reportPdf(report);
+    if (Buffer.byteLength(output) > 10_000_000) throw new AppError('Report export exceeds 10 MB; narrow its sections or currency', 413);
+    // Revalidate after expensive rendering, before returning any bytes.
+    await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      await this.assertExportAccess(tx, firmId, actorId, query, report);
+      await createAuditLog(tx, { metadata: { ...metadata, firmId, userId: actorId }, entityType: 'ReportExport', entityId: exportId, action: AuditAction.UPDATE, policy: 'REQUIRED', newValues: { decision: 'GENERATED', format, sha256: createHash('sha256').update(output).digest('hex'), bytes: Buffer.byteLength(output) } });
+      await enqueueReportExported(tx, firmId, actorId, exportId, format, report.generatedAt);
+    });
+    return output;
   }
 
   async listViews(firmId: number, actorId: number, query: z.infer<typeof savedViewsQuerySchema>) {

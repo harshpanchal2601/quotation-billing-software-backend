@@ -3,8 +3,9 @@ import { AuditAction, Prisma, type OutboxEvent, type PrismaClient } from '@prism
 
 import { createAuditLog } from '../audit/audit-log.service.js';
 import { AppError } from '../errors/AppError.js';
-import type { JobRegistry } from './outbox.types.js';
+import type { JobRegistry, PreparedJob } from './outbox.types.js';
 import { DeferredOutboxJob } from './deferred-job.js';
+import { logOperationalEvent } from '../observability/logger.js';
 
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
@@ -53,8 +54,14 @@ export class OutboxRepository {
     if (event === null) return false;
     const handler = Object.hasOwn(this.registry, event.kind) ? this.registry[event.kind] : undefined;
     let effectStarted = false;
+    let prepared: PreparedJob | undefined;
+    let committed = false;
     try {
       if (handler === undefined) throw new AppError('Unknown job kind', 400, { code: 'UNKNOWN_KIND' });
+      if (handler.prepare) {
+        await this.db.$transaction((tx) => handler.authorize(tx, event));
+        prepared = await handler.prepare(event);
+      }
       await this.db.$transaction(async (tx) => {
         // Hold the lease row through execution. A claimant cannot reclaim an
         // expired lease while its owner still holds this transaction's lock.
@@ -68,11 +75,13 @@ export class OutboxRepository {
         // by the owning module, using durable columns, not payload path names.
         await handler.authorize(tx, event);
         effectStarted = true;
-        await handler.execute(tx, event);
+        if (prepared) await handler.execute(tx, event, prepared.value);
+        else await handler.execute(tx, event);
         await tx.outboxEvent.update({ where: { id: event.id }, data: { status: 'SUCCEEDED', completedAt: new Date(), lockToken: null, lockedUntil: null } });
         await tx.jobAttempt.update({ where: { eventId_attempt: { eventId: event.id, attempt: event.attempts } }, data: { finishedAt: new Date(), outcome: 'SUCCEEDED' } });
         await audit(tx, event, 'SUCCEEDED');
       }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 30_000 });
+      committed = true;
     } catch (error) {
       // Never store exception messages: providers may embed credentials or PII.
       const deferral = error instanceof DeferredOutboxJob && handler?.retry === 'TRANSACTIONAL' ? error : null;
@@ -89,6 +98,11 @@ export class OutboxRepository {
         await tx.jobAttempt.update({ where: { eventId_attempt: { eventId: event.id, attempt: event.attempts } }, data: { finishedAt: new Date(), outcome: deferred ? 'DEFERRED' : status, errorCode: deferred ? null : code } });
         await audit(tx, event, deferred ? 'DEFERRED' : status);
       });
+    } finally {
+      if (prepared) {
+        try { await prepared.cleanup(committed); }
+        catch { logOperationalEvent('error', { event: 'outbox.artifact_cleanup.failed' }); }
+      }
     }
     return true;
   }

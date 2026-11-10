@@ -1,4 +1,6 @@
 Wave 10 initial reporting and manufacturing implementation
+HISTORICAL INITIAL REPORT. Current inventory and remaining scope are in
+wave-10-continuation-report.txt and wave-10-verification-matrix.txt.
 Date: 9 November 2026
 Status: INITIAL SOURCE CHANGE SETS APPLIED. WAVE 10 IS NOT COMPLETE OR ACCEPTED.
 

@@ -1,0 +1,42 @@
+import { Router, type Request, type RequestHandler } from 'express';
+import rateLimit from 'express-rate-limit';
+import { env } from '../../config/env.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { sendError, sendSuccess } from '../../core/http/apiResponse.js';
+import { asyncHandler } from '../../core/http/asyncHandler.js';
+import { getFirmId, requireFirmContext } from '../../core/tenancy/tenant-context.js';
+import { requireAuthentication, requirePermission } from '../auth/auth.middleware.js';
+import { PERMISSIONS } from '../auth/permissions.js';
+import { apiKeysRepository as keys } from './api-keys.repository.js';
+import { webhooksRepository as hooks } from './webhooks.repository.js';
+import { connectionIdSchema, connectionPageSchema, keyCreateSchema, webhookCreateSchema, webhookToggleSchema } from './connections.schema.js';
+import { readProviderStatus } from './provider-status.repository.js';
+
+const metadata = (req: Request) => ({ userId: req.user!.id, firmId: getFirmId(req), ipAddress: req.ip, userAgent: req.get('user-agent') });
+const protect: RequestHandler = (req, res, next) => {
+  res.setHeader('Cache-Control', 'private, no-store');
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('origin') !== new URL(env.FRONTEND_URL).origin) return next(new AppError('Integration request origin is not allowed', 403));
+  return next();
+};
+const managementRouter = () => {
+  const router = Router();
+  router.use(requireAuthentication, requireFirmContext, protect);
+  router.use(rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHeaders: false, keyGenerator: (req) => `${getFirmId(req)}:${req.user!.id}`, handler: (_req, res) => { sendError(res, 429, 'Integration request rate limit reached'); } }));
+  return router;
+};
+export const apiKeysRouter = managementRouter();
+export const providersRouter = managementRouter();
+providersRouter.use(requirePermission(PERMISSIONS.FIRM_PROFILE_MANAGE));
+providersRouter.get('/', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Provider configuration states retrieved', await readProviderStatus(getFirmId(req), req.user!.id))));
+apiKeysRouter.use(requirePermission(PERMISSIONS.API_KEYS_MANAGE));
+apiKeysRouter.get('/', asyncHandler(async (req, res) => { const { page, limit } = connectionPageSchema.parse(req.query); return sendSuccess(res, 200, 'API keys retrieved', await keys.list(getFirmId(req), req.user!.id, page, limit)); }));
+apiKeysRouter.post('/', asyncHandler(async (req, res) => sendSuccess(res, 201, 'Store this token securely; it is shown once', await keys.create(getFirmId(req), req.user!.id, keyCreateSchema.parse(req.body), metadata(req)))));
+apiKeysRouter.post('/:id/rotate', asyncHandler(async (req, res) => sendSuccess(res, 201, 'API key rotated; previous token revoked', await keys.create(getFirmId(req), req.user!.id, keyCreateSchema.parse(req.body), metadata(req), connectionIdSchema.parse(req.params.id)))));
+apiKeysRouter.post('/:id/revoke', asyncHandler(async (req, res) => { await keys.revoke(getFirmId(req), req.user!.id, connectionIdSchema.parse(req.params.id), metadata(req)); return sendSuccess(res, 200, 'API key revoked', {}); }));
+export const webhooksRouter = managementRouter();
+webhooksRouter.use(requirePermission(PERMISSIONS.WEBHOOKS_MANAGE));
+webhooksRouter.get('/', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Webhook endpoints retrieved', await hooks.list(getFirmId(req), req.user!.id))));
+webhooksRouter.post('/', asyncHandler(async (req, res) => sendSuccess(res, 201, 'Store this signing secret securely; it is shown once', await hooks.create(getFirmId(req), req.user!.id, webhookCreateSchema.parse(req.body), metadata(req)))));
+webhooksRouter.put('/:id', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Webhook endpoint updated', await hooks.change(getFirmId(req), req.user!.id, connectionIdSchema.parse(req.params.id), metadata(req), webhookToggleSchema.parse(req.body).enabled))));
+webhooksRouter.post('/:id/rotate', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Webhook signing secret rotated', await hooks.change(getFirmId(req), req.user!.id, connectionIdSchema.parse(req.params.id), metadata(req)))));
+webhooksRouter.get('/:id/deliveries', asyncHandler(async (req, res) => { const { page, limit } = connectionPageSchema.parse(req.query); return sendSuccess(res, 200, 'Webhook deliveries retrieved', await hooks.deliveries(getFirmId(req), req.user!.id, connectionIdSchema.parse(req.params.id), page, limit)); }));

@@ -1,12 +1,16 @@
 import { z } from 'zod';
 import { dateOnlySchema } from '../../core/validation/date-only.js';
 import { dateWindow } from '../../core/validation/date-window.js';
+import { localeSchema, languageSchema, timezoneSchema } from '../../core/localization/presentation.js';
 
 export const REPORT_SECTIONS = ['quotations', 'sales', 'receivables', 'pipeline', 'stock', 'purchaseOrders', 'supplierBills', 'expenses'] as const;
 export const reportSectionSchema = z.enum(REPORT_SECTIONS);
 export const reportQuerySchema = z.object({
   dateFrom: dateOnlySchema,
   dateTo: dateOnlySchema,
+  locale: localeSchema.optional(),
+  language: languageSchema.optional(),
+  timezone: timezoneSchema.optional(),
   currency: z.string().trim().regex(/^[A-Za-z]{3}$/).toUpperCase().optional(),
   sections: z.preprocess((value) => typeof value === 'string' ? value.split(',') : value,
     z.array(reportSectionSchema).min(1).max(REPORT_SECTIONS.length).refine((values) => new Set(values).size === values.length, 'Duplicate report section').default([...REPORT_SECTIONS])),

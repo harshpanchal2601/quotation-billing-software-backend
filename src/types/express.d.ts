@@ -5,6 +5,8 @@ declare global {
     interface Request {
       user?: AuthenticatedRequestUser;
       firmId?: number;
+      requestId?: string;
+      routeGroup?: string;
     }
   }
 }

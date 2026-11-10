@@ -1,0 +1,22 @@
+Wave 11 entry status
+Updated: 10 November 2026
+Primary launch country: India, confirmed by the user.
+
+Wave 10 is incomplete and unaccepted. Earlier waves have not been reaccepted
+as one system. The document's prerequisites are not waived.
+
+Safe infrastructure hardening has proceeded as authorized source work:
+- Separate liveness/readiness and bounded shared database probes.
+- Local worker-cycle freshness and graceful drain with a hard exit deadline.
+- Structured request/process diagnostics without raw URL/provider error payloads.
+- Production origin/signing-secret checks in the existing configuration boundary.
+- Retryable private export removal without duplicate storage release/audit.
+- Regression sources, declaration inventory, verification matrix and runbooks.
+
+See wave-11-delivery-report.txt for every changed file, exact source behavior,
+remaining scope, risks and deferred commands. wave-11-source-inventory.txt freezes
+route/model/migration/feature/worker declarations without asserting runtime
+coverage. wave-11-operations-runbook.txt describes unexecuted operational drills.
+
+Status: WAVE 11 SOURCE HARDENING STARTED; NOT COMPLETE; NOT ACCEPTED.
+Release: NO-GO. No deployment, provider activation or production data mutation.

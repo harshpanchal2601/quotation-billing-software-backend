@@ -1,4 +1,5 @@
 import type { ReportSectionKey } from './reports.schema.js';
+import type { Presentation } from '../../core/localization/presentation.js';
 
 export type ReportMetric = {
   key: string;
@@ -23,6 +24,7 @@ export type ReportSection = { key: ReportSectionKey } & (
 );
 export type ReportOverview = {
   schemaVersion: 1;
+  localizationSnapshot?: Presentation;
   firmId: number;
   generatedAt: string;
   dateFrom: string;
