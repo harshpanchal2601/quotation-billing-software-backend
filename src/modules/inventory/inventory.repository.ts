@@ -1,3 +1,4 @@
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import { AuditAction, Prisma, type PrismaClient } from '@prisma/client';
 import type { z } from 'zod';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
@@ -44,7 +45,7 @@ export class InventoryRepository {
     return this.db.$transaction(async (tx) => {
       await this.access(tx, firmId, actorId, PERMISSIONS.INVENTORY_VIEW);
       const where: Prisma.StockPositionWhereInput = { firmId, warehouseId: query.warehouseId, itemId: query.itemId };
-      const rows = await tx.stockPosition.findMany({ where, include: { warehouse: true, item: { select: { name: true, itemCode: true } } }, orderBy: { id: 'asc' }, take: query.limit, skip: (query.page - 1) * query.limit });
+      const rows = await tx.stockPosition.findMany({ where, include: { warehouse: true, item: { select: { name: true, itemCode: true } } }, orderBy: listOrderBy(query, ['id', 'onHand', 'reserved', 'value', 'reorderLevel'], 'id', 'asc'), take: query.limit, skip: (query.page - 1) * query.limit });
       const ids = rows.map((row) => row.id);
       const totals = await tx.stockMovement.groupBy({ by: ['positionId'], where: { firmId, positionId: { in: ids } }, _sum: { quantity: true, value: true } });
       const held = await tx.stockReservation.groupBy({ by: ['positionId'], where: { firmId, positionId: { in: ids }, status: 'ACTIVE' }, _sum: { remaining: true } });
@@ -64,7 +65,7 @@ export class InventoryRepository {
     return this.db.$transaction(async (tx) => {
       await this.access(tx, firmId, actorId, PERMISSIONS.INVENTORY_VIEW);
       const where: Prisma.StockMovementWhereInput = { firmId, position: { firmId, warehouseId: query.warehouseId, itemId: query.itemId }, postedAt: { gte: query.from ? new Date(`${query.from}T00:00:00Z`) : undefined, lte: query.to ? new Date(`${query.to}T23:59:59.999Z`) : undefined } };
-      return { movements: await tx.stockMovement.findMany({ where, include: { position: { select: { itemId: true, warehouseId: true, currency: true } } }, orderBy: { id: 'desc' }, take: query.limit, skip: (query.page - 1) * query.limit }), pagination: { page: query.page, limit: query.limit, total: await tx.stockMovement.count({ where }) } };
+      return { movements: await tx.stockMovement.findMany({ where, include: { position: { select: { itemId: true, warehouseId: true, currency: true, warehouse: { select: { code: true, name: true } }, item: { select: { itemCode: true, name: true } } } } }, orderBy: listOrderBy(query, ['id', 'postedAt', 'quantity', 'value', 'eventType', 'sourceType']), take: query.limit, skip: (query.page - 1) * query.limit }), pagination: { page: query.page, limit: query.limit, total: await tx.stockMovement.count({ where }) } };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
   async adjust(firmId: number, actorId: number, input: z.infer<typeof stockAdjustmentSchema>, metadata: RequestMetadata) {
@@ -125,7 +126,7 @@ export class InventoryRepository {
     });
   }
   async reservations(firmId: number, actorId: number, query: z.infer<typeof inventoryListSchema>) {
-    return this.db.$transaction(async (tx) => { await this.access(tx, firmId, actorId, PERMISSIONS.INVENTORY_VIEW); const where: Prisma.StockReservationWhereInput = { firmId, salesOrderId: query.salesOrderId, position: { warehouseId: query.warehouseId, itemId: query.itemId, firmId } }; return { reservations: await tx.stockReservation.findMany({ where, orderBy: { id: 'desc' }, take: query.limit, skip: (query.page - 1) * query.limit }), pagination: { page: query.page, limit: query.limit, total: await tx.stockReservation.count({ where }) } }; });
+    return this.db.$transaction(async (tx) => { await this.access(tx, firmId, actorId, PERMISSIONS.INVENTORY_VIEW); const where: Prisma.StockReservationWhereInput = { firmId, salesOrderId: query.salesOrderId, position: { warehouseId: query.warehouseId, itemId: query.itemId, firmId } }; return { reservations: await tx.stockReservation.findMany({ where, orderBy: listOrderBy(query, ['id', 'quantity', 'remaining', 'status']), take: query.limit, skip: (query.page - 1) * query.limit, include: { position: { select: { warehouse: { select: { code: true, name: true } }, item: { select: { itemCode: true, name: true } } } } } }), pagination: { page: query.page, limit: query.limit, total: await tx.stockReservation.count({ where }) } }; });
   }
   async release(firmId: number, actorId: number, id: number, reason: string, metadata: RequestMetadata) {
     return withFirmEntitlementTransaction(this.db, firmId, async (tx) => { await this.access(tx, firmId, actorId, PERMISSIONS.INVENTORY_MANAGE); const row = await tx.stockReservation.findFirst({ where: { id, firmId } }); if (!row) throw new AppError('Reservation not found', 404); if (row.status !== 'ACTIVE') return row; await tx.stockPosition.update({ where: { id: row.positionId }, data: { reserved: { decrement: row.remaining } } }); const updated = await tx.stockReservation.update({ where: { id }, data: { status: 'RELEASED', remaining: 0, releaseReason: reason } }); await auditInventory(tx, firmId, actorId, 'StockReservation', id, updated, metadata); return updated; });

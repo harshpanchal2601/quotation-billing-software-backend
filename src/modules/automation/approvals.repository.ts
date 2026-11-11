@@ -1,3 +1,4 @@
+import { listOrderBy, type ListSort } from '../../core/validation/list-sort.js';
 import { randomUUID } from 'node:crypto';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import type { z } from 'zod';
@@ -119,13 +120,13 @@ export class ApprovalsRepository {
       return row;
     });
   }
-  async list(firmId: number, actorId: number, page = 1) {
+  async list(firmId: number, actorId: number, page = 1, sorting: ListSort = {}) {
     return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
       await assertTransactionFeature(tx, firmId, 'automation');
       const actor = await authorizeFirmJobActor(tx, firmId, actorId, PERMISSIONS.AUTOMATION_VIEW);
       if (actor.firmId !== firmId) throw new AppError('Firm membership is required', 403);
       const where = { firmId, ...(actor.accountType === 'FIRM_ADMIN' ? {} : { requesterId: actorId }) };
-      return tx.approvalRequest.findMany({ where, include: { policy: true, decisions: { orderBy: { id: 'asc' } } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * 50, take: 50 });
+      return tx.approvalRequest.findMany({ where, include: { policy: true, requester: { select: { id: true, name: true } }, decisions: { orderBy: { id: 'asc' }, include: { actor: { select: { id: true, name: true } } } } }, orderBy: listOrderBy(sorting, ['id', 'createdAt', 'expiresAt', 'status', 'requesterId'], 'createdAt'), skip: (page - 1) * 50, take: 50 });
     });
   }
   async decide(firmId: number, actorId: number, id: string, input: z.infer<typeof decisionSchema>) {

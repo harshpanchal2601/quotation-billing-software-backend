@@ -1,3 +1,4 @@
+import { listOrderBy, type ListSort } from '../../core/validation/list-sort.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AuditAction, type Prisma, type PrismaClient } from '@prisma/client';
 import type { z } from 'zod';
@@ -35,11 +36,11 @@ export class ApiKeysRepository {
       return this.issue(tx, firmId, actorId, input, metadata);
     });
   }
-  async list(firmId: number, actorId: number, page: number, limit: number) {
+  async list(firmId: number, actorId: number, page: number, limit: number, sort: ListSort = {}) {
     return this.db.$transaction(async (tx) => {
       await this.access(tx, firmId, actorId);
       const where = { firmId, actorId };
-      const [keys, total] = await Promise.all([tx.apiKey.findMany({ where, select: summary, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * limit, take: limit }), tx.apiKey.count({ where })]);
+      const [keys, total] = await Promise.all([tx.apiKey.findMany({ where, select: summary, orderBy: listOrderBy(sort, ['id', 'createdAt', 'name', 'expiresAt'], 'createdAt'), skip: (page - 1) * limit, take: limit }), tx.apiKey.count({ where })]);
       return { keys, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
     });
   }

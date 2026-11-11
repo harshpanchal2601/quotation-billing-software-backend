@@ -80,7 +80,8 @@ suite('Wave 04 authenticated billing and financial transactions', () => {
     expect(created).toMatchObject({ status: 'DRAFT', grandTotal: '118.00', customFieldValues: { cf_order: 'PO-ORIGINAL' } });
     await data(await request('POST', '/invoices/calculate', input));
     const list = await data<{ documents: Document[] }>(await request('GET', `/invoices?search=Consulting&companyId=${a.company.id}`)); expect(list.documents).toEqual([]);
-    const { idempotencyKey: _, ...edit } = input;
+    const edit = { ...input };
+    Reflect.deleteProperty(edit, 'idempotencyKey');
     const updated = (await data<{ document: Document }>(await request('PATCH', `/invoices/${created.id}`, { ...edit, expectedVersion: 1, lines: [{ ...input.lines[0], unitRate: '200.10' }] }))).document;
     expect(updated.grandTotal).toBe('236.00'); expect(updated.version).toBe(2);
     expect((await request('PATCH', `/invoices/${created.id}`, { ...edit, expectedVersion: 1 })).status).toBe(409);
@@ -218,7 +219,8 @@ suite('Wave 04 authenticated billing and financial transactions', () => {
     const voided = (await data<{ document: Document }>(await request('POST', `/invoices/${source.id}/void`, { expectedVersion: source.version, reason: 'Supply cancelled before reporting', notReportedAndSupplyCancelled: true }))).document;
     expect(voided.status).toBe('VOID'); expect(voided.documentNumber).toBe(source.documentNumber);
     await db.company.update({ where: { id: b.company.id }, data: { gstin: '27AAPFU0939F1ZV' } });
-    const current = await settings(b); const { customFields: _, ...config } = current.config;
+    const current = await settings(b); const config = { ...current.config };
+    Reflect.deleteProperty(config, 'customFields');
     await data(await request('PUT', '/billing-settings', { expectedVersion: current.version, config: { ...config, einvoiceRequired: true } }, b.admin.id));
     const b2b = await create(b); expect((await request('POST', `/invoices/${b2b.id}/issue`, { expectedVersion: b2b.version, confirmedTotal: b2b.grandTotal }, b.admin.id)).status).toBe(409);
   });

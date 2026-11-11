@@ -1,4 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { Prisma } from '@prisma/client';
+import { readBillingJournalSources } from '../src/modules/invoices/journal-sources.repository.js';
+
+vi.mock('../src/modules/auth/index.js', () => ({ authorizeFirmJobActor: vi.fn(async () => undefined) }));
+vi.mock('../src/modules/entitlements/index.js', () => ({ assertTransactionFeature: vi.fn(async () => undefined) }));
 import { billingJournal } from '../src/modules/reports/accounting.journal.js';
 import { accountingMappingSchema } from '../src/modules/reports/accounting.schema.js';
 import { dateWindow } from '../src/core/validation/date-window.js';
@@ -8,6 +13,16 @@ const mapping = accountingMappingSchema.parse({ receivables: 'AR', sales: 'SALES
 const window = dateWindow('2026-11-01', '2026-11-09');
 const source = (extra: Partial<Parameters<typeof billingJournal>[0][number]> = {}): Parameters<typeof billingJournal>[0][number] => ({ id: 1, kind: 'INVOICE', currency: 'INR', documentNumber: 'INV-1', issuedAt: new Date('2026-11-05T00:00:00Z'), voidedAt: null, issueSnapshot: { status: 'ISSUED', currency: 'INR', documentNumber: 'INV-1', taxableAmount: '100.00', taxAmount: '18.00', roundOffAmount: '-0.01', grandTotal: '117.99' }, statusHistory: [{ version: 2, toStatus: 'ISSUED' }], ...extra });
 describe('Wave 10 billing journal export projection', () => {
+  it('reads only previously issued documents, including cancellations of earlier-period issues', async () => {
+    const findMany = vi.fn().mockResolvedValue([source()]);
+    const tx = { invoice: { findMany } } as unknown as Prisma.TransactionClient;
+    const rows = await readBillingJournalSources(tx, 7, 11, window);
+    expect(rows).toHaveLength(1);
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { firmId: 7, issuedAt: { not: null }, kind: { in: ['INVOICE', 'CREDIT_NOTE', 'DEBIT_NOTE'] }, OR: [{ issuedAt: { gte: window.from, lt: window.until } }, { voidedAt: { gte: window.from, lt: window.until } }] },
+      take: 1001,
+    }));
+  });
   it('balances source snapshots with signed rounding and stable deduplication keys', () => {
     const rows = billingJournal([source()], mapping, window);
     expect(rows).toContainEqual(expect.objectContaining({ sourceEvent: 'billing:1:2:ISSUE', account: 'AR', debit: '117.99', credit: '0.00' }));

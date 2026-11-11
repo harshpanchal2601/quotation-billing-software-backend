@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { listOrderBy } from '../../../core/validation/list-sort.js';
 import {
   AuditAction,
   CommunicationStatus,
@@ -141,7 +142,7 @@ export class QuotationCommunicationsRepository {
   async getDocumentHistory(
     firmId: number,
     quotationId: number,
-    query: { page?: number; limit?: number; sortOrder?: 'asc' | 'desc' },
+    query: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' },
   ): Promise<GeneratedDocumentHistoryResponse> {
     const quotation = await this.assertQuotationExists(firmId, quotationId);
     const page = Math.max(1, Number(query.page) || 1);
@@ -152,6 +153,7 @@ export class QuotationCommunicationsRepository {
       page,
       limit,
       sortOrder,
+      sortBy: query.sortBy,
     });
 
     const pdfStorageDir = storageService.resolveStoragePath(storageConfig.quotationDocumentDirectory);
@@ -189,19 +191,19 @@ export class QuotationCommunicationsRepository {
   async getCommunicationHistory(
     firmId: number,
     quotationId: number,
-    query: { page?: number; limit?: number; sortOrder?: 'asc' | 'desc' },
+    query: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' },
   ): Promise<QuotationCommunicationHistoryResponse> {
     await this.assertQuotationExists(firmId, quotationId);
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
-    const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
+    const orderBy = listOrderBy(query, ['id', 'createdAt', 'status', 'subjectSnapshot', 'attemptNumber'], 'createdAt');
     const skip = (page - 1) * limit;
 
     const [total, communications] = await Promise.all([
       this.db.quotationCommunication.count({ where: { quotationId } }),
       this.db.quotationCommunication.findMany({
         where: { quotationId },
-        orderBy: { createdAt: sortOrder },
+        orderBy,
         skip,
         take: limit,
         include: {

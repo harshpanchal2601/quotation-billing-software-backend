@@ -1,3 +1,4 @@
+import { listOrderBy, type ListSort } from '../../core/validation/list-sort.js';
 import { createHash } from 'node:crypto';
 import { AuditAction, Prisma, type ImportBatch, type PrismaClient } from '@prisma/client';
 import { z } from 'zod';
@@ -79,11 +80,11 @@ export class ImportsRepository {
     });
   }
 
-  async list(firmId: number, actorId: number, page: number, limit: number) {
+  async list(firmId: number, actorId: number, page: number, limit: number, sort: ListSort = {}) {
     return this.db.$transaction(async (tx) => {
       await this.access(tx, firmId, actorId);
       const where = { firmId, startedById: actorId, target: { in: ['CUSTOMERS', 'ITEMS'] }, contentHash: { not: null } };
-      const [batches, total] = await Promise.all([tx.importBatch.findMany({ where, orderBy: { id: 'desc' }, skip: (page - 1) * limit, take: limit }), tx.importBatch.count({ where })]);
+      const [batches, total] = await Promise.all([tx.importBatch.findMany({ where, orderBy: listOrderBy(sort, ['id', 'target', 'status', 'startedAt', 'totalRecords', 'successfulRecords', 'failedRecords'], 'id'), skip: (page - 1) * limit, take: limit }), tx.importBatch.count({ where })]);
       return { batches, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
     });
   }

@@ -1,8 +1,91 @@
+11 November 2026 — owner-confirmed India local-first scope
+The owner selected: Local ERP workflows first; keep unverified external
+integrations disabled. Provider activation is excluded from the first release,
+not an unfulfilled requirement to activate a gateway/SMTP/tax/LLM service now.
+
+Applied through the existing audited platform controls, without new environment
+flags, erased credentials, plan-version edits or a parallel authorization path:
+- quotations.email: globally hard disabled,16:27:29 Asia/Kolkata.
+- integrations.api: globally hard disabled,16:27:39.
+- integrations.webhooks: globally hard disabled,16:27:48.
+- ai.credits: globally hard disabled,16:28:06.
+Reason records the owner's India local-first decision and later provider
+acceptance requirement. Platform audit identifies administrator1 for all four.
+The changes affect all firms in this local installation. They are reversible
+through the existing controls, with a new explicit audited change reason.
+
+Reload proved all four persisted. Firm-admin Subscription & Usage independently
+showed Denied / Disabled by the platform administrator for all four; local
+assistant and report downloads remained Allowed / Included in your plan.
+The QA plan still contains33 selected features; its published revision and
+assignment were not edited.29 remain effectively allowed after these exclusions.
+
+Provider readiness: only the read-only diagnostic tab remains for this actor;
+API-key and webhook management tabs are absent. SMTP now Enabled No; payment and
+India e-invoice/e-way services Enabled No and unavailable. No outbound message,
+provider validation call, payment, tax submission, new credential or wider access
+was created. The shared provider table uses readable status/provider names and
+business guidance, while response status/provider identifiers remain unchanged.
+
+Important chronology correction: SMTP configuration was already present and
+quotation-email permission was previously allowed. Configuration alone did not
+mean email was disabled. Earlier broad statements that all integrations were
+off must be read with this later verified exclusion. SMTP secrets were preserved,
+not printed, copied into reports or modified. No .env edit was needed.
+
+This closes the owner scope decision and named exclusion checks only. Desktop
+variants, composed business/access/quota coverage, local accounting/document/
+legal review and operational recovery/load/security/rollout acceptance remain
+open. Mobile is owner-deferred. No release/deployment is accepted by this note.
+
+11 November 2026 — administration/settings evidence update
+Later named desktop checks now cover subscription feature/usage wording and
+ordering; users/roles labels and discard; compact audit detail/paging/order;
+billing configuration's read/write response fix; protected business/quotation
+settings; version-confirmed financial policies; and synthetic bank create/edit
+with the common compact row-action menu. The exact native-browser outcomes,
+modified files, validation and limits are recorded in the newest sections of
+ui-ux-browser-review.txt and ui-ux-remediation-delivery-report.txt.
+These advance desktop group5; the tracker remains4completed/3open workgroups.
+They do not certify whole-module, full ERP or Wave10/11 release acceptance.
+India confirmed, mobile deferred, all unverified live integrations remain off.
+
+11 November 2026 — latest incremental evidence
+Current desktop evidence is in ui-ux-browser-review.txt and the newest section
+of ui-ux-remediation-delivery-report.txt. Recurring worker generation, simulated
+payment refund/cancellation, long proforma PDF, portal invitation/view/revocation,
+controlled mixed import/undo, queued report PDF/download/removal and QA accounting
+mapping/balanced journal download have named real local browser evidence.
+Read-only migration ledger:20source/20applied,allSHA-256checksums match,no missing
+or unfinished/rolled-back entries. No migration command was executed. Whole
+release/role/tenant/quota/provider/load/upgrade/restore acceptance remains OPEN.
+India confirmed; mobile deferred; live external providers remain disabled.
+Older per-batch pending claims are historical where current evidence supersedes.
+
 Wave 11 whole-platform verification matrix
-Updated: 10 November 2026
+Updated: 11 November 2026
 Primary launch country: India, user confirmed.
-All outcomes: NOT RUN / NOT VERIFIED. Source locations below are candidate
-coverage, not certification. No mocked or skipped suite is accepted as a pass.
+Release-matrix outcomes below remain NOT RUN / NOT VERIFIED unless a specific
+entry is updated with evidence. Incremental desktop QA and authorized engineering
+checks are recorded in ui-ux-browser-review.txt and the remediation delivery
+report. They do not certify the whole release. No mocked or skipped suite is
+accepted as end-to-end release evidence.
+
+11 November status clarification
+Frontend typecheck/lint/tests/build and backend typecheck/lint/affected unit
+tests are explicitly approved. Multiple scoped checks and desktop browser
+journeys have passed; exact current runs, counts and limitations are recorded in
+docs/implementation/ui-ux-remediation-delivery-report.txt and
+docs/implementation/ui-ux-browser-review.txt. This release matrix does not
+replace that evidence or imply that all application checks remain unrun.
+
+The owner reports an updated application DB. Its current migration ledger and
+an isolated upgrade/backup/restore rehearsal are separate evidence requirements;
+do not label all Wave 10 migrations unapplied on the basis of the old batch.
+Desktop review is current priority; phone/tablet review is owner-deferred.
+Continuing shared UI source implementation is distinct from pending browser
+acceptance. Whole-ERP and Wave 10/11 acceptance remain OPEN / NO-GO; accounting,
+localization, providers, operations and release-owner decisions remain open.
 
 Evidence rules
 
@@ -23,7 +106,10 @@ Manual quotation -> generated immutable revision -> invoice issue -> partial and
 full payment allocation -> credit/reversal/refund -> reconciled receivables:
 existing quotation suites, wave04.mysql.test.ts and wave05.mysql.test.ts provide
 module/transaction coverage sources. A complete composed browser/API journey
-with the same records across all steps is NOT IMPLEMENTED/NOT VERIFIED.
+with the same records across all steps remains NOT VERIFIED. Incremental
+implemented/browser-checked journeys are recorded in the current remediation
+evidence; this missing composed acceptance is not an assertion that their UI
+source or every individual step is unimplemented.
 
 Accepted quotation revision -> order -> reservation -> dispatch/fulfillment ->
 linked invoice -> cancellation/compensation: wave06.mysql.test.ts and
@@ -120,13 +206,16 @@ log collector outage, failover and disk-full/permission failures remain NOT RUN.
 
 6. Browser, accessibility and performance
 
-Run all existing frontend tests and architecture-boundaries.test.ts. Role smoke:
+Record current approved frontend and architecture-check outcomes in the linked
+remediation report. Whole-release role smoke still includes:
 super admin firm selection, firm admin, delegated firm user, portal contact,
 denied plan/role, revoked credentials and active firm switch while fetching or
 downloading. Verify caches and one-time secrets do not cross actor/firm contexts.
-Use supported browsers, narrow/wide layouts, keyboard-only paths, focus return,
-dialogs, error recovery, screen readers and contrast checks. Complete browser/
-accessibility certification and tooling evidence are NOT IMPLEMENTED/NOT RUN.
+Desktop browser acceptance and keyboard-only paths, focus return, dialogs,
+error recovery, screen readers and contrast remain scoped evidence items.
+Phone/tablet review is owner-deferred; historical narrow-screen observations do
+not establish current acceptance. Complete browser/accessibility certification
+and tooling evidence remain pending despite incremental implemented/verified UI.
 India launch does not remove currency/locale/timezone or historical-document
 compatibility checks. English/Hindi/Gujarati source labels are partial coverage.
 
@@ -141,7 +230,9 @@ journey load need additional approved scenarios; this is not a full load harness
 Follow wave-11-operations-runbook.txt for isolated upgrade from the original
 snapshot, partial-DDL/forward fix, consistent DB/files/key restore, financial
 reconciliation, duplicate-external-effect recovery and measured RPO/RTO drills.
-No upgrade, backup integrity, restore or disaster recovery evidence exists yet.
+The owner-reported application DB update does not certify the current migration
+ledger, isolated original-snapshot upgrade, backup integrity, restore or disaster
+recovery. Reviewed evidence for those release rehearsals remains pending.
 
 Razorpay gateway, IRP/e-way adapters and their sandbox contracts are NOT
 IMPLEMENTED/NOT VERIFIED. Keep them unavailable. Existing SMTP, assistant and
@@ -156,12 +247,16 @@ immutable financial/stock/audit history to manufacture a privacy test pass.
 
 8. Deferred commands and acceptance record
 
-See wave-11-delivery-report.txt F for the exact recorded commands, all NOT RUN.
-Command restrictions are the current primary blocker, not a passing check or
-missing optional test URL. After explicit execution authorization, establish
-isolated dependencies and data before running them. Provider sandboxes, service
+See the dated status update and section F of wave-11-delivery-report.txt for
+historical proposed commands and the current authorization boundary. Current
+execution/results belong to ui-ux-remediation-delivery-report.txt; do not read
+the old command list as ALL NOT RUN. Approved frontend checks and backend
+typecheck/lint/affected unit tests have continuing successful runs. Installs,
+migrations, seeds, Git, Docker, backend build and deployment remain deferred.
+Isolated integration/recovery environments and data are still required; missing
+optional test URLs are skips, not release passes. Provider sandboxes, service
 objectives, scale, retention, incident/support/recovery/rollout owners and enabled
-optional modules remain further prerequisites even when local checks can run.
+optional modules remain further prerequisites even when local checks pass.
 
 Acceptance checklist (all unchecked):
 [ ] Earlier wave acceptance rechecked with actual evidence and explicit exceptions.

@@ -1,3 +1,4 @@
+import { listOrderBy, type ListSort } from '../../core/validation/list-sort.js';
 import type { PrismaClient } from '@prisma/client';
 import type { z } from 'zod';
 import { prisma } from '../../core/database/prisma.js';
@@ -13,10 +14,10 @@ export type { DefinitionKind } from './automation.persistence.js';
 
 export class AutomationRepository {
   constructor(readonly db: PrismaClient) {}
-  async list(firmId: number, actorId: number, kind: DefinitionKind, key?: string, page = 1) {
+  async list(firmId: number, actorId: number, kind: DefinitionKind, key?: string, page = 1, sorting: ListSort = {}) {
     return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
       await automationAccess(tx, firmId, actorId, true);
-      return key === undefined ? publishedHeads(tx, firmId, kind) : tx.automationDefinitionVersion.findMany({ where: { firmId, kind, key }, orderBy: { version: 'desc' }, take: 50, skip: (page - 1) * 50 });
+      return key === undefined ? publishedHeads(tx, firmId, kind) : tx.automationDefinitionVersion.findMany({ where: { firmId, kind, key }, orderBy: listOrderBy(sorting, ['id', 'version', 'publishedAt', 'publishedById'], 'version'), take: 50, skip: (page - 1) * 50 });
     });
   }
   async validate(tx: AutomationTx, firmId: number, actorId: number, kind: DefinitionKind, key: string, input: unknown) {

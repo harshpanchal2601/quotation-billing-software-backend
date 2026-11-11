@@ -15,7 +15,7 @@ const metadata = (req: Request) => ({ userId: req.user!.id, firmId: getFirmId(re
 exportJobsRouter.use(requireAuthentication, requireFirmContext, requirePermission(PERMISSIONS.REPORTS_EXPORT));
 exportJobsRouter.use((req, res, next) => { res.setHeader('Cache-Control', 'private, no-store'); return ['GET', 'HEAD', 'OPTIONS'].includes(req.method) || req.get('origin') === new URL(env.FRONTEND_URL).origin ? next() : next(new AppError('Export request origin is not allowed', 403)); });
 exportJobsRouter.use(rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, keyGenerator: (req) => `${getFirmId(req)}:${req.user!.id}` }));
-exportJobsRouter.get('/', asyncHandler(async (req, res) => { const { page, limit } = exportJobListSchema.parse(req.query); return sendSuccess(res, 200, 'Export jobs retrieved', await repository.list(getFirmId(req), req.user!.id, page, limit)); }));
+exportJobsRouter.get('/', asyncHandler(async (req, res) => { const { page, limit, ...sort } = exportJobListSchema.parse(req.query); return sendSuccess(res, 200, 'Export jobs retrieved', await repository.list(getFirmId(req), req.user!.id, page, limit, sort)); }));
 exportJobsRouter.post('/', asyncHandler(async (req, res) => sendSuccess(res, 202, 'Export job queued', { job: await repository.create(getFirmId(req), req.user!.id, exportJobCreateSchema.parse(req.body), metadata(req)) })));
 exportJobsRouter.get('/:id/download', asyncHandler(async (req, res) => {
   const id = exportJobIdSchema.parse(req.params.id);

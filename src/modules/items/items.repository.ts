@@ -8,6 +8,7 @@ import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log
 import { prisma } from '../../core/database/prisma.js';
 import { requestHash } from '../../core/idempotency/request-hash.js';
 import { jsonObject } from '../../core/serialization/json.js';
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import { assertTransactionFeature, prepareStorageUsage, recordStorageReplacement, withFirmEntitlementTransaction } from '../entitlements/index.js';
 import { formatItemCode, findLatestItemCodeSequence } from './code/item-code.js';
 import { removeStoredItemImage, toItemRelativePath } from './images/item-image.policy.js';
@@ -63,7 +64,7 @@ export class ItemsRepository {
     const [items, total] = await this.db.$transaction([
       this.db.item.findMany({
         where,
-        orderBy: { [query.sortBy]: query.sortOrder },
+        orderBy: listOrderBy(query, ['id', 'itemCode', 'name', 'defaultRate', 'gstRate', 'createdAt', 'updatedAt'], 'createdAt'),
         skip: (query.page - 1) * query.limit,
         take: query.limit,
         include: itemDetailInclude,

@@ -1,0 +1,895 @@
+11 November 2026 — completed shared long-text/layout correction and scope recheck
+Actual QA browser evidence after the billing changes:
+- Reloaded credit-note2 independently: Draft/version3, totalINR10.00 and saved
+  QA desktop note review 11 Nov persisted. No issuance or further write.
+- Invoice5 remained Draft/version2, referenceUI-QA-ASSISTANT-20261111, totalINR51;
+  empty additional-information summary showed Review latest additional fields
+  and history without a meaningless Edit/Save action. Screenshot inspected.
+- Issued proforma6 remained PF/2627/000001/version3/INR26. Its additional fields
+  are empty and read only; no editing/review/save action was exposed. Existing
+  PDF history versions1/2 remained available; no PDF was regenerated in this batch.
+- The long50-line note exposed a shared layout root cause: DetailSection forced
+  height100%, stretching the adjacent totals card into a huge empty column;
+  two-column terms/notes also made text unnecessarily narrow. Existing shared
+  DetailLayout now uses natural card height and a reversible long-text preview.
+  Complete strings are retained; long/multiline values show six preview lines,
+  Show full text and Show less controls with labelled expanded/control semantics.
+  Short values/rich content render directly. No stored text or PDF content changes.
+- Actual proforma: collapsed notes were wide/readable beside natural-height
+  totals; expanded to the final saved QA PDF review50 line; Show less returned
+  to the compact state. Additional information and PDF history stayed available.
+- Older quotation1 rechecked after the shared change: Accepted/revision0/INR50,
+  original customer, date, addresses, line/actions, remarks and team-only warning
+  retained. Short remarks/internal notes displayed without unnecessary disclosure.
+  No quotation edit, status change, conversion, document generation or message.
+
+Additional files changed:
+- frontend/src/shared/ui/layout/DetailLayout.tsx: remove forced full card height;
+  shared reversible long-string preview in the existing file, accessible labels
+  and controls; preserve short/rich values and existing component interfaces.
+- frontend/src/features/invoices/pages/InvoiceDetailsPage.tsx: terms/notes use
+  one readable column across invoices/proformas/credit/debit notes.
+- frontend/src/features/quotations/pages/QuotationDetailsPage.tsx: same notes
+  column/shared value rendering, retaining internal notes in their warning area.
+- frontend/src/shared/ui/layout/DetailLayout.test.tsx: one focused new shared-test
+  file for complete-text preservation/reversible disclosure and short/rich values.
+  No new production file, dependency or parallel component was introduced.
+Representative shared consumers inspected in source: quotation, billing scopes,
+item descriptions, unit detail and business summary; actual quotation/proforma/
+invoice/note views checked. Other feature/long-value variants are not all passed.
+
+Post-change engineering evidence:
+- Shared layout/new disclosure/PageContainer/PageHeader:3files/6checks passed,
+ 17:30:40,4.70s,exit0:/tmp/bhuminex-detail-text-tests.log.
+- Focused quotation details:5passed/16not selected,17:32:46,4.33s,exit0:
+ /tmp/bhuminex-shared-detail-quotation-tests.log.
+ These are selected checks, not a new full-suite run. Earlier billing/main-check
+ counts remain chronological evidence and must not be summed as distinct tests.
+- Final FE lint and TypeScript/Vite build both passed,exit0:
+ /tmp/bhuminex-detail-layout-final-lint.log and
+ /tmp/bhuminex-detail-layout-final-build.log.
+ Main933.60kB/287.65kBgzip; the existing>500kBbundle warning remains visible.
+
+Remaining desktop priorities include the separate latest-fields review lifecycle,
+field-history presentation, CRM timeline, platform previews, approvals and narrow
+spacing between row-index/source-line numbers in compact document line tables.
+Complete negative/date/page/role/concurrency/document/PDF coverage remains open.
+The tracker still records4completed/3open work groups; no full ERP/Wave release
+acceptance or mobile completion follows from these named browser results.
+
+11 November 2026 — latest collected engineering validation
+These results supersede older blanket/final notices for the files changed in the
+unit/category/purchasing/billing-detail continuation. Browser outcomes below,
+not these tests alone, determine the named UI completion entries.
+
+PASSED:
+- npm run typecheck after guarded master dialogs and purchasing search changes:
+  /tmp/bhuminex-master-dialog-types.log,
+  /tmp/bhuminex-master-purchasing-types.log.
+- Shared shell/command, units, categories, purchasing, invoices, payments and
+  financial-policy consumers:8files/58checks,17:13:20,75.03s,exit0.
+  /tmp/bhuminex-master-purchasing-final-tests.log.
+  This run preceded the later billing additional-information summary/editor.
+- Latest focused billing-detail checks:7passed/22not selected by the explicit
+  name filter,17:22:31,6.33s,exit0. Covers all3empty-field scope consumers,
+  guarded edit/save/summary, issued read-only presentation, permission gate and
+  issuance retry. This is a targeted7-check pass, not29or a full-suite pass.
+  /tmp/bhuminex-billing-detail-targeted-tests.log.
+- Older editor cases rechecked separately without changing source setup/limits:
+  invoice/proforma create-only return, embedded address creation and exact save;
+ 4passed/25not selected,17:25:49,13.96s,exit0.
+ /tmp/bhuminex-billing-existing-editor-recheck.log.
+ These overlap earlier runs and do not turn the failed combined run into a pass.
+- Latest FE lint and TypeScript/Vite production build,exit0:
+  /tmp/bhuminex-billing-detail-final-lint.log,
+  /tmp/bhuminex-billing-detail-final-build.log.
+  Main bundle933.12kB/287.45kBgzip; existing>500kBwarning retained.
+- Earlier BE typecheck/lint logs remain current: no BE source was modified in
+  this continuation. No new BE run, integration run or provider callout claimed.
+
+Limitations/failures retained honestly:
+- Initial5-file parallel run:17passed/6five-second timeouts. Unchanged sequential
+  unit/category rerun passed13/13; subsequent8-file run passed58/58. Logs retained:
+  /tmp/bhuminex-master-purchasing-dialog-tests.log,
+  /tmp/bhuminex-master-dialog-sequential-tests.log.
+- New billing regression initially used an immediate accessible query during
+  dialog transition, then an ambiguous single status query. Test assertions were
+  corrected to wait for the reopened control and find the exact success message.
+  No product behavior, timeout or assertion scope was weakened to hide failures.
+- Later combined invoice/command reruns hit five-second limits in older editor
+  cases. Most recent combined result29passed/3timed out,exit1:
+  /tmp/bhuminex-billing-detail-complete-tests.log.
+  Failing cases: proforma create-only return, embedded address creation, and exact
+  draft save/return. These are not a clean combined regression pass, even though
+  they passed in the earlier58-check batch and all new detail checks passed.
+  Earlier related rerun logs also remain available; no test timeout was raised.
+- Earlier full67files/366checks in bhuminex-closeout-frontend-full-current.log
+  predate these master/purchasing/billing changes and are historical coverage.
+  Do not report that file as a new full-current pass or add overlapping counts.
+
+Current tracker:4completed/3open work groups. Named browser tasks completed in
+this continuation are recorded below; desktop variants, complete business/
+tenant/role/plan/quota matrices, and local India release/recovery/scale/security/
+accounting/document/legal/rollout acceptance remain open. Mobile is deferred;
+owner-excluded external integrations remain disabled. No restricted command was
+executed outside the persisted FE/BE-check approvals. Specifically no Git,
+install, format command, migration, seed, Docker, backend build or deployment.
+No new production files/dependencies were introduced.
+
+11 November 2026 — completed shared billing detail additional-information flow
+Native desktop browser, QA administrator6/firm3:
+- Reopened existing credit-note draft2 from the numbered adjustment list.
+  Preferred shared overview/customer/supplier/line/totals sections were inspected.
+  Exact source INV/2627/000001, service1HOUR at10.10, no tax, round-off-0.10,
+  totalINR10.00 and original reason remained visible. Issue preview showed the
+  correct amount/consequence; Cancel returned with Draft/version1 unchanged.
+- Root cause: the shared detail rendered editable controls in view mode and
+  always offered Save additional values for editable drafts, including zero-field
+  documents. That produced an unexplained/no-op action and unnecessary versions.
+  All invoice/proforma/credit/debit details now use the same readable field summary;
+  only drafts with fields offer the existing shared CommandForm editor. Save is
+  disabled until a value changes. Dirty Cancel uses Keep editing/Discard; normal
+  required inputs, pending field locks, error retention, close/save/toast and
+  truthful refresh-failure handling come from the existing shared form pipeline.
+- Actual zero-field draft2 showed No additional fields are included in this
+  document., Review latest additional fields, and no Edit/Save values action.
+  The type-specific issue button read Issue credit note.
+- Used the existing separate latest-fields review to adopt the existing optional
+  UI QA reference field on draft2 (version1->2). This changed field metadata only;
+  no issuance, financial policy, rate, amount, source or customer was changed.
+- Opened Edit additional information: unchanged Save disabled. Entered
+  QA desktop note review 11 Nov; Cancel -> Keep editing retained exact value.
+  Saved -> dialog closed, success toast, refreshed summary exact value/version3.
+  Note remains Draft with totalINR10.00. No credit was issued or posted.
+- Additional field history remains below the action row so expanding it keeps a
+  full-width area. Issued values render as text rather than disabled input fields.
+
+Files changed:
+- frontend/src/features/invoices/pages/InvoiceDetailsPage.tsx: common summary,
+  deliberate guarded edit/save lifecycle, omitted empty/no-change actions and
+  type-specific Issue wording across its three existing scope consumers.
+- frontend/src/features/invoices/invoices.test.tsx: zero-field action checks for
+  invoices/proformas/adjustments, explicit edit/Keep editing/save/refreshed-summary
+  regression; issued display/permission and issuance checks use the new wording.
+  The attempted unrelated fixture timing change was reverted; original typing
+  setup and timeouts remain. No new test files or production abstraction added.
+Existing updateCustomValues API still sends document expectedVersion and values;
+backend draft/permission/tenant/version checks and immutable audit stay intact.
+No financial calculation, schema, HTTP-client or authorization contract changed.
+
+Specific remaining desktop work: the separate InvoiceFieldsReviewPage still
+has its old full-width actions and needs guarded lifecycle/version-review/error
+acceptance. Its successful metadata adoption here does not mark that route
+complete. Field-history presentation, other billing/role/error/issue/PDF variants,
+CRM timeline, platform previews and approvals remain separately tracked items.
+
+11 November 2026 — completed purchasing desktop corrections
+Checked as QA firm administrator6, firm3, using native Chrome:
+- All four actual detail variants inspected: PO-000001 net50/total50,
+  UI-QA-GR-20261110 received2/returned1 with its one-unit supplier-return history,
+  UI-QA-BILL-20261110 Confirmed/25.00 and UI-QA-EXPENSE-20261110 net10.10,
+  round-off-0.10/total10.00. Shared headings, fields, totals, numbered line/history
+  tables and available actions were visually inspected. These existing records
+  were not cancelled, reposted or otherwise mutated during this review.
+- Root cause: a reference-options search sat above the document list but only
+  queried /reference-options; it did not filter list rows. Changing its query
+  key could remove the create form and lose input. Search now lives inside the
+  existing editor with its own stable query, loading/error/retry feedback and
+  retained selected supplier/item/receipt choices. Read-only users/receipt lists
+  do not request unused creation choices. Search length retains API191 limit.
+- Actual supplier-bill unsaved trial: selected QA supplier and receipt
+  UI-QA-GR-20261110, typed reference UI-QA-UNSAVED-SEARCH-CHECK and changed the
+  description. Searching NoMatchingReference11Nov retained supplier, receipt,
+  entered reference/description, quantity1.000, cost25 and tax0. Clearing search
+  also retained values. Keep editing worked; explicit Discard closed to the
+  original one-bill list without posting or creating a bill.
+- Compact md-width editors now group supplier/tax, reference/dates and expense
+  fields in columns. Purchase lines reuse shared FormSection; description and
+  classification span the row, with quantity/cost/tax aligned underneath.
+  Bill and expense screenshots verified alignment and fixed footer actions.
+  Unchanged bill/expense Cancel returned directly with focus on the trigger.
+- Created PO-000002 through the actual editor: existing QA supplier/component,
+  quantity1, cost25.50, no tax, description UI QA desktop draft review 11 Nov.
+  Searching NoMatchingItem11Nov preserved supplier/item/description/cost. Save
+  closed to numbered list with Changes saved. Independently reopened detail:
+  Draft, net25.50/tax0/round-off0.50/totalINR26.00, received0. It remains Draft;
+  no approval, stock receipt, supplier payable or external commitment was created.
+- This trial revealed the old line renderer preferred itemName over description,
+  hiding the entered text. It now shows both distinct values in the same cell;
+  exact new description and item were independently seen in the saved detail.
+- Outer record titles now use singular Purchase order/Goods receipt/Supplier bill/
+  Expense. Actual corrected order and expense titles were observed; the four
+  values share the same existing map/rendering path.
+- With two orders, Document Ascending returned PO-000001,PO-000002; Descending
+  returned PO-000002,PO-000001. Numbering1,2 and server sort URL values observed.
+- Expense editor was inspected and closed cleanly; original expense count1 and
+  total10.00 stayed unchanged. Receipt history/remaining actions were read only.
+
+Files changed (no new production files):
+- frontend/src/features/purchasing/PurchasingPage.tsx: stable in-editor lookup,
+  role-gated initial choices, error/retry feedback, compact grids, retained tax
+  selection, singular titles and complete item/description display.
+- frontend/src/features/purchasing/PurchaseLineFields.tsx: retain selected receipt
+  independently of filtered results; shared section/compact value columns;
+  readable unmatched-receipt wording. Existing payload names and amounts retained.
+- frontend/src/features/purchasing/purchasing.test.tsx: retained-choice/input
+  regression, exact original description, singular receipt title and no creation
+  lookups for view-only bill access. Source assertions supplement browser evidence.
+Existing API client, domain endpoints, permission checks, stock/financial policy,
+command identity and shared dialog lifecycle remain authoritative. No duplicate
+request client, new ledger, policy override or migration was introduced.
+Still open: other role/error/date/page/concurrency/receipt/bill/expense variants;
+these named passes do not constitute whole purchasing or ERP acceptance.
+
+11 November 2026 — completed unit/category editor and detail journeys
+Actual QA firm-admin browser evidence, firm3:
+- Measurement-unit Cancel originally discarded entered name/symbol immediately.
+  The matching category dialog used the same unguarded close path. Both now use
+  the existing FormExitGuard and FormDialogShell, synchronous submission locks,
+  unchanged-edit Save gating, and committed-write/failed-refresh distinction.
+  The shared shell disables form fields during submission; existing CommandForm
+  consumers retain their existing payload capture, retry identity and feedback.
+- Created UI QA desktop unit 11 Nov, symbol QA11, decimal quantities allowed,
+  Active. Cancel -> Keep editing retained name/symbol. Create closed to the
+  numbered list with success feedback; independently opened detail retained the
+  exact values and showed0 linked items. Existing Number/NOS detail was inspected.
+  Before creation, actual name ordering was Job,KG,Litre,Metre,Number,Piece,Set;
+  descending was Set,Piece,Number,Metre,Litre,KG,Job with server-backed URL sorting.
+- Created UI QA desktop category 11 Nov, description Local UI review record.,
+  Active. Cancel -> Keep editing retained input; Save closed to numbered list
+  and success feedback. Independently reopened detail showed category code
+  ui-qa-desktop-category-11-nov and0 linked items. Uncategorised stayed protected.
+- Both synthetic review records remain unused and Active. No record deletion,
+  unit/category reassignment or access change was performed. Multiple-category
+  ordering, status changes and every permission/error variant are not claimed.
+
+Files changed in this batch, within existing architecture:
+- frontend/src/features/measurement-units/components/MeasurementUnitFormDialog.tsx:
+  shared dirty guard, save lock, unchanged Save gating and truthful refresh result.
+- frontend/src/features/categories/components/CategoryFormDialog.tsx:
+  matching lifecycle/locking and readable Category code wording.
+- frontend/src/shared/ui/dialogs/FormDialogShell.tsx:
+  neutral disabled fieldset locks pending inputs for its three production users
+  (unit dialog, category dialog and shared CommandForm); no new parallel shell.
+- Existing measurement-units.test.tsx/categories.test.tsx add dirty-discard
+  regressions; existing FormDialogShell.test.tsx also checks pending field lock.
+No new production/test files or dependencies were introduced in this batch.
+
+Collected engineering checks — 11 November 2026
+Full FE67files/366checks passed; after later provider wording/access-test changes,
+4affectedfiles/19checks passed. Final FE typecheck/lint/build and BE typecheck/lint
+passed. These overlap and are not a distinct summed test count. Browser journeys
+below, not this aggregate, support the named UI completion marks. Main bundle
+933.11kB retains its size warning. See delivery report for exact logs/commands.
+
+11 November 2026 — owner-confirmed India local-first scope
+The owner selected: Local ERP workflows first; keep unverified external
+integrations disabled. Provider activation is excluded from the first release,
+not an unfulfilled requirement to activate a gateway/SMTP/tax/LLM service now.
+
+Applied through the existing audited platform controls, without new environment
+flags, erased credentials, plan-version edits or a parallel authorization path:
+- quotations.email: globally hard disabled,16:27:29 Asia/Kolkata.
+- integrations.api: globally hard disabled,16:27:39.
+- integrations.webhooks: globally hard disabled,16:27:48.
+- ai.credits: globally hard disabled,16:28:06.
+Reason records the owner's India local-first decision and later provider
+acceptance requirement. Platform audit identifies administrator1 for all four.
+The changes affect all firms in this local installation. They are reversible
+through the existing controls, with a new explicit audited change reason.
+
+Reload proved all four persisted. Firm-admin Subscription & Usage independently
+showed Denied / Disabled by the platform administrator for all four; local
+assistant and report downloads remained Allowed / Included in your plan.
+The QA plan still contains33 selected features; its published revision and
+assignment were not edited.29 remain effectively allowed after these exclusions.
+
+Provider readiness: only the read-only diagnostic tab remains for this actor;
+API-key and webhook management tabs are absent. SMTP now Enabled No; payment and
+India e-invoice/e-way services Enabled No and unavailable. No outbound message,
+provider validation call, payment, tax submission, new credential or wider access
+was created. The shared provider table uses readable status/provider names and
+business guidance, while response status/provider identifiers remain unchanged.
+
+Important chronology correction: SMTP configuration was already present and
+quotation-email permission was previously allowed. Configuration alone did not
+mean email was disabled. Earlier broad statements that all integrations were
+off must be read with this later verified exclusion. SMTP secrets were preserved,
+not printed, copied into reports or modified. No .env edit was needed.
+
+This closes the owner scope decision and named exclusion checks only. Desktop
+variants, composed business/access/quota coverage, local accounting/document/
+legal review and operational recovery/load/security/rollout acceptance remain
+open. Mobile is owner-deferred. No release/deployment is accepted by this note.
+
+11 November 2026 — later administration and settings desktop evidence
+Scope: QA firm3/administrator6 in native Incognito Chrome, FE5173/BE3004.
+These are named checks. They supersede matching older pending entries only.
+
+COMPLETED — Subscription & Usage presentation and ordering
+- All33 included plan features displayed in business wording. Exact permission/
+  feature keys, dependencies and evaluator behavior are unchanged.
+- Usage showed users2/10, documents7/100, storage1,237,588/100,000,000 bytes,
+  connected-AI allowance0/0. Used ascending0,2,7,1237588 and descending reverse
+  inspected. Feature labels sorted Accounting... to Warehouse... and reverse.
+- This does not certify a real downgrade/quota/queued-action reauthorization.
+
+COMPLETED — Users/Roles named desktop review
+- Two numbered user rows, readable Active status and username ordering both ways
+  inspected. Opened the existing reviewer editor and cancelled without changes.
+- Existing QA UI Reviewer role retained61 assignable permissions and1 assigned
+  user. Delete remained disabled. Permission labels now describe user actions.
+- Temporary description edit: Cancel -> Keep editing retained the input;
+  Cancel -> Discard restored the original description/permission set. No new
+  role grant, broader access, account deletion or credential change was made.
+- One sidebar click stalled during HMR after guard-module editing. A fresh
+  reload reproduced the edit/discard/navigation journey successfully. A shared
+  popup-unmount/navigation regression also passes; no speculative router patch.
+
+COMPLETED — Audit Logs named list/detail/paging review
+- Compact numbered rows replaced inline old/new JSON. Activity#1739, accounting
+  export466dc1dd..., showed exact source/count/period/mapping/hash metadata.
+  Both before/after snapshots remain available; Original audit data expands the
+  retained raw payload. Close returned focus to its row.
+-162 entries; page2 showed21..40. Date ascending reset to the first page with
+ 8Nov20:43 sign-in; descending returned11Nov15:26 accounting export. Remote
+ sort parameters were reflected in the URL. Other roles/private variants remain
+ separate checks; tests cover actor/firm clearing and failed-read retry.
+
+COMPLETED — Billing Configuration save/validation review
+- Replaced two permanent inline forms with common summaries and one deliberate
+  editor at a time. Additional fields use the numbered/sortable common table.
+- First actual defaults write committed version1->2 but exposed an incorrect
+  response contract: GET returns states/automation metadata; PUT returns only
+  version/config. Caching PUT as GET crashed the page after commit.
+- Root fix: separate SettingsWriteResponse and authoritative read-after-write.
+  PUT config is not merged into GET cache, which can contain access-masked field
+  metadata. Reload proved version2 committed; no duplicate write was submitted.
+- Restored original QA payment instructions at version3: editor closed, saved
+  summary/toast, no crash. Registration Unregistered, Gujarat24, e-invoice No,
+  prefixes INV/PF/CN/DN and all financial choices preserved.
+- Blank additional-field label hit native required-field validation. Saved one
+  optional text field UI QA reference/cf_ui_qa_reference, not required, shown on
+  PDF, half row. Version4, editor closed, toast and numbered row inspected.
+- Shared labelled colour-input sizing fixed clipped Accent colour text; label
+  and colour well were inspected. Automation's Brand colour
+  label and colour well were then inspected in its existing Quotation template
+  editor. Cancelled unchanged; published version2 remains Disabled.
+- Previously issued documents retain their original issue snapshots.
+
+COMPLETED — Business Settings named save/discard review
+- Read-only shared profile summary, explicit md-width editor and separate assets.
+  Required Display name validation blocked the blank submission.
+- Changed QA display name to QA Desktop Settings Review; Cancel prompted discard,
+  Keep editing retained the value. Saved -> editor closed, aligned summary and
+  Business profile saved toast. Reopened and restored the original QA name with
+  another successful save. Legal name/contact/tax/currency/colours unchanged.
+- Branding upload/removal was not executed in this batch. The sample firm has no
+  saved images; no user file or signature was uploaded.
+
+COMPLETED — Financial policy named confirmation/save review
+- On-demand summary showed initial version0, INR, no tax, whole-unit total,
+  existing rounding, en-IN/Asia/Kolkata, mixed sales, orders/portal On.
+- Changed only In-app notifications Off, confirmed exact version0, saved version1
+  -> editor closed/summary/toast. Reopened and restored On, confirmed version1
+  -> version2/summary/toast. No currency, rounding, tax, locale, timezone, sales
+  or portal-access preference changed. No external notification was sent.
+- Editor baseline is pinned; background read changes cannot replace dirty input.
+  Stale version retention/discard/reopen is regression-tested, not a real forced
+  concurrent-actor browser acceptance claim.
+
+COMPLETED — Quotation Settings named save/validation review
+- Shared numbering/defaults, commercial terms/content and PDF-preference summaries
+  inspected. Changed only a QA default remark, saved -> closed/summary/toast.
+- Entered GST100.01; visible0..100/two-decimal validation blocked it. Restored18.00
+  and cleared the temporary remark, saved -> closed/summary/toast. Next sequence4,
+  prefix, validity30days, tax mode, bank/amount-in-words flags stayed unchanged.
+- Saved legacy reset-rule field remains retained/disabled; helper explains the
+  actual continuous number sequence without changing generation behavior.
+
+COMPLETED — Bank Details named create/edit/layout review
+- Empty shared state inspected. Added one synthetic local documentation account
+  UI QA Documentation Bank / UI QA Local Test Only. IFSC BAD showed readable
+  validation and disabled save. Cleared optional IFSC; no UPI/SWIFT configured.
+- Cancel -> Keep editing retained the prepared values. Save -> dialog closed,
+  Bank account added toast and numbered masked list row. Reopened and verified
+  the original leading zeros were preserved; synthetic account ends4004.
+- Populated list exposed tall stacked actions and focus-induced sideways scroll.
+  Existing RowActionsMenu now holds Edit/Set as default/Delete; short columns use
+  appropriate widths and the page uses available desktop space. Final screenshot
+  showed No./all headings/status/actions and normal word wrapping in one table.
+- Common action menu -> Edit: unchanged Save disabled. Changed only branch text
+  to QA local documentation only, saved -> closed/list/toast. No bank transfer,
+  bank-provider connection, default-account change or permanent deletion executed.
+  Only one account exists here; multi-record bank ordering is not claimed.
+
+Settings background refresh boundary
+- Business/quotation/bank pages preserve cached summaries and mounted editors
+  after a background read failure; initial failure still has common Retry.
+  Profile background-failure/input retention has a regression check. The browser
+  was not forced offline and no backend service was stopped for this check.
+
+Status remains4 completed work groups/3 open work groups. The additional named
+subtasks above advance group5; they do not close every page/role/error/variant.
+Open: remaining desktop routes and variants; composed tenant/role/plan/quota and
+business matrix; Wave10/11 provider/accounting/legal/localization/operational
+release acceptance. Mobile is owner-deferred. Live integrations remain disabled.
+
+11 November 2026 — closeout browser evidence (later than the entries below)
+Scope: native Chrome desktop; QA firm #3 / firm administrator #6; FE5173/BE3004.
+Entries below supersede older pending statements only for the named journeys.
+
+Recurring drafts:
+- Created schedule #1, UI QA Monthly Review 2026-11-11, from invoice draft #5.
+  Exact preview was quantity2 at25.50 = INR51. Explicit approval closed to the
+  list, showed success and Active. The running outbox worker generated invoice
+  draft #7 for51.00; linked draft independently opened with correct company,
+  one line, notes, Gujarat24, document11Nov and due11Dec. Period history showed
+  Completed, attempt1; next date11Dec. Explicit cancellation then showed
+  Cancelled and stopped future generation. Other recurrence/conflict variants
+  are unit-covered only where named; real multi-period/process-death remains open.
+
+Payments:
+- Created receipt #2 with QA-only reference UI-QA-SIMULATED-REFUND-20261111,
+  INR50, bank transfer, company1, unapplied50. This records a synthetic local
+  receipt; no bank/payment provider or real money transfer was used.
+- Recorded simulated external refund10, reference UI-QA-SIMULATED-REFUND-10:
+  dialog closed, toast, history retained and available credit40. Cancelled
+  remaining40 with explicit reason/confirmation: receipt Cancelled, refunded10,
+  reversed40, net0 and credit0. Original receipt #1/invoice #1 allocation100
+  was preserved. Reversing that original allocation was not exercised.
+
+Proforma and shared PDF footer:
+- Extended QA proforma #6 with 50 labelled notes, saved back to list/toast,
+  issued PF/2627/000001 at version3. Total26.00 retained (25.50 +0.50 round-off).
+  Proforma issuance creates no invoice receivable. No conversion was made.
+- PDF v1 exposed missing page numbers. Shared PDF configuration now renders
+  Page N of M in the reserved footer. Generated v2,145796 bytes; both pages
+  inspected in Chrome. All notes1..50, signature, totals, and Page1of2/Page2of2
+  were visible without overlap. Earlier stored PDF v1 remains immutable.
+
+Customer portal staff and customer session:
+- Contact UI QA View Review Contact, qa.record.review@example.invalid,
+  company1. The owner explicitly approved its single-use24h invitation and
+  view-only sharing of QA invoice INV/2627/000001 until25November2026.
+- Initial invitation failed during local backend reload; input/error stayed.
+  Fresh history proved no invitation committed, then the approved retry created
+  identity1/invitation1. No email was sent. One-time token not retained in docs.
+- Opened invitation in separate customer tab. Token removed from URL, separate
+  cookie session, only explicitly shared documents. Actual initial page exposed
+  unpadded button-list layout; replaced it using shared page/table/detail styles.
+- Current grants1/2 contain only the approved invoice/contact/scope. Grant2 uses
+  the additive exact financial snapshot. Opened it and verified100.10 subtotal,
+  discount0.00, taxable100.10, tax0.00, round-off-0.10, total100.00.
+- Public record-ID ascending1,2 and descending2,1 inspected. Staff history used
+  numbered tables; invitation Used and both grant orders inspected. History is
+  page-bounded and explicitly explains independent invitation/document histories.
+- Removed identity1 access through the consequence confirmation. List/toast
+  confirmed Access removed. Refreshing the customer tab denied the old session
+  with401 and hid documents. Contact access remains revoked. No customer quote
+  acceptance/rejection or new wider access was created. Other document kinds,
+  expiry, independent grant/session revocation and negative matrix remain open.
+
+Controlled item import:
+- Empty private firm-admin list observed; another actor's older batch not shown.
+- First preview #2 with invalid unit IDs rejected both rows, no item created.
+  This showed that users needed actual CSV reference IDs, not guessed names.
+- Existing category/unit option APIs now supply in-form reference tables. QA
+  firm NOS ID15, Uncategorised category3, other unit IDs16..21 visible.
+- Batch #3: valid UI-QA-IMPORT-ITEM-20261111 with unit15/rate12.50/GST18,
+  invalid UI-QA-INVALID-UNIT-20261111 with foreign/nonexistent unit999999.
+  Preview1Approved/1Rejected; explicit commit -> Partial,1Imported/1Rejected,
+  created record3. Row result and readable validation message inspected.
+- Independently opened item #3 ITEM-000003: name UI QA imported bracket
+  2026-11-11, CSV import, Active, NOS, Uncategorised,12.50,GST18,stock off.
+  Item list screenshot had normal two-line names, not vertical single letters.
+- Returned to batch3, confirmed Deactivate imported records -> Import undone.
+  Independently reopened item3 -> Inactive; original values/source retained.
+  This is compensation, not deletion. Batch/row history remains intact.
+
+Reports, real queued PDFs and cleanup:
+- Period13October..11November2026, all8sections. Compared displayed QA sources:
+  quotations3/value155,accepted2/value125,66.67%; issued invoice sales100/count1;
+  credit0; pipeline1/value12500.50; stock275.000000/positions2; purchase50/count1;
+  supplier bill25/count1; expenses10/count1. Period vs current-balance calendar
+  labels were visible. Selector widths fixed after clipped-label observation.
+- Actual worker completed the queued PDF in1/5 attempts. Download/save and
+  Chrome PDF viewer used. Initial old layout orphaned a heading and exposed
+  internal section/unit labels. Existing report template now uses readable
+  headings, exact string values, aligned columns and repeating table headers;
+  short sections stay together. Intermediate revisions retained as QA evidence.
+- Final job f506b8e6-ba1d-432f-ba47-4e54d923e368,159881bytes,Completed1/5,
+  generated2026-11-11T09:47:38.705Z. Both A4 pages inspected: all8sections,
+  exact values, no isolated heading/last row/extra page and Page1of2/Page2of2.
+- Owner approved permanent removal of old job
+  3830b068-adf5-4bfe-9cc7-82b349e18def and its ERP-stored PDF. Confirmed through
+  UI -> Export job removed toast; old job disappeared, replacements retained.
+  Local downloaded review copies were not deleted. Other stored QA revisions
+  0e571bf9-dcbe-4cc6-bbed-8d1bdbf95ee9 and
+  c2379cd9-c871-4f67-b7bc-8e705f4ed109 remain available.
+
+Accounting mapping and real journal download:
+- Initial no-mapping summary inspected. Changed the permanent inline form to
+  shared summary/editor. Published clearly synthetic firm3 mapping version1:
+  QA-AR-1100 / QA-SALES-4100 / QA-TAX-2100 / QA-ROUND-5100. Confirmation showed
+  all exact codes/version. Publication closed editor, toasted success and showed
+  the aligned read-only summary. These are QA codes, not accountant approval.
+- Edited Sales to QA-UNSAVED-SALES. Cancel prompted discard; Keep editing kept
+  the input; Discard returned to version1 and QA-SALES-4100 unchanged.
+- First real export failed. Investigation showed cancelled, never-issued drafts
+  #3/#4 were selected by voidedAt, had no issue snapshot and blocked the whole
+  journal. Read-only DB inspection confirmed this condition. Reader now includes
+  only previously issued invoices/adjustments, while preserving cancellation
+  events for issued sources. Invalid issued snapshots still fail closed.
+- Blob response errors had hidden the reconciliation message behind generic
+  duplicate wording. Shared HTTP client now decodes bounded JSON error envelopes
+  before existing safe-message/firm-fencing handling; successful files untouched.
+- Browser retry downloaded billing-journal-2026-10-13-2026-11-11.csv,937bytes.
+  Native Save/Done and success guidance observed. Independently read that actual
+  downloaded file:3rows, mapping1, source1 only,eventbilling:1:2:ISSUE. Debit100.00
+  receivables +debit0.10 rounding =credit100.10sales; exact Decimal balance0.
+  Cancelled drafts3/4 absent. No external accounting software import performed.
+
+Database ledger:
+- Read-only Prisma SELECT of _prisma_migrations and SHA-256 comparison to source:
+ 20source migrations,20applied,allchecksums match,no missing/unfinished/rolled-back.
+ No migration/seed command or ledger/application write was used for this check.
+ Upgrade/recovery/backup/restore certification remains separate and unrun.
+
+Remaining limits:
+Remaining desktop admin/settings routes and role/error/paging variants, complete
+cross-module/tenant/plan/quota matrix, other portal/adjustment/conversion/PDF
+variants and provider/recovery/load/release acceptance remain OPEN. Mobile is
+owner-deferred. No live payment/tax/SMTP/LLM/webhook endpoint was activated.
+
+Earlier chronological evidence follows (historical states may differ):
+
+ERP UI/UX browser review — working acceptance record
+Updated: 11 November 2026 (Asia/Kolkata)
+Status: ACTIVE. Whole ERP and Waves 10/11 are NOT accepted as complete.
+
+Acceptance method
+An automated test result is not a UI/UX pass. A browser-verified entry below
+names only the observed behavior. A module requires its remaining create/edit/
+read, empty/loading/error/retry, cancellation, sort/page/filter, keyboard and
+desktop checks before current acceptance. Mobile review is explicitly deferred
+by the owner; earlier mobile observations below are historical. Source changes do not imply all consumers
+have been visually reviewed. No 9/10 rating has been assigned.
+
+Environment
+Frontend localhost:5173; backend localhost:3004. QA firm ID 3.
+Existing isolated QA plan: published revision 2, 33 features, assignment #7.
+Plan quotas, lifecycle and price unchanged. No live provider activation.
+Review has used the supplied platform administrator and the recovered existing
+QA firm administrator #6. Incognito firm-admin login was visually verified.
+User #8 is a separate reviewer account; its first-login gate is still preserved.
+Administrator recovery used supported authenticated reset/change-password APIs,
+revoked previous administrator sessions and retained application audit history.
+The working password is in the owner-only private access file outside the repo.
+Credentials and one-time secrets must never be stored in this record.
+
+
+11 November 2026 — current desktop evidence (firm administrator #6, QA firm #3)
+Business Assistant /assistant:
+- New desktop layout visually inspected: compact availability badge, Usage &
+  connection dialog, Ask & search / Review document text / My history tabs,
+  grouped question form and named customer/item draft selection.
+- Find customers returned firm records #3,#2,#1. Selecting Record number and
+  Ascending returned #1,#2,#3 in the SAME question/result section; no duplicate
+  result was appended. Find items returned the two QA catalogue records.
+- Chose company #1 and component #1. Prepared unsaved quotation draft and opened
+  the normal editor with the correct customer, item, quantity 1 and rate 25.
+- Saved real quotation #3, .../2026-27/000003, INR 30; editor closed to numbered
+  quotation list and a success toast. This was a draft only; no email was sent.
+- Search results are brought into view after a request. Final desktop screenshot
+  confirmed readable item names and compact two-row numbered result table.
+- Quotation #3 action preview displayed exact target and Draft -> Sent. Cancel
+  proposal closed it; quotation remained Draft. History showed Mark quotation
+  as sent / Cancelled / No completed action. No action was executed.
+- History started-at ordering verified both directions on four conversations.
+  Conversation details used numbered request/action tables and readable fallback
+  explanation. Clear content confirmation opened with consequences; Cancel
+  preserved all four conversations. No live history content was deleted.
+- Usage dialog correctly showed local use, no live connection, storage off and
+  zero connected requests. No external assistant provider was activated.
+Document review and invoice editor:
+- Pasted two artificial QA source lines. Suggested table preserved exact 0.003
+  and 25.50; checked only the first line. Normal invoice editor contained exactly
+  that selected line and did not import catalogue records automatically.
+- First browser run exposed blank selected-customer display although companyId
+  was present. Exact same-firm customer-option lookup and independent selected
+  identity fixed it. Repeated handoff visibly showed company #1, retained its
+  name after address selection, and preserved quantity0.003/rate 25.50.
+- In the normal editor explicitly reviewed quantity to2, set HSN 8479, Gujarat 24,
+  billing address and QA reference UI-QA-ASSISTANT-20261111. Saved invoice draft
+  #5 forINR 51.00. Returned to list/toast; reopening showed one selected line only.
+- Edited draft #5 notes; customer, address and money stayed correct. Save closed
+  to invoice list/toast. No invoice was issued and no payment was transferred.
+Proforma /proformas:
+- Created real QA draft #6 for company #1 with reference UI-QA-PROFORMA-20261111,
+  quantity1, rate25.50 and HSN8479. Save returned to numbered proforma list/toast.
+- Reopened shared detail view: subtotal INR25.50, round-off +0.50, total INR26.00.
+  Grouped header/actions, customer/address, line table, totals, empty PDF history
+  and status history visually inspected. No proforma was issued or converted.
+- Issue preview showed exact total and locking consequence. Escape cancelled it,
+  returned focus to Issue proforma, and Draft/version1 stayed unchanged.
+- Found raw place-of-supply code24. Backend serializer now derives the name from
+  the existing India state master; shared billing details display Gujarat (24).
+  Refreshed proforma and confirmed the label and INR26 total in the live browser.
+
+Order invoice conversion /sales-orders/2:
+- Blank and0.000 quantities kept Create invoice draft disabled. Selected Gujarat 24,
+  quantity 1, HSN 8479. Cancel -> Keep editing retained all entered values.
+- Saved linked invoice draft #4 forINR 25.00; dialog closed, success toast and detail
+  destination observed. Cancelled that QA draft with a reason using supported UI.
+  Order remained version2, completed 1.000, reserved 0.000, available 1.000, with both
+  cancelled drafts #3/#4 in linked history. No invoice was issued.
+- Reopened final md-width conversion dialog; grouping/labels and aligned fields
+  visually inspected. Closed unchanged to original Invoice completed quantities
+  action. Quotation conversion shares width but separate real acceptance pending.
+Dashboard:
+- Recent quotations shared numbered table showed #3/#2/#1. Quotation-number header
+  toggled ascending #1/#2/#3 and descending #3/#2/#1; amounts INR 30/75/50 retained.
+  Its recent-eight scope is explicit. View actions/columns visible.
+Manufacturing:
+- Work orders -> View work order #1 displayed shared grouped details, component
+  table and complete movement table; output 2 NOS, Cancelled/version3 retained.
+- Movement quantity Ascending was -4,-2,2,4; Descending4,2,-2,-4. IDs #2..#5,
+  readable events, original-entry references and exact signed values retained.
+- Component quantity control toggled both directions (only one component exists,
+  so multiple-component ordering is NOT browser-proven). Close returned focus to
+  View work order #1. No new stock movement was made.
+Evidence limits:
+- Create-only invoice/proforma saved-summary and selected-customer failures have
+  focused automated regression evidence; no restricted-role browser pass claimed.
+- No live destructive history erase, consequential proposal execution, expiry,
+  multi-page search/history or external-provider acceptance claimed.
+- Full ERP/whole Wave10/11 acceptance remains open; mobile remains owner-deferred.
+
+Observed in the browser
+CRM / Leads:
+- Created UI QA Lead 2026-11-10; form closed and feedback remained visible.
+- Added AAA UI QA Sorting 2026-11-10 to check two-record ordering.
+- Lead column ascending placed AAA first; descending placed UI QA Lead first.
+- No. column showed positions 1 and 2. Readable QA Commercial Admin owner.
+- Table columns include lead, both contact fields, status, owner and source.
+CRM / Opportunities:
+- Empty semantic table retained its column headings; duplicate pipeline removed.
+- Created UI QA Opportunity 2026-11-10 with INR 12500.500 input.
+- Form closed to the selected tab; saved row showed INR 12500.50 and 10%.
+CRM / Follow-ups:
+- Empty table retained headings for assignee, due, reminder and notes.
+- Created UI QA Follow-up 2026-11-10, due 11 November 2026 at 10:00 local.
+- Form closed; saved row, named assignee, correct local time and toast observed.
+CRM still needs multi-page, mobile, denial/error and conversion acceptance.
+
+Companies:
+- Created UI QA Company 2026-11-10; saved to the filtered list with feedback.
+- Edited legal name; retained list search on return.
+- Dirty navigation cancellation preserved the edit, then save returned to list.
+- Earlier 360px preview showed readable cards, filters, actions and pagination.
+- Imported company below was independently found through Companies search.
+Latest shared empty design and multi-page numbering need further visual checks.
+
+Items / Inventory prerequisites:
+- Created UI QA Component 2026-11-10, item #1 / ITEM-000001,
+  NOS unit, INR 25.00 default rate. Save returned to numbered item table/toast.
+- Item details enabled stock tracking after a consequence confirmation.
+- Created warehouse UI_QA_MAIN / UI QA Main Warehouse; form closed/toast appeared;
+  saved warehouse was available in the warehouse selector.
+Inventory / Stock & alerts:
+- Empty table uses the shared inbox icon, centered heading and description.
+- Corrected compressed filters; readable warehouse and item fields observed.
+- Posted inbound stock adjustment for 10 units at INR 25.00 after confirmation.
+- Form closed; stock table showed 10.000 on hand and INR 250.000000 valuation.
+Inventory / Movement ledger:
+- Posting appeared with reason, quantity 10 and value INR 250 in a numbered table.
+- Warehouse and item names now appear with codes in the ledger. Readable names
+  were verified after the response relation and table mapping were updated.
+- Item stock panel movement quantity ascending showed -4, 4, 10; descending
+  showed 10, 4, -4. The balance table retained its own ordering and values.
+  Real multi-page movement navigation remains unverified (three movement rows).
+Inventory / Reservations:
+- Empty table, headings, sorting controls and shared empty design observed.
+- Sales order #1 reserved 2 component units and released them; independent stock
+  view returned to 11 on hand, 0 reserved and 11 available after purchasing.
+Inventory / Period report:
+- Dedicated table showed opening 0.000 / 0.000000 and closing 10.000 / 250.000000.
+- Date constraints, transfer/return, multi-record ordering and mobile still open.
+
+Purchasing:
+- Earlier expense dialog dirty Cancel/discard returned without saving.
+- Earlier mobile expense dialog scrolled with Save/Cancel visible.
+- Created and approved PO #1, qty 2 component units at INR 25, total INR 50.
+- Receipt #1 UI-QA-GR-20261110 received 2 units into warehouse #1; returned 1.
+- Supplier bill #1 UI-QA-BILL-20261110 matched the net 1 unit / INR 25 and was
+  confirmed. Expense #1 UI-QA-EXPENSE-20261110, taxable INR 10.10, rounded total
+  INR 10, was confirmed. These are local QA records; no payment was transferred.
+- Current component balance after these journeys: 11 units / INR 275.
+- Latest shared details, negative/permission and multi-page variants remain open.
+
+Imports / Customers:
+- Empty batch list observed with the shared table empty state.
+- Browser review found oversized inline entry; replaced with New import dialog.
+- Created batch #1 preview using external ID ui-qa-import-20261110.
+- Preview form closed into row review; APPROVED status and Not imported visible.
+- Commit required a separate consequence confirmation.
+- Committed row became IMPORTED, Created record #2; batch became COMPLETED.
+- Closing review showed numbered batch row, imported 1, failed 0 and toast.
+- Companies search independently found UI QA Imported Company 2026-11-10,
+  COMP-000002, active, proving the imported record is accessible.
+Item imports, invalid/partial rows, duplicate/retry, compensation, sorting with
+multiple batches and mobile remain unverified.
+
+Manufacturing:
+- Created finished item #2 / ITEM-000002, UI QA Finished Assembly 2026-11-10,
+  enabled stock tracking, and created BOM UI_QA_ASSEMBLY revision 1.
+- First BOM submission failed. Removed invalid inherited firmId from the nested
+  Prisma component create; retry retained inputs and saved back to the list/toast.
+- Planned work order #1: output quantity 2, component quantity 4, QA warehouse #1.
+- Completed after a consequence confirmation: movement #2 consumed 4 units / INR
+  100; movement #3 produced 2 units / INR 100. Details and closed-list toast observed.
+- Cancelled the completed QA order after explicit unused-output confirmation.
+  History retained movements #4/#5 reversing #3/#2, with exact quantities/values.
+- Independent stock list confirmed component 10 / INR 250 and output 0 / INR 0.
+- Insufficient-stock, concurrent, precision, denied and mobile variants remain open.
+
+Invoices and receipts:
+- Added a billing address inline for QA customer #1; dirty Cancel preserved edits.
+  Save closed only the address dialog and selected the saved address, preserving
+  the invoice reference. The surrounding invoice was not submitted.
+- Created invoice draft #1 with reference UI-QA-INVOICE-20261110, due 2026-11-11,
+  service 1 HOUR at INR 100.10, SAC 9983 under the existing unregistered QA policy.
+  Save returned to the numbered invoice list with feedback.
+- Preview and edit/reopen showed taxable 100.10, tax 0, round-off -0.10, total 100.00.
+- Issued INV/2627/000001 after the separate immutable-issue confirmation.
+- Recorded simulated QA receipt #1, reference UI-QA-SIMULATED-RECEIPT-20261110,
+  INR 100, explicitly allocated to this invoice. This recorded QA data only and
+  did not transfer money or contact a payment gateway.
+- Receipt closed to the list/toast. Fresh invoice view independently showed PAID,
+  allocated 100, outstanding 0 and the receipt provenance link.
+- Linked receipt form now displays the QA customer's name instead of Customer #1;
+  cancelled the recheck without recording another receipt.
+- Generated PDF version 1 initially exceeded the client's 15-second wait although
+  the server stored it. Confirmed persistence before retrying; shared PDF request
+  budget now 120 seconds for quotation and billing generation, with history refresh.
+- Version 2 generation returned success/toast. Browser preview loaded one page;
+  download INV-2627-000001.pdf completed (85.4 KB in Chrome download history).
+- Version 3 used the revised PDF layout. Inspected full page in browser: header,
+  issue/due dates, party blocks, HSN/SAC heading, exact line, round-off, total,
+  terms and signatory fit one page. Existing PDF versions remain in history.
+- Revised invoice view inspected on desktop and at 360x800: grouped overview and
+  party cards, label/value fields, action group, mobile line records, aligned totals,
+  PDF history, allocation and status tables. Shared mobile empty-table clipping
+  was found in the receipt refund history; fix awaits final browser recheck below.
+- Receipt view at 360x800 showed responsive summary/actions and allocation history.
+  Opened and cancelled refund dialog without submission. No refund/reversal tested.
+- Proforma, adjustments, recurring, multi-page/long-data PDFs and negative/error
+  financial variants still require their own browser journeys.
+
+Connections:
+- All three tabs opened. API key/webhook empty tables shared the same empty style.
+- API-key dirty Cancel requested discard, then returned to the empty list.
+  No actual API credential was created.
+- Webhook form now explains the missing encryption/destination configuration
+  inline; Save remains disabled. No endpoint/provider was enabled.
+- Provider readiness showed SMTP configured but unverified, Razorpay and India
+  IRP not implemented. Readiness wording and actual delivery acceptance remain open.
+
+Platform firms and administration:
+- Firm list displayed numbered rows, real name ascending/descending order, retained
+  column headings for unmatched search, and readable mobile records at 360x800.
+- Fixed nested table-container clipping of sort labels and rechecked in browser.
+- Created QA UI Reviewer role with 61 assignable firm permissions after explicit
+  authorization; created active QA user #8 with mandatory password change.
+- User creation closed to the table with feedback. Reopened form had blank username
+  and temporary-password fields after autocomplete hints were corrected.
+- Incognito first login reached /change-password. User reported completion, but
+  fresh navigation and a read-only database check still show the mandatory gate.
+  This is not accepted as completed and is not bypassed.
+- Later, at the user's explicit request, the existing firm administrator #6 in
+  QA firm #3 was recovered through audited application APIs. Final credentials
+  were verified, private-file permissions are 0600, and browser sign-in succeeded.
+- No new firm, account suspension or other firm's access changed.
+
+Platform subscriptions:
+- Plan catalog, draft copy, preview, publication and QA assignment were exercised
+  to enable the requested modules. Revision 2 / assignment #7 ACTIVE observed.
+- Remaining platform tabs and the latest empty/index changes need browser review.
+
+Latest desktop review — 10 November 2026 evening
+Companies and item master:
+- Company #1 now uses shared detail sections. Created QA View Review Contact and
+  a primary shipping address; Save closed to numbered tables with feedback.
+- Embedded quotation history showed accepted quotes #2 INR 75 and #1 INR 50,
+  linked View actions, dates, revisions, sorting and pagination controls.
+- Item-name width regression was reproduced from the owner's screenshot and
+  fixed in shared column minimum widths. Desktop Items showed readable names
+  in 1–2 lines; horizontal scrolling exposed working record-action menus.
+- Item name ascending/descending reversed the two records. Category and unit
+  detail dialogs were inspected. Stock component #1 remained 11 / INR 275.
+CRM activity:
+- Created UI QA Shared Activity 2026-11-10; dialog closed, toast appeared, and
+  numbered activity history retained subject, note, timestamp and actor.
+Sales orders and invoice conversion:
+- Order #1 reservation/release and completed dispatch/cancellation were exercised.
+  Completed qty 2 reduced component stock to 9 / INR 225; cancellation restored
+  11 / INR 275 and preserved completion history.
+- Accepted quotation #2 has qty 3 at INR 25, discount INR .01 and rounded total
+  INR 75. Order #2 completion #2 completed 1 unit. Invoice draft #3 for 1 unit,
+  total INR 25, verified the fractional-allocation precision correction. Cancelling
+  that draft released the allocation and retained its cancelled invoice link.
+- The latest conversion-dialog source migration still needs fresh browser checks.
+Quotation PDF and email history:
+- Firm admin generated two real PDF versions for quotation #2. Both Available
+  rows appear in the shared numbered history. Version sorting was observed both
+  ascending (v1, v2) and descending (v2, v1), through server requests.
+- Actual one-page PDF preview inspected at top and bottom: header, customer and
+  addresses, item table, taxable INR 74.99, round-off INR .01, grand total INR 75,
+  amount in words and signatory/footer aligned. Disabled QA template did not
+  replace the active quotation document layout.
+- Email history showed the common empty state. No real email was sent. Nonempty
+  email-detail dialog, >20-version navigation and long/multi-page PDFs are OPEN.
+Automation settings:
+- Existing firm admin opened all configuration-category choices.
+- Created an inactive quotation template, previewed it without side effects,
+  and saved version 1. Browser review exposed an always-open editor/list issue.
+- After the shared-table/dialog migration, editing and saving version 2 closed
+  the editor, showed success feedback, and updated the numbered list.
+- History retained versions 1 and 2; both descending and ascending server sorting
+  were observed. Both versions remain Disabled; no workflow was activated.
+- Found clipped floating labels in dialog content. Corrected shared AppDialog
+  title/content spacing and visually confirmed fully readable sort labels.
+- A transient subscribed-access error during backend reload recovered via Retry.
+- Workflow-run rows/control outcomes and remaining configuration kinds need their
+  own nonempty-record, denial, error and navigation journeys.
+Approvals and preferences:
+- Firm-admin approval inbox and notifications empty states observed.
+- Saving disabled preferences previously gave no feedback. Shared summary/editor
+  now shows UTC+05:30 and no quiet hours. Actual Save closed the dialog, returned
+  focus to Edit notification preferences and displayed its success toast.
+- Numbered/server-sortable approvals and named requester/reviewer read projections
+  are source implemented. Nonempty requests, independent approval, cancellation,
+  expiry, revoked authority and execution require browser evidence.
+Assistant:
+- Firm-admin LOCAL search 'Find items UI QA' returned both QA catalogue items.
+  Connected AI was unavailable, zero connected credits used, content storage off.
+- Assistant Settings redesigned with aligned availability and firm-policy cards,
+  readable labels, a connection explanation and Open business assistant action.
+- Shared md-width editor places request limits and privacy side by side; consent
+  and Save/Cancel remain visible on desktop. Native numeric input accepted 25.
+- Actual unchanged-policy save created QA policy version 1: editor closed, summary
+  updated, success toast appeared. Connected AI and content storage stayed OFF.
+- Changed daily limit to 25, Cancel requested discard, Keep editing retained 25;
+  subsequent Discard returned to saved version 1 with Daily request limit Not set.
+- Saved-response failure and clearing previously retained text have automated
+  regression coverage; browser destruction/retention-worker operation NOT tested.
+- Conversational result/history layouts, extraction and action proposals remain
+  separate open review items. No connected ChatGPT service was enabled.
+
+Not yet fully browser-accepted
+Each module still requires all applicable current desktop paths before acceptance.
+The observations above are specific evidence, never blanket module approval.
+Next concrete desktop work: nonempty approval decision/execution journeys; local
+assistant result/history/extraction/proposal layout; current conversion dialogs;
+remaining recurring/proforma/adjustment journeys; portal; reports/exports; settings,
+bank/audit/platform tabs; long/multi-page PDFs; permission/error/multi-page variants.
+Dashboard recent tables and remaining standalone list/detail consumers need the
+same shared numbering/sorting/alignment audit. Mobile review is owner-deferred.
+
+Engineering validation
+Full frontend run at 21:34:27 passed 66 files / 305 tests before the later
+Assistant Settings additions. Subsequent targeted checks cover those later changes;
+see the delivery report for current commands and results. These are engineering
+checks and are not substituted for the browser observations above.
+Backend affected quotation/automation suite passed 6 files / 43 tests; previous
+old-master/stock/order coverage passed 11 files / 89 tests. No MySQL suite run.
+Final type/lint/build outcomes are recorded in the delivery report. Bundle-size
+warning remains a performance concern; no production performance claim is made.
+No Git/install/migration/seed/Docker/backend build/deployment was run.
+
+Remaining release work
+Wave 10 accounting coverage/localization/provider scope and Wave 11 role/security,
+performance, recovery/restore and rollout acceptance remain separate release gates.
+The original Wave delivery reports retain historical context; this review does
+not override their incomplete gates.

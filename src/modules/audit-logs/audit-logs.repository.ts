@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 
 import { prisma } from '../../core/database/prisma.js';
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import type { AuditLogListQuery } from './audit-logs.schema.js';
 
 export class AuditLogsRepository {
@@ -25,7 +26,7 @@ export class AuditLogsRepository {
       this.db.auditLog.findMany({
         where,
         include: { user: { select: { id: true, firmId: true, name: true, email: true } } },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        orderBy: listOrderBy(query, ['id', 'createdAt', 'action', 'entityType', 'entityId'], 'createdAt'),
         skip: (query.page - 1) * query.limit,
         take: query.limit,
       }),

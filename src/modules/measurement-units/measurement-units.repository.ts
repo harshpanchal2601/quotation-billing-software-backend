@@ -4,6 +4,7 @@ import { AuditAction } from '@prisma/client';
 import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
 import { AppError } from '../../core/errors/AppError.js';
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import { withFirmEntitlementTransaction } from '../entitlements/index.js';
 import { createPaginationMetadata } from './measurement-units.types.js';
 import {
@@ -42,7 +43,7 @@ export class MeasurementUnitsRepository {
     const [measurementUnits, total] = await this.db.$transaction([
       this.db.measurementUnit.findMany({
         where,
-        orderBy: { [query.sortBy]: query.sortOrder },
+        orderBy: listOrderBy(query, ['name', 'symbol', 'createdAt', 'updatedAt'], 'name', 'asc'),
         skip: (query.page - 1) * query.limit,
         take: query.limit,
         include: unitDetailInclude,

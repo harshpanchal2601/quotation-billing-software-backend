@@ -21,11 +21,11 @@ describe('tenant audit listing', () => {
       $transaction: vi.fn((queries: Promise<unknown>[]) => Promise.all(queries)),
     };
     const query = auditLogListSchema.parse({ page: 2, limit: 2, action: 'UPDATE', entityType: 'Company',
-      userId: 10, dateFrom: '2026-10-01', dateTo: '2026-10-22' });
+      userId: 10, dateFrom: '2026-10-01', dateTo: '2026-10-22', sortBy: 'createdAt', sortOrder: 'asc' });
     const result = await new AuditLogsRepository(db as unknown as PrismaClient).list(7, query);
     const where = { firmId: 7, action: 'UPDATE', entityType: 'Company', userId: 10,
       createdAt: { gte: query.dateFrom, lte: query.dateTo } };
-    expect(db.auditLog.findMany).toHaveBeenCalledWith(expect.objectContaining({ where, skip: 2, take: 2 }));
+    expect(db.auditLog.findMany).toHaveBeenCalledWith(expect.objectContaining({ where, skip: 2, take: 2, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] }));
     expect(db.auditLog.count).toHaveBeenCalledWith({ where });
     expect(result.auditLogs.map((entry) => entry.user)).toEqual([
       { id: 10, name: 'Local', email: 'local@example.invalid' }, null, null, null,

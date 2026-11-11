@@ -7,13 +7,14 @@ import { requestHash } from '../../core/idempotency/request-hash.js';
 import { jsonObject as json } from '../../core/serialization/json.js';
 import { currencyCode, decimal, money } from '../../core/money/index.js';
 import type { DateWindow } from '../../core/validation/date-window.js';
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import { authorizeFirmJobActor } from '../auth/index.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { assertTransactionFeature, withFirmEntitlementTransaction } from '../entitlements/index.js';
 import { createCompanyForSales } from '../companies/index.js';
-import { OPPORTUNITY_STAGES, type CrmList, type leadCreateSchema, type leadUpdateSchema, type leadConversionSchema, type opportunityCreateSchema, type opportunityUpdateSchema, type taskCreateSchema, type taskUpdateSchema, type activityCreateSchema } from './crm.schema.js';
+import { OPPORTUNITY_STAGES, type CrmList, type CustomerTimelineList, type leadCreateSchema, type leadUpdateSchema, type leadConversionSchema, type opportunityCreateSchema, type opportunityUpdateSchema, type taskCreateSchema, type taskUpdateSchema, type activityCreateSchema } from './crm.schema.js';
 
-function pagination(query: CrmList, total: number) { return { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) }; }
+function pagination(query: Pick<CrmList, 'page' | 'limit'>, total: number) { return { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) }; }
 export class CrmRepository {
   constructor(private readonly db: PrismaClient) {}
   private async access(tx: Prisma.TransactionClient, firmId: number, actorId: number, write = false) {
@@ -82,17 +83,18 @@ export class CrmRepository {
       const all = await this.access(tx, firmId, actorId);
       if (query.companyId) await this.company(tx, firmId, query.companyId);
       const common = { firmId, companyId: query.companyId, ...this.scope(all, actorId, kind === 'tasks' ? 'assignedToId' : 'ownerId') };
-      const paging = { skip: (query.page - 1) * query.limit, take: query.limit, orderBy: { id: 'desc' as const } };
+      const fields = kind === 'leads' ? ['id', 'name', 'status', 'email', 'phone', 'source', 'createdAt'] : kind === 'opportunities' ? ['id', 'title', 'stage', 'value', 'currency', 'probability', 'expectedClose', 'source', 'createdAt'] : ['id', 'title', 'status', 'dueAt', 'reminderAt', 'createdAt'];
+      const paging = { skip: (query.page - 1) * query.limit, take: query.limit, orderBy: listOrderBy(query, fields) };
       if (kind === 'leads') {
         const where: Prisma.LeadWhereInput = { ...common, ownerId: query.ownerId, name: { contains: query.search }, status: query.status };
-        return { records: await tx.lead.findMany({ where, ...paging }), pagination: pagination(query, await tx.lead.count({ where })) };
+        return { records: await tx.lead.findMany({ where, ...paging, include: { owner: { select: { id: true, name: true } }, company: { select: { id: true, name: true } } } }), pagination: pagination(query, await tx.lead.count({ where })) };
       }
       if (kind === 'opportunities') {
         const where: Prisma.OpportunityWhereInput = { ...common, ownerId: query.ownerId, leadId: query.leadId, title: { contains: query.search }, stage: query.status };
-        return { records: (await tx.opportunity.findMany({ where, ...paging })).map((row) => ({ ...row, value: money(row.value, currencyCode(row.currency)).amount })), pagination: pagination(query, await tx.opportunity.count({ where })) };
+        return { records: (await tx.opportunity.findMany({ where, ...paging, include: { owner: { select: { id: true, name: true } }, company: { select: { id: true, name: true } }, lead: { select: { id: true, name: true } } } })).map((row) => ({ ...row, value: money(row.value, currencyCode(row.currency)).amount })), pagination: pagination(query, await tx.opportunity.count({ where })) };
       }
       const where: Prisma.SalesTaskWhereInput = { ...common, assignedToId: query.ownerId, leadId: query.leadId, title: { contains: query.search }, status: query.reminders === 'true' ? 'OPEN' : query.status, ...(query.reminders === 'true' ? { reminderAt: { lte: new Date() } } : {}) };
-      return { records: await tx.salesTask.findMany({ where, ...paging }), pagination: pagination(query, await tx.salesTask.count({ where })) };
+      return { records: await tx.salesTask.findMany({ where, ...paging, include: { assignee: { select: { id: true, name: true } }, company: { select: { id: true, name: true } }, lead: { select: { id: true, name: true } } } }), pagination: pagination(query, await tx.salesTask.count({ where })) };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
   async createLead(firmId: number, actorId: number, input: z.infer<typeof leadCreateSchema>, metadata: RequestMetadata) {
@@ -210,12 +212,12 @@ export class CrmRepository {
       await createAuditLog(tx, { metadata: { ...metadata, firmId, userId: actorId }, entityType: 'SalesActivity', entityId: String(row.id), action: AuditAction.CREATE, policy: 'REQUIRED', newValues: json(row) }); return row;
     });
   }
-  async timeline(firmId: number, actorId: number, query: CrmList) {
+  async timeline(firmId: number, actorId: number, query: CustomerTimelineList) {
     return this.db.$transaction(async (tx) => {
       const all = await this.access(tx, firmId, actorId);
       if (query.companyId) await this.company(tx, firmId, query.companyId);
       const where: Prisma.SalesActivityWhereInput = { firmId, companyId: query.companyId, leadId: query.leadId, ...(all ? {} : { OR: [{ createdById: actorId }, { lead: { ownerId: actorId } }, { opportunity: { ownerId: actorId } }, { task: { assignedToId: actorId } }] }) };
-      return { records: await tx.salesActivity.findMany({ where, skip: (query.page - 1) * query.limit, take: query.limit, orderBy: { id: 'desc' }, include: { createdBy: { select: { id: true, name: true } } } }), pagination: pagination(query, await tx.salesActivity.count({ where })) };
+      return { records: await tx.salesActivity.findMany({ where, skip: (query.page - 1) * query.limit, take: query.limit, orderBy: listOrderBy(query, ['id', 'createdAt', 'subject', 'kind']), include: { createdBy: { select: { id: true, name: true } } } }), pagination: pagination(query, await tx.salesActivity.count({ where })) };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
 }

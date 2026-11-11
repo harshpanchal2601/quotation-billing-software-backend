@@ -39,12 +39,15 @@ function requestHash(value: unknown) { return createHash('sha256').update(JSON.s
 function dateOnly(value: Date | null) { return value?.toISOString().slice(0, 10) ?? null; }
 export function serialiseInvoice(record: InvoiceRecord) {
   const scale = money('0', currencyCode(record.currency)).amount.split('.')[1]?.length ?? 0;
+  const supply = record.supplySnapshot;
+  const stateCode = supply && typeof supply === 'object' && !Array.isArray(supply) ? supply.placeOfSupplyStateCode : undefined;
   return {
     id: record.id, firmId: record.firmId, kind: record.kind, status: record.status, version: record.version,
     documentNumber: record.documentNumber, invoiceDate: dateOnly(record.invoiceDate), dueDate: dateOnly(record.dueDate),
     companyId: record.companyId, customerReference: record.customerReference, paymentTerms: record.paymentTerms, notes: record.notes,
     currency: record.currency, buyerSnapshot: record.buyerSnapshot, sellerSnapshot: record.sellerSnapshot, bankSnapshot: record.bankSnapshot,
     financialPolicySnapshot: record.financialPolicySnapshot, supplySnapshot: record.supplySnapshot,
+    placeOfSupplyStateName: typeof stateCode === 'string' ? INDIA_STATES[stateCode] ?? null : null,
     customFieldSchema: record.customFieldSchema, customFieldValues: record.customFieldValues, presentationSnapshot: record.presentationSnapshot,
     sourceSnapshot: record.sourceSnapshot, sourceQuotationId: record.sourceQuotationId, sourceProformaId: record.sourceProformaId, sourceInvoiceId: record.sourceInvoiceId, sourceSalesOrderId: record.sourceSalesOrderId,
     adjustmentReason: record.adjustmentReason, issuedAt: record.issuedAt?.toISOString() ?? null, voidedAt: record.voidedAt?.toISOString() ?? null, voidReason: record.voidReason,
@@ -79,14 +82,14 @@ export class InvoicesRepository {
       ...(query.search ? { OR: [{ documentNumber: { contains: query.search } }, { customerReference: { contains: query.search } }, { company: { firmId, name: { contains: query.search } } }] } : {}),
     };
     const [documents, total] = await this.db.$transaction([
-      this.db.invoice.findMany({ where, orderBy: [{ [query.sortBy]: query.sortOrder }, { id: 'desc' }], skip: (query.page - 1) * query.limit, take: query.limit, include: invoiceInclude }),
+      this.db.invoice.findMany({ where, orderBy: query.sortBy === 'id' ? [{ id: query.sortOrder }] : [{ [query.sortBy]: query.sortOrder }, { id: 'desc' }], skip: (query.page - 1) * query.limit, take: query.limit, include: invoiceInclude }),
       this.db.invoice.count({ where }),
     ]);
     return { documents: documents.map(serialiseInvoice), pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) } };
   }
-  async options(firmId: number, type: 'customers' | 'items', search: string, limit: number) {
+  async options(firmId: number, type: 'customers' | 'items', search: string, limit: number, selectedId?: number) {
     await assertTransactionFeature(this.db, firmId, 'billing.invoices');
-    if (type === 'customers') return this.db.company.findMany({ where: { firmId, deletedAt: null, isActive: true, name: { contains: search } }, select: { id: true, name: true, gstin: true }, orderBy: [{ name: 'asc' }, { id: 'asc' }], take: limit });
+    if (type === 'customers') return this.db.company.findMany({ where: { firmId, deletedAt: null, isActive: true, ...(selectedId !== undefined ? { id: selectedId } : { name: { contains: search } }) }, select: { id: true, name: true, gstin: true }, orderBy: [{ name: 'asc' }, { id: 'asc' }], take: selectedId !== undefined ? 1 : limit });
     await assertTransactionFeature(this.db, firmId, 'items');
     const items = await this.db.item.findMany({ where: { firmId, deletedAt: null, isActive: true, name: { contains: search }, measurementUnit: { firmId, deletedAt: null, isActive: true } }, include: { measurementUnit: true }, orderBy: [{ name: 'asc' }, { id: 'asc' }], take: limit });
     return items.map((item) => ({ id: item.id, name: item.name, itemCode: item.itemCode, unitRate: item.defaultRate.toFixed(2), taxRate: item.gstRate.toFixed(2), hsnCode: item.hsnCode, measurementUnit: item.measurementUnit.symbol }));
@@ -326,12 +329,12 @@ export class InvoicesRepository {
   async voidInTransaction(tx: Prisma.TransactionClient, firmId: number, actorId: number, id: number, expectedVersion: number, reason: string, scope: DocumentScope, metadata: RequestMetadata) {
     await this.authorize(tx, firmId, actorId, scope, 'void');
     const old = await this.find(tx, firmId, id, scope);
-    if (old.status !== 'ISSUED' || old.version !== expectedVersion) throw new AppError('Only the current issued document can be voided', 409);
+    if (old.status !== 'ISSUED' || old.version !== expectedVersion) throw new AppError('Only the latest issued document can be cancelled', 409);
     if (scope === 'ADJUSTMENT') throw new AppError('Issued adjustment notes require a compensating document; originals are preserved', 409);
-    if (indiaToday(old.issuedAt!) !== indiaToday()) throw new AppError('Only an unreported document cancelled on its issue date can be voided; use an adjustment otherwise', 409);
+    if (indiaToday(old.issuedAt!) !== indiaToday()) throw new AppError('Cancellation is allowed only on the issue date and before GST reporting. Use a credit or debit note for later corrections.', 409);
     const dependants = await tx.invoice.count({ where: { firmId, OR: [{ sourceInvoiceId: id }, { sourceProformaId: id }] } });
-    if (dependants > 0) throw new AppError('A document with adjustments or a conversion cannot be voided', 409);
-    if (scope === 'INVOICE' && decimal((await readInvoiceSettlement(tx, firmId, id)).allocated).gt(0)) throw new AppError('Reverse allocated receipts before voiding this invoice', 409);
+    if (dependants > 0) throw new AppError('This document has a credit/debit note or linked invoice and cannot be cancelled', 409);
+    if (scope === 'INVOICE' && decimal((await readInvoiceSettlement(tx, firmId, id)).allocated).gt(0)) throw new AppError('Cancel the receipt entries applied to this invoice before cancelling it', 409);
     if (scope === 'INVOICE') await enforceApproval(tx, firmId, actorId, { action: 'INVOICE_VOID', entityId: id, expectedVersion, reason, notReportedAndSupplyCancelled: true });
     await tx.invoice.updateMany({ where: { id, firmId, status: 'ISSUED', version: expectedVersion }, data: { status: 'VOID', version: { increment: 1 }, voidedAt: new Date(), voidReason: reason, updatedById: actorId } });
     await this.history(tx, firmId, id, old.version + 1, actorId, 'ISSUED', 'VOID');

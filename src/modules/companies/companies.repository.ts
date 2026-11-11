@@ -4,6 +4,7 @@ import { AuditAction } from '@prisma/client';
 import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import { lockEntitlementFirm } from '../entitlements/index.js';
 import { findLatestCompanyCodeSequence, formatCompanyCode } from './code/company-code.js';
 import {
@@ -66,7 +67,7 @@ export class CompaniesRepository {
     const [companies, total] = await this.db.$transaction([
       this.db.company.findMany({
         where,
-        orderBy: { [query.sortBy]: query.sortOrder },
+        orderBy: listOrderBy(query, ['id', 'companyCode', 'name', 'createdAt', 'updatedAt'], 'createdAt'),
         skip: (query.page - 1) * query.limit,
         take: query.limit,
         include: {
@@ -307,7 +308,7 @@ export class CompaniesRepository {
     const [quotations, total] = await this.db.$transaction([
       this.db.quotation.findMany({
         where,
-        orderBy: { quotationDate: query.sortOrder },
+        orderBy: listOrderBy(query, ['quotationNumber', 'revisionNumber', 'quotationDate', 'validUntil', 'status', 'currency', 'grandTotal', 'createdAt'], 'quotationDate'),
         skip: (query.page - 1) * query.limit,
         take: query.limit,
         select: {

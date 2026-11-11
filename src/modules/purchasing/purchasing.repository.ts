@@ -1,3 +1,4 @@
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import { AuditAction, Prisma, type PrismaClient } from '@prisma/client';
 import type { z } from 'zod';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
@@ -20,6 +21,11 @@ type Transition = z.infer<typeof purchaseTransitionSchema>;
 const paging = (query: Query) => ({ take: query.limit, skip: (query.page - 1) * query.limit });
 const orderInclude = { lines: { orderBy: { lineNumber: 'asc' as const } } };
 const billInclude = { lines: { orderBy: { lineNumber: 'asc' as const } } };
+const receiptReadInclude = {
+  order: { select: { orderNumber: true, supplierSnapshot: true, currency: true } },
+  warehouse: { select: { name: true, code: true } },
+  lines: { orderBy: { id: 'asc' as const }, include: { orderLine: { select: { lineNumber: true, snapshot: true, unitCost: true } } } },
+} satisfies Prisma.GoodsReceiptInclude;
 
 async function audit(tx: Prisma.TransactionClient, firmId: number, actorId: number, entityType: string, row: { id: number }, values: unknown, metadata: RequestMetadata) {
   await createAuditLog(tx, { metadata: { ...metadata, firmId, userId: actorId }, entityType, entityId: String(row.id), action: AuditAction.UPDATE, policy: 'REQUIRED', newValues: jsonObject(values) });
@@ -59,24 +65,24 @@ export class PurchasingRepository {
       const period = { gte: query.from ? new Date(`${query.from}T00:00:00Z`) : undefined, lte: query.to ? new Date(`${query.to}T23:59:59.999Z`) : undefined };
       if (kind === 'orders') {
         const where: Prisma.PurchaseOrderWhereInput = { firmId, supplierId: query.supplierId, createdAt: period };
-        return { records: await tx.purchaseOrder.findMany({ where, ...paging(query), orderBy: { id: 'desc' }, include: { supplier: { select: { name: true } } } }), pagination: { page: query.page, limit: query.limit, total: await tx.purchaseOrder.count({ where }) } };
+        return { records: await tx.purchaseOrder.findMany({ where, ...paging(query), orderBy: listOrderBy(query, ['id', 'orderNumber', 'status', 'currency', 'total', 'createdAt', 'expectedDate']), include: { supplier: { select: { name: true } } } }), pagination: { page: query.page, limit: query.limit, total: await tx.purchaseOrder.count({ where }) } };
       }
       if (kind === 'receipts') {
         const where: Prisma.GoodsReceiptWhereInput = { firmId, order: { firmId, supplierId: query.supplierId }, createdAt: period };
-        return { records: await tx.goodsReceipt.findMany({ where, ...paging(query), orderBy: { id: 'desc' }, include: { lines: true } }), pagination: { page: query.page, limit: query.limit, total: await tx.goodsReceipt.count({ where }) } };
+        return { records: await tx.goodsReceipt.findMany({ where, ...paging(query), orderBy: listOrderBy(query, ['id', 'reference', 'createdAt']), include: receiptReadInclude }), pagination: { page: query.page, limit: query.limit, total: await tx.goodsReceipt.count({ where }) } };
       }
       if (kind === 'bills') {
         const where: Prisma.SupplierBillWhereInput = { firmId, supplierId: query.supplierId, billDate: period };
-        return { records: await tx.supplierBill.findMany({ where, ...paging(query), orderBy: { id: 'desc' }, include: { supplier: { select: { name: true } } } }), pagination: { page: query.page, limit: query.limit, total: await tx.supplierBill.count({ where }) }, totals: await tx.supplierBill.groupBy({ by: ['currency'], where: { ...where, status: 'POSTED' }, _sum: { total: true } }) };
+        return { records: await tx.supplierBill.findMany({ where, ...paging(query), orderBy: listOrderBy(query, ['id', 'supplierReference', 'status', 'currency', 'total', 'createdAt', 'billDate', 'dueDate']), include: { supplier: { select: { name: true } } } }), pagination: { page: query.page, limit: query.limit, total: await tx.supplierBill.count({ where }) }, totals: await tx.supplierBill.groupBy({ by: ['currency'], where: { ...where, status: 'POSTED' }, _sum: { total: true } }) };
       }
       const where: Prisma.ExpenseWhereInput = { firmId, supplierId: query.supplierId, expenseDate: period };
-      return { records: await tx.expense.findMany({ where, ...paging(query), orderBy: { id: 'desc' } }), pagination: { page: query.page, limit: query.limit, total: await tx.expense.count({ where }) }, totals: await tx.expense.groupBy({ by: ['currency', 'category'], where: { ...where, status: 'POSTED' }, _sum: { total: true } }) };
+      return { records: await tx.expense.findMany({ where, ...paging(query), orderBy: listOrderBy(query, ['id', 'reference', 'status', 'currency', 'total', 'createdAt', 'expenseDate']) }), pagination: { page: query.page, limit: query.limit, total: await tx.expense.count({ where }) }, totals: await tx.expense.groupBy({ by: ['currency', 'category'], where: { ...where, status: 'POSTED' }, _sum: { total: true } }) };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
   async get(firmId: number, actorId: number, kind: 'orders' | 'receipts' | 'bills' | 'expenses', id: number) {
     return this.db.$transaction(async (tx) => {
       await this.access(tx, firmId, actorId, kind === 'bills' ? PERMISSIONS.SUPPLIER_BILLS_VIEW : kind === 'expenses' ? PERMISSIONS.EXPENSES_VIEW : PERMISSIONS.PURCHASING_VIEW, kind === 'bills' ? 'purchasing.bills' : kind === 'expenses' ? 'expenses' : 'purchasing');
-      const row = kind === 'orders' ? await tx.purchaseOrder.findFirst({ where: { id, firmId }, include: orderInclude }) : kind === 'receipts' ? await tx.goodsReceipt.findFirst({ where: { id, firmId }, include: { lines: true } }) : kind === 'bills' ? await tx.supplierBill.findFirst({ where: { id, firmId }, include: billInclude }) : await tx.expense.findFirst({ where: { id, firmId } });
+      const row = kind === 'orders' ? await tx.purchaseOrder.findFirst({ where: { id, firmId }, include: orderInclude }) : kind === 'receipts' ? await tx.goodsReceipt.findFirst({ where: { id, firmId }, include: receiptReadInclude }) : kind === 'bills' ? await tx.supplierBill.findFirst({ where: { id, firmId }, include: billInclude }) : await tx.expense.findFirst({ where: { id, firmId } });
       if (!row) throw new AppError('Purchasing document not found', 404); return row;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
@@ -147,7 +153,7 @@ export class PurchasingRepository {
       await this.access(tx, firmId, actorId, PERMISSIONS.PURCHASING_VIEW, 'purchasing');
       if (!await tx.goodsReceipt.findFirst({ where: { id, firmId }, select: { id: true } })) throw new AppError('Receipt not found', 404);
       const where = { firmId, line: { goodsReceiptId: id, firmId } };
-      return { records: await tx.goodsReceiptReturn.findMany({ where, ...paging(query), orderBy: { id: 'desc' } }), pagination: { page: query.page, limit: query.limit, total: await tx.goodsReceiptReturn.count({ where }) } };
+      return { records: await tx.goodsReceiptReturn.findMany({ where, ...paging(query), orderBy: listOrderBy(query, ['id', 'quantity', 'createdAt']) }), pagination: { page: query.page, limit: query.limit, total: await tx.goodsReceiptReturn.count({ where }) } };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
   async returnReceipt(firmId: number, actorId: number, id: number, input: z.infer<typeof receiptReturnSchema>, metadata: RequestMetadata) {

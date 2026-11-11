@@ -1,3 +1,4 @@
+import { listOrderBy, type ListSort } from '../../core/validation/list-sort.js';
 import { AuditAction, Prisma, type OutboxEvent, type PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
@@ -38,10 +39,10 @@ export class BillingSchedulesRepository {
     if (!row) throw new AppError('Billing schedule not found', 404);
     return row;
   }
-  async list(firmId: number, actorId: number, page: number, limit: number) {
+  async list(firmId: number, actorId: number, page: number, limit: number, sort: ListSort = {}) {
     return this.db.$transaction(async (tx) => {
       await authorize(tx, firmId, actorId);
-      const rows = await tx.billingSchedule.findMany({ where: { firmId }, select: { id: true, name: true, status: true, version: true, nextPeriod: true }, orderBy: { id: 'desc' }, skip: (page - 1) * limit, take: limit });
+      const rows = await tx.billingSchedule.findMany({ where: { firmId }, select: { id: true, name: true, status: true, version: true, nextPeriod: true }, orderBy: listOrderBy(sort, ['id', 'name', 'status', 'version', 'nextPeriod'], 'id'), skip: (page - 1) * limit, take: limit });
       const total = await tx.billingSchedule.count({ where: { firmId } });
       return { schedules: rows.map((row) => ({ ...row, nextPeriod: date(row.nextPeriod) })), pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });

@@ -29,7 +29,10 @@ assistantRouter.post('/search', useAssistant, asyncHandler(async (req, res) => {
   const input = chatSchema.omit({ plan: true }).extend({ plan: searchToolSchema }).parse(req.body);
   return sendSuccess(res, 200, 'Assistant search completed', await assistantRepository.chat(getFirmId(req), actor(req), input));
 }));
-assistantRouter.get('/history', useAssistant, asyncHandler(async (req, res) => sendSuccess(res, 200, 'Your assistant history retrieved', await assistantRepository.history(getFirmId(req), actor(req), historyQuerySchema.parse(req.query).page))));
+assistantRouter.get('/history', useAssistant, asyncHandler(async (req, res) => {
+  const query = historyQuerySchema.parse(req.query);
+  return sendSuccess(res, 200, 'Your assistant history retrieved', await assistantRepository.history(getFirmId(req), actor(req), query.page, query));
+}));
 assistantRouter.delete('/history/:id', useAssistant, asyncHandler(async (req, res) => {
   await assistantRepository.erase(getFirmId(req), actor(req), assistantIdSchema.parse(req.params.id));
   return sendSuccess(res, 200, 'Conversation content erased; required action and usage audit retained', {});

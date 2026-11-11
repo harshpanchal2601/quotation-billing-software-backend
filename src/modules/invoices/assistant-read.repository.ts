@@ -1,3 +1,4 @@
+import type { ListSort } from '../../core/validation/list-sort.js';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { prisma } from '../../core/database/prisma.js';
 import { invoicesRepository } from './invoices.repository.js';
@@ -6,8 +7,8 @@ import { readSalesReport } from './sales-report.repository.js';
 
 // Financial report queries remain owned by the billing domain.
 
-export async function searchAssistantInvoices(firmId: number, search: string, page: number) {
-  const result = await invoicesRepository.list(firmId, 'INVOICE', invoiceListSchema.parse({ search, page, limit: 20 }));
+export async function searchAssistantInvoices(firmId: number, search: string, page: number, sorting: ListSort<'id'> = {}) {
+  const result = await invoicesRepository.list(firmId, 'INVOICE', invoiceListSchema.parse({ search, page, limit: 20, sortBy: sorting.sortBy, sortOrder: sorting.sortOrder }));
   return { records: result.documents.map((row) => ({ id: row.id, label: row.documentNumber ?? `Draft ${row.id}`, customer: String(row.buyerSnapshot && typeof row.buyerSnapshot === 'object' && !Array.isArray(row.buyerSnapshot) ? row.buyerSnapshot.name ?? '' : ''), href: `/invoices/${row.id}`, status: row.status, currency: row.currency, total: row.grandTotal, version: row.version })), pagination: result.pagination };
 }
 

@@ -16,7 +16,7 @@ function fixture() {
     user: { findFirst: vi.fn(async ({ where }: { where: { id: number } }) => ({ id: where.id, firmId: 1, accountType: 'FIRM_ADMIN', status: 'ACTIVE', mustChangePassword: false, deletedAt: null, firmRole: null, firm: { id: 1, status: 'ACTIVE', deletedAt: null } })) },
     invoice: { findFirst: vi.fn().mockResolvedValue(invoice) },
     automationDefinitionVersion: { findFirst: vi.fn().mockResolvedValue(policy) },
-    approvalRequest: { count: vi.fn().mockResolvedValue(0), findFirst: vi.fn().mockResolvedValue(null), create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({ ...data, status: 'PENDING', createdAt: new Date() })), update: vi.fn() },
+    approvalRequest: { findMany: vi.fn().mockResolvedValue([]), count: vi.fn().mockResolvedValue(0), findFirst: vi.fn().mockResolvedValue(null), create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({ ...data, status: 'PENDING', createdAt: new Date() })), update: vi.fn() },
     approvalDecision: { create: vi.fn() }, auditLog: { create: vi.fn() },
   };
   const db = { $transaction: async (work: (value: typeof tx) => Promise<unknown>) => work(tx) } as unknown as PrismaClient;
@@ -25,6 +25,14 @@ function fixture() {
 const command: ApprovalCommand = { action: 'INVOICE_ISSUE', entityId: 11, expectedVersion: 1, confirmedTotal: '80' };
 beforeEach(() => vi.resetAllMocks());
 describe('Wave 08 immutable approval authority and exact command matching', () => {
+  it('keeps paginated approval reads firm-scoped and sorts before selecting a page', async () => {
+    const { tx, db } = fixture();
+    await new ApprovalsRepository(db).list(1, 10, 2, { sortBy: 'expiresAt', sortOrder: 'asc' });
+    expect(tx.approvalRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { firmId: 1 }, orderBy: [{ expiresAt: 'asc' }, { id: 'asc' }], skip: 50, take: 50,
+      include: expect.objectContaining({ requester: { select: { id: true, name: true } } }),
+    }));
+  });
   it('requires staff approval before an unsent pending quotation can reach portal customers', async () => {
     const { tx, policy } = fixture();
     const quotation = { id: 12, firmId: 1, status: 'PENDING', sentAt: null, currency: 'INR', subtotal: new Prisma.Decimal('100'), itemDiscountAmount: new Prisma.Decimal('5'), quotationDiscountAmount: new Prisma.Decimal('10'), grandTotal: new Prisma.Decimal('85') };

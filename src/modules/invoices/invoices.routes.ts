@@ -8,7 +8,7 @@ import { requireAuthentication, requirePermission } from '../auth/auth.middlewar
 import { PERMISSIONS } from '../auth/permissions.js';
 import { billingAccess, invoicesRepository, invoiceSettingsRepository, type DocumentScope } from './invoices.repository.js';
 import { invoiceDocumentsRepository as documentsRepository } from './documents/invoice-documents.repository.js';
-import { adjustmentSchema, conversionSchema, customFieldValuesSchema, idSchema, invoiceDraftSchema, invoiceListSchema, invoiceUpdateSchema, issueSchema, optionQuerySchema, proformaConversionSchema, voidSchema } from './invoices.schema.js';
+import { adjustmentSchema, conversionSchema, customFieldValuesSchema, idSchema, invoiceDraftSchema, invoiceListSchema, invoiceUpdateSchema, issueSchema, customerOptionQuerySchema, optionQuerySchema, proformaConversionSchema, voidSchema } from './invoices.schema.js';
 import { fiscalSettingsUpdateSchema, invoiceFieldsUpdateSchema } from './invoice-settings.schema.js';
 import { INDIA_STATES } from './india-gst.js';
 import { orderInvoiceSchema } from './invoices.schema.js';
@@ -30,8 +30,8 @@ function createDocumentRouter(scope: DocumentScope) {
     router.post('/calculate', requirePermission(permissions.create), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Draft totals calculated', await invoicesRepository.preview(getFirmId(req), actor(req), invoiceDraftSchema.parse(req.body), scope))));
     router.post('/', requirePermission(permissions.create), asyncHandler(async (req, res) => sendSuccess(res, 201, 'Draft created', { document: await invoicesRepository.create(getFirmId(req), actor(req), invoiceDraftSchema.parse(req.body), scope, metadata(req)) })));
     router.get('/options/customers', requirePermission(permissions.create, permissions.edit), asyncHandler(async (req, res) => {
-      const query = optionQuerySchema.parse(req.query);
-      return sendSuccess(res, 200, 'Customers retrieved', { customers: await invoicesRepository.options(getFirmId(req), 'customers', query.search, query.limit) });
+      const query = customerOptionQuerySchema.parse(req.query);
+      return sendSuccess(res, 200, 'Customers retrieved', { customers: await invoicesRepository.options(getFirmId(req), 'customers', query.search, query.limit, query.selectedId) });
     }));
     router.get('/options/customers/:id/addresses', requirePermission(permissions.create, permissions.edit), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Addresses retrieved', { addresses: await invoicesRepository.customerAddresses(getFirmId(req), idSchema.parse(req.params).id) })));
     router.get('/options/items', requirePermission(permissions.create, permissions.edit), asyncHandler(async (req, res) => {
@@ -54,7 +54,7 @@ function createDocumentRouter(scope: DocumentScope) {
   }));
   router.post('/:id/void', requirePermission(permissions.void), asyncHandler(async (req, res) => {
     const input = voidSchema.parse(req.body);
-    return sendSuccess(res, 200, 'Document voided', { document: await invoicesRepository.void(getFirmId(req), actor(req), idSchema.parse(req.params).id, input.expectedVersion, input.reason, scope, metadata(req)) });
+    return sendSuccess(res, 200, 'Document cancelled', { document: await invoicesRepository.void(getFirmId(req), actor(req), idSchema.parse(req.params).id, input.expectedVersion, input.reason, scope, metadata(req)) });
   }));
   router.get('/:id/documents', requirePermission(permissions.documents), asyncHandler(async (req, res) => sendSuccess(res, 200, 'PDF history retrieved', { documents: await documentsRepository.list(getFirmId(req), idSchema.parse(req.params).id, scope) })));
   router.post('/:id/pdf', requirePermission(permissions.documents), asyncHandler(async (req, res) => sendSuccess(res, 201, 'PDF created', { document: await documentsRepository.generate(getFirmId(req), actor(req), idSchema.parse(req.params).id, scope, metadata(req)) })));

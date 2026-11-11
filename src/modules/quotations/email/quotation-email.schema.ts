@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AppError } from '../../../core/errors/AppError.js';
+import { listSortFields } from '../../../core/validation/list-sort.js';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -82,3 +83,18 @@ export function validateSendQuotationEmailInput(input: unknown) {
   }
   return result.data;
 }
+
+const historyPagination = {
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+};
+
+export const generatedDocumentHistorySchema = z.object({
+  ...historyPagination,
+  ...listSortFields(['id', 'versionNumber', 'generatedAt', 'documentType']),
+});
+
+export const quotationCommunicationHistorySchema = z.object({
+  ...historyPagination,
+  ...listSortFields(['id', 'createdAt', 'status', 'subjectSnapshot', 'attemptNumber']),
+});

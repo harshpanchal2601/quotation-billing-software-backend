@@ -74,7 +74,7 @@ export const companyListQuerySchema = z.object({
   search: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   isActive: booleanQuerySchema,
   isSupplier: booleanQuerySchema,
-  sortBy: z.enum(['companyCode', 'name', 'createdAt', 'updatedAt']).default('createdAt'),
+  sortBy: z.enum(['id', 'companyCode', 'name', 'createdAt', 'updatedAt']).default('createdAt'),
   sortOrder: sortOrderSchema.default('desc'),
 });
 
@@ -139,6 +139,7 @@ export const quotationHistoryQuerySchema = z
     status: z.nativeEnum(QuotationStatus).optional(),
     dateFrom: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
     dateTo: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
+    sortBy: z.enum(['quotationNumber', 'revisionNumber', 'quotationDate', 'validUntil', 'status', 'currency', 'grandTotal', 'createdAt']).optional(),
     sortOrder: sortOrderSchema.default('desc'),
   })
   .refine(

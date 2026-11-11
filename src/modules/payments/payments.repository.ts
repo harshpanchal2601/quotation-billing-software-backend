@@ -1,3 +1,4 @@
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import { AuditAction, Prisma, type PrismaClient } from '@prisma/client';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
@@ -59,7 +60,7 @@ export class PaymentsRepository {
       if (query.companyId) await this.customer(tx, firmId, query.companyId);
       const where: Prisma.CustomerPaymentWhereInput = { firmId, companyId: query.companyId, currency: query.currency,
         ...(query.search ? { OR: [{ reference: { contains: query.search } }, { company: { firmId, name: { contains: query.search } } }] } : {}) };
-      const rows = await tx.customerPayment.findMany({ where, include: { company: { select: { name: true } }, reversal: true }, orderBy: { id: 'desc' }, skip: (query.page - 1) * query.limit, take: query.limit });
+      const rows = await tx.customerPayment.findMany({ where, include: { company: { select: { name: true } }, reversal: true }, orderBy: listOrderBy(query, ['id', 'reference', 'receivedDate', 'amount', 'currency', 'createdAt']), skip: (query.page - 1) * query.limit, take: query.limit });
       const paymentIds = rows.map((row) => row.id);
       const allocations = await tx.paymentAllocation.groupBy({ by: ['paymentId'], where: { firmId, paymentId: { in: paymentIds } }, _sum: { amount: true } });
       const refunds = await tx.customerRefund.groupBy({ by: ['paymentId'], where: { firmId, paymentId: { in: paymentIds } }, _sum: { amount: true } });
@@ -75,10 +76,10 @@ export class PaymentsRepository {
       return serialise(await this.find(tx, firmId, id));
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
-  async customers(firmId: number, actorId: number, search: string) {
+  async customers(firmId: number, actorId: number, search: string, id?: number) {
     return this.db.$transaction(async (tx) => {
       await authorizePayment(tx, firmId, actorId, PERMISSIONS.PAYMENTS_RECORD);
-      return tx.company.findMany({ where: { firmId, deletedAt: null, isActive: true, name: { contains: search } }, select: { id: true, name: true }, orderBy: [{ name: 'asc' }, { id: 'asc' }], take: 50 });
+      return tx.company.findMany({ where: { firmId, id, deletedAt: null, isActive: true, name: { contains: search } }, select: { id: true, name: true }, orderBy: [{ name: 'asc' }, { id: 'asc' }], take: 50 });
     });
   }
   async record(firmId: number, actorId: number, input: RecordPaymentInput, metadata: RequestMetadata) {

@@ -1,5 +1,6 @@
 import { FirmStatus } from '@prisma/client';
 import { z } from 'zod';
+import { listSortFields } from '../../core/validation/list-sort.js';
 
 import { passwordPolicySchema, usernameSchema } from '../auth/auth.schema.js';
 
@@ -11,6 +12,7 @@ export const platformFirmIdSchema = z.object({
 });
 
 export const platformFirmListSchema = z.object({
+  ...listSortFields(['id', 'name', 'displayName', 'slug', 'status', 'createdAt']),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
   search: z.preprocess(emptyToUndefined, z.string().trim().max(191).optional()),

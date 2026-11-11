@@ -1,11 +1,13 @@
 import { AuditAction } from '@prisma/client';
 import { z } from 'zod';
+import { listSortFields } from '../../core/validation/list-sort.js';
 
 const emptyToUndefined = (value: unknown) =>
   typeof value === 'string' && value.trim().length === 0 ? undefined : value;
 
 export const auditLogListSchema = z
   .object({
+    ...listSortFields(['id', 'createdAt', 'action', 'entityType', 'entityId']),
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(20),
     action: z.nativeEnum(AuditAction).optional(),

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { listSortFields } from '../../core/validation/list-sort.js';
 import { dateOnlySchema as calendarDateSchema } from '../../core/validation/date-only.js';
 import { commandKeySchema as inventoryKeySchema } from '../../core/idempotency/command-key.js';
 import { positiveQuantitySchema as stockQuantitySchema } from '../../core/validation/quantity.js';
@@ -10,6 +11,7 @@ const nonnegativeQuantity = z.string().regex(/^\d{1,9}(?:\.\d{1,3})?$/);
 export const stockCostSchema = z.string().regex(/^\d{1,15}(?:\.\d{1,3})?$/);
 export const inventoryReasonSchema = z.string().trim().min(5).max(2000);
 export const inventoryListSchema = z.object({
+  ...listSortFields(['id', 'onHand', 'reserved', 'value', 'reorderLevel', 'postedAt', 'quantity', 'eventType', 'sourceType', 'status', 'remaining']),
   page: z.coerce.number().int().min(1).max(100000).default(1), limit: z.coerce.number().int().min(1).max(100).default(20),
   warehouseId: z.coerce.number().int().positive().optional(), itemId: z.coerce.number().int().positive().optional(),
   salesOrderId: z.coerce.number().int().positive().optional(),

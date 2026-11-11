@@ -10,6 +10,8 @@ import {
   validateSendQuotationEmailInput,
 } from '../communications/quotation-communications.repository.js';
 
+import { generatedDocumentHistorySchema, quotationCommunicationHistorySchema } from './quotation-email.schema.js';
+
 export const quotationEmailRouter = Router({ mergeParams: true });
 
 quotationEmailRouter.use(requireAuthentication);
@@ -36,11 +38,7 @@ quotationEmailRouter.get(
   requirePermission(PERMISSIONS.QUOTATIONS_DOCUMENTS, PERMISSIONS.QUOTATIONS_EMAIL),
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = parseId(req.params.quotationId, 'quotation ID');
-    const result = await quotationCommunicationsRepository.getDocumentHistory(getFirmId(req), quotationId, {
-      page: Number(req.query.page) || 1,
-      limit: Number(req.query.limit) || 20,
-      sortOrder: req.query.sortOrder === 'asc' ? 'asc' : 'desc',
-    });
+    const result = await quotationCommunicationsRepository.getDocumentHistory(getFirmId(req), quotationId, generatedDocumentHistorySchema.parse(req.query));
     res.status(200).json({
       success: true,
       message: 'Generated document history retrieved successfully',
@@ -54,11 +52,7 @@ quotationEmailRouter.get(
   requirePermission(PERMISSIONS.QUOTATIONS_EMAIL),
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = parseId(req.params.quotationId, 'quotation ID');
-    const result = await quotationCommunicationsRepository.getCommunicationHistory(getFirmId(req), quotationId, {
-      page: Number(req.query.page) || 1,
-      limit: Number(req.query.limit) || 20,
-      sortOrder: req.query.sortOrder === 'asc' ? 'asc' : 'desc',
-    });
+    const result = await quotationCommunicationsRepository.getCommunicationHistory(getFirmId(req), quotationId, quotationCommunicationHistorySchema.parse(req.query));
     res.status(200).json({
       success: true,
       message: 'Quotation communication history retrieved successfully',

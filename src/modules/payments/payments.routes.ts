@@ -1,5 +1,4 @@
 import { Router, type Request } from 'express';
-import { z } from 'zod';
 import { AppError } from '../../core/errors/AppError.js';
 import { sendSuccess } from '../../core/http/apiResponse.js';
 import { asyncHandler } from '../../core/http/asyncHandler.js';
@@ -9,14 +8,17 @@ import { PERMISSIONS } from '../auth/permissions.js';
 import { paymentCapabilities } from './payment-links.js';
 import { paymentsRepository } from './payments.repository.js';
 import { receivablesRepository } from './receivables.repository.js';
-import { allocatePaymentSchema, paymentIdSchema, paymentListSchema, receivablesQuerySchema, recordPaymentSchema, refundPaymentSchema, reversePaymentSchema } from './payments.schema.js';
+import { allocatePaymentSchema, paymentCustomerQuerySchema, paymentIdSchema, paymentListSchema, receivablesQuerySchema, recordPaymentSchema, refundPaymentSchema, reversePaymentSchema } from './payments.schema.js';
 
 function actor(req: Request) { if (!req.user) throw new AppError('Authentication required', 401); return req.user.id; }
 function metadata(req: Request) { return { firmId: getFirmId(req), userId: actor(req), ipAddress: req.ip, userAgent: req.get('user-agent') }; }
 export const paymentsRouter = Router();
 paymentsRouter.use(requireAuthentication, requireFirmContext);
 paymentsRouter.get('/capabilities', requirePermission(PERMISSIONS.PAYMENTS_VIEW), (_req, res) => sendSuccess(res, 200, 'Payment capabilities retrieved', paymentCapabilities));
-paymentsRouter.get('/options/customers', requirePermission(PERMISSIONS.PAYMENTS_RECORD), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Payment customers retrieved', { customers: await paymentsRepository.customers(getFirmId(req), actor(req), z.string().trim().max(191).default('').parse(req.query.search)) })));
+paymentsRouter.get('/options/customers', requirePermission(PERMISSIONS.PAYMENTS_RECORD), asyncHandler(async (req, res) => {
+  const query = paymentCustomerQuerySchema.parse(req.query);
+  return sendSuccess(res, 200, 'Payment customers retrieved', { customers: await paymentsRepository.customers(getFirmId(req), actor(req), query.search, query.id) });
+}));
 paymentsRouter.get('/', requirePermission(PERMISSIONS.PAYMENTS_VIEW), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Payments retrieved', await paymentsRepository.list(getFirmId(req), actor(req), paymentListSchema.parse(req.query)))));
 paymentsRouter.post('/', requirePermission(PERMISSIONS.PAYMENTS_RECORD), asyncHandler(async (req, res) => sendSuccess(res, 201, 'Confirmed receipt recorded', { payment: await paymentsRepository.record(getFirmId(req), actor(req), recordPaymentSchema.parse(req.body), metadata(req)) })));
 paymentsRouter.get('/:id', requirePermission(PERMISSIONS.PAYMENTS_VIEW), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Payment retrieved', { payment: await paymentsRepository.get(getFirmId(req), actor(req), paymentIdSchema.parse(req.params).id) })));

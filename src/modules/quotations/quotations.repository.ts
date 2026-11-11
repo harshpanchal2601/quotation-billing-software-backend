@@ -3,6 +3,7 @@ import { AuditAction, Prisma, QuotationStatus, type PrismaClient } from '@prisma
 import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import { getOrCreateQuotationSettings } from '../settings/index.js';
 import { discountPercentage, emitAutomationEvent, enforceApproval } from '../automation/runtime.js';
 import { assertTransactionFeature, withFirmEntitlementTransaction } from '../entitlements/index.js';
@@ -305,7 +306,7 @@ export class QuotationsRepository {
         where,
         skip,
         take: limit,
-        orderBy: { [sortBy]: sortOrder },
+        orderBy: listOrderBy({ sortBy, sortOrder }, ['id', 'quotationNumber', 'quotationDate', 'validUntil', 'grandTotal', 'createdAt', 'updatedAt'], 'createdAt'),
         include: {
           company: true,
           createdBy: true,

@@ -5,13 +5,14 @@ import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { requestHash } from '../../core/idempotency/request-hash.js';
 import { jsonObject as json } from '../../core/serialization/json.js';
+import { listOrderBy, type ListSort } from '../../core/validation/list-sort.js';
 import { authorizeFirmJobActor } from '../auth/index.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { assertTransactionFeature, withFirmEntitlementTransaction, type FeatureKey } from '../entitlements/index.js';
 import { applyPortalQuotationDecision, customerQuotationSnapshot, isCustomerQuotationDecisionOpen } from '../quotations/index.js';
 import { assertSalesCapability, readCustomerSellerSnapshot } from '../settings/index.js';
 import { assertQuotationPublicationApproved } from '../automation/runtime.js';
-import { PORTAL_CONSENT, type portalInviteSchema, type portalGrantSchema, type portalDecisionSchema, type portalListSchema } from './portal.schema.js';
+import { PORTAL_CONSENT, type portalInviteSchema, type portalGrantSchema, type portalDecisionSchema, type portalAccessListSchema, type portalCompanyOptionsSchema, type portalDocumentOptionsSchema } from './portal.schema.js';
 import { matchesPortalToken, newPortalToken, portalCsrfToken, portalTokenHash } from './portal-tokens.js';
 
 function unavailable() { return new AppError('Portal access unavailable or expired', 401); }
@@ -71,7 +72,7 @@ export class PortalRepository {
         await this.documentAccess(tx, firmId, actorId, 'invoice');
         const invoice = await tx.invoice.findFirst({ where: { id: input.invoiceId, firmId, companyId: identity.companyId, kind: 'INVOICE', status: 'ISSUED' }, include: { lines: { orderBy: { lineNumber: 'asc' } } } });
         if (!invoice) throw new AppError('Issued invoice unavailable', 404);
-        snapshot = json({ kind: 'INVOICE', id: invoice.id, documentNumber: invoice.documentNumber, invoiceDate: invoice.invoiceDate, dueDate: invoice.dueDate, currency: invoice.currency, buyer: invoice.buyerSnapshot, seller: invoice.sellerSnapshot, bank: invoice.bankSnapshot, paymentTerms: invoice.paymentTerms, subtotal: invoice.subtotal, taxAmount: invoice.taxAmount, grandTotal: invoice.grandTotal, items: invoice.lines.map((line) => line.snapshot) });
+        snapshot = json({ kind: 'INVOICE', id: invoice.id, documentNumber: invoice.documentNumber, invoiceDate: invoice.invoiceDate, dueDate: invoice.dueDate, currency: invoice.currency, buyer: invoice.buyerSnapshot, seller: invoice.sellerSnapshot, bank: invoice.bankSnapshot, paymentTerms: invoice.paymentTerms, subtotal: invoice.subtotal, discountAmount: invoice.discountAmount, taxableAmount: invoice.taxableAmount, taxAmount: invoice.taxAmount, roundOffAmount: invoice.roundOffAmount, grandTotal: invoice.grandTotal, items: invoice.lines.map((line) => line.snapshot) });
       } else {
         await this.documentAccess(tx, firmId, actorId, 'order');
         const order = await tx.salesOrder.findFirst({ where: { id: input.salesOrderId!, firmId, companyId: identity.companyId, status: { not: 'CANCELLED' } } });
@@ -83,19 +84,53 @@ export class PortalRepository {
       return { id: row.id, snapshotHash: row.snapshotHash };
     });
   }
-  async staffList(firmId: number, actorId: number, query: z.infer<typeof portalListSchema>) {
+  async staffList(firmId: number, actorId: number, query: z.infer<typeof portalAccessListSchema>) {
     return this.db.$transaction(async (tx) => {
       await this.staff(tx, firmId, actorId);
-      const where = { firmId, companyId: query.companyId };
-      // Evidence is internal-only. Tokens, hashes and document bodies are absent.
-      const identities = await tx.portalIdentity.findMany({ where, skip: (query.page - 1) * 20, take: 20, orderBy: { id: 'desc' }, select: { id: true, companyId: true, contactId: true, email: true, name: true, revokedAt: true, _count: { select: { invitations: true, grants: true } }, invitations: { orderBy: { id: 'desc' }, skip: (query.historyPage - 1) * 20, take: 20, select: { id: true, expiresAt: true, consumedAt: true, revokedAt: true } }, grants: { orderBy: { id: 'desc' }, skip: (query.historyPage - 1) * 20, take: 20, select: { id: true, quotationId: true, invoiceId: true, salesOrderId: true, allowDecision: true, expiresAt: true, revokedAt: true, acceptances: { select: { id: true, decision: true, revisionNumber: true, actorName: true, createdAt: true, snapshotHash: true } } } } } });
+      const where = { firmId, companyId: query.companyId, id: query.identityId };
+      const historyOrder = listOrderBy({ sortBy: query.historySortBy, sortOrder: query.historySortOrder }, ['id', 'expiresAt']);
+      const mayViewDocument = async (kind: 'quotation' | 'invoice' | 'order') => {
+        try { await this.documentAccess(tx, firmId, actorId, kind); return true; }
+        catch (error) { if (error instanceof AppError && error.statusCode === 403) return false; throw error; }
+      };
+      const [quotationVisible, invoiceVisible, orderVisible] = await Promise.all([mayViewDocument('quotation'), mayViewDocument('invoice'), mayViewDocument('order')]);
+      // Management metadata and decision proof stay internal. Invitation/session
+      // secrets and shared document bodies are never included in this read.
+      const identities = await tx.portalIdentity.findMany({ where, skip: (query.page - 1) * 20, take: 20, orderBy: listOrderBy(query, ['id', 'name', 'email']), select: { id: true, companyId: true, company: { select: { name: true, companyCode: true } }, contactId: true, email: true, name: true, revokedAt: true, _count: { select: { invitations: true, grants: true } }, invitations: { orderBy: historyOrder, skip: (query.historyPage - 1) * 20, take: 20, select: { id: true, expiresAt: true, consumedAt: true, revokedAt: true } }, grants: { orderBy: historyOrder, skip: (query.historyPage - 1) * 20, take: 20, select: { id: true, quotationId: true, quotation: quotationVisible ? { select: { quotationNumber: true, revisionNumber: true } } : false, invoiceId: true, invoice: invoiceVisible ? { select: { documentNumber: true } } : false, salesOrderId: true, salesOrder: orderVisible ? { select: { orderNumber: true } } : false, allowDecision: true, expiresAt: true, revokedAt: true, acceptances: { orderBy: { id: 'asc' }, select: { id: true, decision: true, revisionNumber: true, actorName: true, createdAt: true, snapshotHash: true } } } } } });
       return { identities, total: await tx.portalIdentity.count({ where }), hasMoreHistory: identities.some((identity) => Math.max(identity._count.invitations, identity._count.grants) > query.historyPage * 20) };
     });
   }
-  async contacts(firmId: number, actorId: number, companyId: number) {
+  async companies(firmId: number, actorId: number, query: z.infer<typeof portalCompanyOptionsSchema>) {
     return this.db.$transaction(async (tx) => {
       await this.staff(tx, firmId, actorId);
-      return tx.companyContact.findMany({ where: { companyId, deletedAt: null, email: { not: null }, company: { firmId, deletedAt: null, isActive: true } }, select: { id: true, name: true, email: true }, orderBy: { id: 'asc' }, take: 100 });
+      return tx.company.findMany({ where: { firmId, deletedAt: null, ...(query.id ? { id: query.id } : {}), ...(query.search ? { OR: [{ name: { contains: query.search } }, { companyCode: { contains: query.search } }] } : {}) }, select: { id: true, name: true, companyCode: true, isActive: true }, orderBy: [{ name: 'asc' }, { id: 'asc' }], take: 100 });
+    });
+  }
+  async contacts(firmId: number, actorId: number, companyId: number, search = '') {
+    return this.db.$transaction(async (tx) => {
+      await this.staff(tx, firmId, actorId);
+      return tx.companyContact.findMany({ where: { companyId, deletedAt: null, email: { not: null }, company: { firmId, deletedAt: null, isActive: true }, ...(search ? { OR: [{ name: { contains: search } }, { email: { contains: search } }] } : {}) }, select: { id: true, name: true, email: true }, orderBy: [{ name: 'asc' }, { id: 'asc' }], take: 100 });
+    });
+  }
+  async documentOptions(firmId: number, actorId: number, query: z.infer<typeof portalDocumentOptionsSchema>) {
+    return this.db.$transaction(async (tx) => {
+      await this.staff(tx, firmId, actorId);
+      const identity = await tx.portalIdentity.findFirst({ where: { id: query.identityId, firmId }, include: identityInclude });
+      if (!identity || !validIdentity(identity)) throw new AppError('Portal identity unavailable', 404);
+      const where = { firmId, companyId: identity.companyId };
+      if (query.kind === 'quotationId') {
+        await this.documentAccess(tx, firmId, actorId, 'quotation');
+        const rows = await tx.quotation.findMany({ where: { ...where, deletedAt: null, status: { notIn: ['DRAFT', 'CANCELLED'] }, ...(query.search ? { quotationNumber: { contains: query.search } } : {}) }, select: { id: true, quotationNumber: true, revisionNumber: true, isLatestRevision: true, status: true, validUntil: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 100 });
+        return rows.map((row) => ({ id: row.id, label: `${row.quotationNumber} · Revision ${row.revisionNumber}`, status: row.status, allowDecision: isCustomerQuotationDecisionOpen(row) }));
+      }
+      if (query.kind === 'invoiceId') {
+        await this.documentAccess(tx, firmId, actorId, 'invoice');
+        const rows = await tx.invoice.findMany({ where: { ...where, kind: 'INVOICE', status: 'ISSUED', ...(query.search ? { documentNumber: { contains: query.search } } : {}) }, select: { id: true, documentNumber: true, status: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 100 });
+        return rows.map((row) => ({ id: row.id, label: row.documentNumber ?? `Invoice #${row.id}`, status: row.status, allowDecision: false }));
+      }
+      await this.documentAccess(tx, firmId, actorId, 'order');
+      const rows = await tx.salesOrder.findMany({ where: { ...where, status: { not: 'CANCELLED' }, ...(query.search ? { orderNumber: { contains: query.search } } : {}) }, select: { id: true, orderNumber: true, status: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 100 });
+      return rows.map((row) => ({ id: row.id, label: row.orderNumber, status: row.status, allowDecision: false }));
     });
   }
   async revoke(firmId: number, actorId: number, kind: 'identity' | 'invitation' | 'grant', id: number, metadata: RequestMetadata) {
@@ -173,9 +208,9 @@ export class PortalRepository {
       catch (error) { if (error instanceof AppError && error.statusCode === 409) throw new AppError('Shared document no longer available', 404); throw error; }
     }
   }
-  async listDocuments(token: string | undefined, page: number) {
+  async listDocuments(token: string | undefined, page: number, sorting: ListSort<'id'> = {}) {
     return this.session(token, undefined, async (tx, session) => {
-      const rows = await tx.portalGrant.findMany({ where: { firmId: session.firmId, companyId: session.companyId, identityId: session.identityId, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { id: 'desc' }, skip: (page - 1) * 20, take: 20 });
+      const rows = await tx.portalGrant.findMany({ where: { firmId: session.firmId, companyId: session.companyId, identityId: session.identityId, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: listOrderBy(sorting, ['id']), skip: (page - 1) * 20, take: 20 });
       const documents = [];
       for (const row of rows) {
         try { await this.liveDocument(tx, row); } catch (error) { if (error instanceof AppError && [403, 404].includes(error.statusCode)) continue; throw error; }

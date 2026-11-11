@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { localAssistantPlan, redactAssistantText } from '../src/modules/assistant/assistant.provider.js';
-import { chatSchema, confirmationSchema, proposalSchema, settingsSchema, toolPlanSchema } from '../src/modules/assistant/assistant.schema.js';
+import { chatSchema, confirmationSchema, historyQuerySchema, proposalSchema, searchToolSchema, settingsSchema, toolPlanSchema } from '../src/modules/assistant/assistant.schema.js';
 import { chooseAssistantMode } from '../src/modules/assistant/assistant-mode.js';
 import type { EntitlementContext } from '../src/modules/entitlements/entitlement-evaluator.js';
 import { LEGACY_POLICY } from '../src/modules/entitlements/entitlements.schema.js';
@@ -68,5 +68,25 @@ describe('Wave 09 curated intent, hallucination and injection evaluation', () =>
   });
   it('redacts recognized contact and credential data before retention or provider use', () => {
     expect(redactAssistantText('email a@example.com phone 9876543210 Bearer abcdefghijklmnop')).toBe('email [email redacted] phone [number redacted] [credential redacted]');
+  });
+});
+
+describe('Wave 09 assistant list sorting request contracts', () => {
+  it('keeps search defaults and accepts bounded ID ordering for every resource', () => {
+    for (const resource of ['CUSTOMERS', 'ITEMS', 'QUOTATIONS', 'INVOICES', 'ORDERS', 'PAYMENTS', 'AUDIT']) {
+      expect(searchToolSchema.parse({ tool: 'SEARCH', resource })).toEqual({ tool: 'SEARCH', resource, query: '', page: 1 });
+      for (const sortOrder of ['asc', 'desc']) expect(searchToolSchema.parse({ tool: 'SEARCH', resource, query: 'QA', page: 2, sortBy: 'id', sortOrder })).toMatchObject({ resource, query: 'QA', page: 2, sortBy: 'id', sortOrder });
+    }
+  });
+  it('does not promise computed label ordering or accept scope and raw sort expressions', () => {
+    for (const sortBy of ['label', 'firmId', 'name DESC', '__proto__']) expect(searchToolSchema.safeParse({ tool: 'SEARCH', resource: 'INVOICES', sortBy }).success).toBe(false);
+    expect(searchToolSchema.safeParse({ tool: 'SEARCH', resource: 'ITEMS', sortOrder: 'ascending' }).success).toBe(false);
+    expect(searchToolSchema.safeParse({ tool: 'SEARCH', resource: 'CUSTOMERS', sortBy: 'id', firmId: 2 }).success).toBe(false);
+  });
+  it('bounds and allowlists conversation-history sorting without changing old defaults', () => {
+    expect(historyQuerySchema.parse({})).toEqual({ page: 1 });
+    expect(historyQuerySchema.parse({ page: '3', sortBy: 'createdAt', sortOrder: 'asc' })).toEqual({ page: 3, sortBy: 'createdAt', sortOrder: 'asc' });
+    expect(historyQuerySchema.parse({ sortBy: 'id', sortOrder: 'desc' })).toEqual({ page: 1, sortBy: 'id', sortOrder: 'desc' });
+    for (const input of [{ page: 0 }, { page: 1.5 }, { page: 100001 }, { sortBy: 'actorId' }, { sortOrder: 'ascending' }, { firmId: 2 }, { actorId: 10 }]) expect(historyQuerySchema.safeParse(input).success).toBe(false);
   });
 });

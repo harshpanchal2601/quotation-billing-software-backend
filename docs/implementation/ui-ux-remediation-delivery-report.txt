@@ -1,0 +1,1128 @@
+Continuation supporting-file inventory (11 November 2026)
+Production-file changes and architectural reasons are detailed in the dated
+entries below. Additional modified files in this continuation:
+- frontend/src/features/measurement-units/measurement-units.test.tsx:
+  dirty Cancel/Keep editing/explicit-discard regression.
+- frontend/src/features/categories/categories.test.tsx:
+  the matching category editor regression.
+- frontend/src/shared/ui/dialogs/FormDialogShell.test.tsx:
+  pending form inputs cannot be edited during a commit.
+- frontend/src/features/purchasing/purchasing.test.tsx:
+  retained selected references and entered values across searches; singular title,
+  original description and independent view-only permission path.
+- frontend/src/features/invoices/invoices.test.tsx:
+  all three empty-field scopes, guarded values edit/save/summary, issued read-only
+  values and type-specific issue/permission wording. Existing fixture typing kept.
+- frontend/src/shared/ui/layout/DetailLayout.test.tsx (new test only):
+  exact long-text preservation, accessible reversible disclosure and direct
+  short/rich/null value presentation.
+- backend/docs/implementation/ui-ux-remediation-delivery-report.txt:
+  per-file implementation, actual outcomes, chronological check results/limits.
+- backend/docs/implementation/ui-ux-browser-review.txt:
+  real QA data identities, observed transitions, screenshots reviewed and limits.
+- backend/docs/implementation/ui-ux-record-view-checklist.txt:
+  named view/scope outcomes without closing unverified variants.
+- backend/docs/implementation/ui-ux-remediation-plan.txt:
+  completed subtasks, explicit next priorities and unchanged4complete/3open count.
+No unrelated backend source, migration, credentials or environment file changed.
+
+11 November 2026 — completed shared long-text/layout correction and scope recheck
+Actual QA browser evidence after the billing changes:
+- Reloaded credit-note2 independently: Draft/version3, totalINR10.00 and saved
+  QA desktop note review 11 Nov persisted. No issuance or further write.
+- Invoice5 remained Draft/version2, referenceUI-QA-ASSISTANT-20261111, totalINR51;
+  empty additional-information summary showed Review latest additional fields
+  and history without a meaningless Edit/Save action. Screenshot inspected.
+- Issued proforma6 remained PF/2627/000001/version3/INR26. Its additional fields
+  are empty and read only; no editing/review/save action was exposed. Existing
+  PDF history versions1/2 remained available; no PDF was regenerated in this batch.
+- The long50-line note exposed a shared layout root cause: DetailSection forced
+  height100%, stretching the adjacent totals card into a huge empty column;
+  two-column terms/notes also made text unnecessarily narrow. Existing shared
+  DetailLayout now uses natural card height and a reversible long-text preview.
+  Complete strings are retained; long/multiline values show six preview lines,
+  Show full text and Show less controls with labelled expanded/control semantics.
+  Short values/rich content render directly. No stored text or PDF content changes.
+- Actual proforma: collapsed notes were wide/readable beside natural-height
+  totals; expanded to the final saved QA PDF review50 line; Show less returned
+  to the compact state. Additional information and PDF history stayed available.
+- Older quotation1 rechecked after the shared change: Accepted/revision0/INR50,
+  original customer, date, addresses, line/actions, remarks and team-only warning
+  retained. Short remarks/internal notes displayed without unnecessary disclosure.
+  No quotation edit, status change, conversion, document generation or message.
+
+Additional files changed:
+- frontend/src/shared/ui/layout/DetailLayout.tsx: remove forced full card height;
+  shared reversible long-string preview in the existing file, accessible labels
+  and controls; preserve short/rich values and existing component interfaces.
+- frontend/src/features/invoices/pages/InvoiceDetailsPage.tsx: terms/notes use
+  one readable column across invoices/proformas/credit/debit notes.
+- frontend/src/features/quotations/pages/QuotationDetailsPage.tsx: same notes
+  column/shared value rendering, retaining internal notes in their warning area.
+- frontend/src/shared/ui/layout/DetailLayout.test.tsx: one focused new shared-test
+  file for complete-text preservation/reversible disclosure and short/rich values.
+  No new production file, dependency or parallel component was introduced.
+Representative shared consumers inspected in source: quotation, billing scopes,
+item descriptions, unit detail and business summary; actual quotation/proforma/
+invoice/note views checked. Other feature/long-value variants are not all passed.
+
+Post-change engineering evidence:
+- Shared layout/new disclosure/PageContainer/PageHeader:3files/6checks passed,
+ 17:30:40,4.70s,exit0:/tmp/bhuminex-detail-text-tests.log.
+- Focused quotation details:5passed/16not selected,17:32:46,4.33s,exit0:
+ /tmp/bhuminex-shared-detail-quotation-tests.log.
+ These are selected checks, not a new full-suite run. Earlier billing/main-check
+ counts remain chronological evidence and must not be summed as distinct tests.
+- Final FE lint and TypeScript/Vite build both passed,exit0:
+ /tmp/bhuminex-detail-layout-final-lint.log and
+ /tmp/bhuminex-detail-layout-final-build.log.
+ Main933.60kB/287.65kBgzip; the existing>500kBbundle warning remains visible.
+
+Remaining desktop priorities include the separate latest-fields review lifecycle,
+field-history presentation, CRM timeline, platform previews, approvals and narrow
+spacing between row-index/source-line numbers in compact document line tables.
+Complete negative/date/page/role/concurrency/document/PDF coverage remains open.
+The tracker still records4completed/3open work groups; no full ERP/Wave release
+acceptance or mobile completion follows from these named browser results.
+
+11 November 2026 — latest collected engineering validation
+These results supersede older blanket/final notices for the files changed in the
+unit/category/purchasing/billing-detail continuation. Browser outcomes below,
+not these tests alone, determine the named UI completion entries.
+
+PASSED:
+- npm run typecheck after guarded master dialogs and purchasing search changes:
+  /tmp/bhuminex-master-dialog-types.log,
+  /tmp/bhuminex-master-purchasing-types.log.
+- Shared shell/command, units, categories, purchasing, invoices, payments and
+  financial-policy consumers:8files/58checks,17:13:20,75.03s,exit0.
+  /tmp/bhuminex-master-purchasing-final-tests.log.
+  This run preceded the later billing additional-information summary/editor.
+- Latest focused billing-detail checks:7passed/22not selected by the explicit
+  name filter,17:22:31,6.33s,exit0. Covers all3empty-field scope consumers,
+  guarded edit/save/summary, issued read-only presentation, permission gate and
+  issuance retry. This is a targeted7-check pass, not29or a full-suite pass.
+  /tmp/bhuminex-billing-detail-targeted-tests.log.
+- Older editor cases rechecked separately without changing source setup/limits:
+  invoice/proforma create-only return, embedded address creation and exact save;
+ 4passed/25not selected,17:25:49,13.96s,exit0.
+ /tmp/bhuminex-billing-existing-editor-recheck.log.
+ These overlap earlier runs and do not turn the failed combined run into a pass.
+- Latest FE lint and TypeScript/Vite production build,exit0:
+  /tmp/bhuminex-billing-detail-final-lint.log,
+  /tmp/bhuminex-billing-detail-final-build.log.
+  Main bundle933.12kB/287.45kBgzip; existing>500kBwarning retained.
+- Earlier BE typecheck/lint logs remain current: no BE source was modified in
+  this continuation. No new BE run, integration run or provider callout claimed.
+
+Limitations/failures retained honestly:
+- Initial5-file parallel run:17passed/6five-second timeouts. Unchanged sequential
+  unit/category rerun passed13/13; subsequent8-file run passed58/58. Logs retained:
+  /tmp/bhuminex-master-purchasing-dialog-tests.log,
+  /tmp/bhuminex-master-dialog-sequential-tests.log.
+- New billing regression initially used an immediate accessible query during
+  dialog transition, then an ambiguous single status query. Test assertions were
+  corrected to wait for the reopened control and find the exact success message.
+  No product behavior, timeout or assertion scope was weakened to hide failures.
+- Later combined invoice/command reruns hit five-second limits in older editor
+  cases. Most recent combined result29passed/3timed out,exit1:
+  /tmp/bhuminex-billing-detail-complete-tests.log.
+  Failing cases: proforma create-only return, embedded address creation, and exact
+  draft save/return. These are not a clean combined regression pass, even though
+  they passed in the earlier58-check batch and all new detail checks passed.
+  Earlier related rerun logs also remain available; no test timeout was raised.
+- Earlier full67files/366checks in bhuminex-closeout-frontend-full-current.log
+  predate these master/purchasing/billing changes and are historical coverage.
+  Do not report that file as a new full-current pass or add overlapping counts.
+
+Current tracker:4completed/3open work groups. Named browser tasks completed in
+this continuation are recorded below; desktop variants, complete business/
+tenant/role/plan/quota matrices, and local India release/recovery/scale/security/
+accounting/document/legal/rollout acceptance remain open. Mobile is deferred;
+owner-excluded external integrations remain disabled. No restricted command was
+executed outside the persisted FE/BE-check approvals. Specifically no Git,
+install, format command, migration, seed, Docker, backend build or deployment.
+No new production files/dependencies were introduced.
+
+11 November 2026 — completed shared billing detail additional-information flow
+Native desktop browser, QA administrator6/firm3:
+- Reopened existing credit-note draft2 from the numbered adjustment list.
+  Preferred shared overview/customer/supplier/line/totals sections were inspected.
+  Exact source INV/2627/000001, service1HOUR at10.10, no tax, round-off-0.10,
+  totalINR10.00 and original reason remained visible. Issue preview showed the
+  correct amount/consequence; Cancel returned with Draft/version1 unchanged.
+- Root cause: the shared detail rendered editable controls in view mode and
+  always offered Save additional values for editable drafts, including zero-field
+  documents. That produced an unexplained/no-op action and unnecessary versions.
+  All invoice/proforma/credit/debit details now use the same readable field summary;
+  only drafts with fields offer the existing shared CommandForm editor. Save is
+  disabled until a value changes. Dirty Cancel uses Keep editing/Discard; normal
+  required inputs, pending field locks, error retention, close/save/toast and
+  truthful refresh-failure handling come from the existing shared form pipeline.
+- Actual zero-field draft2 showed No additional fields are included in this
+  document., Review latest additional fields, and no Edit/Save values action.
+  The type-specific issue button read Issue credit note.
+- Used the existing separate latest-fields review to adopt the existing optional
+  UI QA reference field on draft2 (version1->2). This changed field metadata only;
+  no issuance, financial policy, rate, amount, source or customer was changed.
+- Opened Edit additional information: unchanged Save disabled. Entered
+  QA desktop note review 11 Nov; Cancel -> Keep editing retained exact value.
+  Saved -> dialog closed, success toast, refreshed summary exact value/version3.
+  Note remains Draft with totalINR10.00. No credit was issued or posted.
+- Additional field history remains below the action row so expanding it keeps a
+  full-width area. Issued values render as text rather than disabled input fields.
+
+Files changed:
+- frontend/src/features/invoices/pages/InvoiceDetailsPage.tsx: common summary,
+  deliberate guarded edit/save lifecycle, omitted empty/no-change actions and
+  type-specific Issue wording across its three existing scope consumers.
+- frontend/src/features/invoices/invoices.test.tsx: zero-field action checks for
+  invoices/proformas/adjustments, explicit edit/Keep editing/save/refreshed-summary
+  regression; issued display/permission and issuance checks use the new wording.
+  The attempted unrelated fixture timing change was reverted; original typing
+  setup and timeouts remain. No new test files or production abstraction added.
+Existing updateCustomValues API still sends document expectedVersion and values;
+backend draft/permission/tenant/version checks and immutable audit stay intact.
+No financial calculation, schema, HTTP-client or authorization contract changed.
+
+Specific remaining desktop work: the separate InvoiceFieldsReviewPage still
+has its old full-width actions and needs guarded lifecycle/version-review/error
+acceptance. Its successful metadata adoption here does not mark that route
+complete. Field-history presentation, other billing/role/error/issue/PDF variants,
+CRM timeline, platform previews and approvals remain separately tracked items.
+
+11 November 2026 — completed purchasing desktop corrections
+Checked as QA firm administrator6, firm3, using native Chrome:
+- All four actual detail variants inspected: PO-000001 net50/total50,
+  UI-QA-GR-20261110 received2/returned1 with its one-unit supplier-return history,
+  UI-QA-BILL-20261110 Confirmed/25.00 and UI-QA-EXPENSE-20261110 net10.10,
+  round-off-0.10/total10.00. Shared headings, fields, totals, numbered line/history
+  tables and available actions were visually inspected. These existing records
+  were not cancelled, reposted or otherwise mutated during this review.
+- Root cause: a reference-options search sat above the document list but only
+  queried /reference-options; it did not filter list rows. Changing its query
+  key could remove the create form and lose input. Search now lives inside the
+  existing editor with its own stable query, loading/error/retry feedback and
+  retained selected supplier/item/receipt choices. Read-only users/receipt lists
+  do not request unused creation choices. Search length retains API191 limit.
+- Actual supplier-bill unsaved trial: selected QA supplier and receipt
+  UI-QA-GR-20261110, typed reference UI-QA-UNSAVED-SEARCH-CHECK and changed the
+  description. Searching NoMatchingReference11Nov retained supplier, receipt,
+  entered reference/description, quantity1.000, cost25 and tax0. Clearing search
+  also retained values. Keep editing worked; explicit Discard closed to the
+  original one-bill list without posting or creating a bill.
+- Compact md-width editors now group supplier/tax, reference/dates and expense
+  fields in columns. Purchase lines reuse shared FormSection; description and
+  classification span the row, with quantity/cost/tax aligned underneath.
+  Bill and expense screenshots verified alignment and fixed footer actions.
+  Unchanged bill/expense Cancel returned directly with focus on the trigger.
+- Created PO-000002 through the actual editor: existing QA supplier/component,
+  quantity1, cost25.50, no tax, description UI QA desktop draft review 11 Nov.
+  Searching NoMatchingItem11Nov preserved supplier/item/description/cost. Save
+  closed to numbered list with Changes saved. Independently reopened detail:
+  Draft, net25.50/tax0/round-off0.50/totalINR26.00, received0. It remains Draft;
+  no approval, stock receipt, supplier payable or external commitment was created.
+- This trial revealed the old line renderer preferred itemName over description,
+  hiding the entered text. It now shows both distinct values in the same cell;
+  exact new description and item were independently seen in the saved detail.
+- Outer record titles now use singular Purchase order/Goods receipt/Supplier bill/
+  Expense. Actual corrected order and expense titles were observed; the four
+  values share the same existing map/rendering path.
+- With two orders, Document Ascending returned PO-000001,PO-000002; Descending
+  returned PO-000002,PO-000001. Numbering1,2 and server sort URL values observed.
+- Expense editor was inspected and closed cleanly; original expense count1 and
+  total10.00 stayed unchanged. Receipt history/remaining actions were read only.
+
+Files changed (no new production files):
+- frontend/src/features/purchasing/PurchasingPage.tsx: stable in-editor lookup,
+  role-gated initial choices, error/retry feedback, compact grids, retained tax
+  selection, singular titles and complete item/description display.
+- frontend/src/features/purchasing/PurchaseLineFields.tsx: retain selected receipt
+  independently of filtered results; shared section/compact value columns;
+  readable unmatched-receipt wording. Existing payload names and amounts retained.
+- frontend/src/features/purchasing/purchasing.test.tsx: retained-choice/input
+  regression, exact original description, singular receipt title and no creation
+  lookups for view-only bill access. Source assertions supplement browser evidence.
+Existing API client, domain endpoints, permission checks, stock/financial policy,
+command identity and shared dialog lifecycle remain authoritative. No duplicate
+request client, new ledger, policy override or migration was introduced.
+Still open: other role/error/date/page/concurrency/receipt/bill/expense variants;
+these named passes do not constitute whole purchasing or ERP acceptance.
+
+11 November 2026 — completed unit/category editor and detail journeys
+Actual QA firm-admin browser evidence, firm3:
+- Measurement-unit Cancel originally discarded entered name/symbol immediately.
+  The matching category dialog used the same unguarded close path. Both now use
+  the existing FormExitGuard and FormDialogShell, synchronous submission locks,
+  unchanged-edit Save gating, and committed-write/failed-refresh distinction.
+  The shared shell disables form fields during submission; existing CommandForm
+  consumers retain their existing payload capture, retry identity and feedback.
+- Created UI QA desktop unit 11 Nov, symbol QA11, decimal quantities allowed,
+  Active. Cancel -> Keep editing retained name/symbol. Create closed to the
+  numbered list with success feedback; independently opened detail retained the
+  exact values and showed0 linked items. Existing Number/NOS detail was inspected.
+  Before creation, actual name ordering was Job,KG,Litre,Metre,Number,Piece,Set;
+  descending was Set,Piece,Number,Metre,Litre,KG,Job with server-backed URL sorting.
+- Created UI QA desktop category 11 Nov, description Local UI review record.,
+  Active. Cancel -> Keep editing retained input; Save closed to numbered list
+  and success feedback. Independently reopened detail showed category code
+  ui-qa-desktop-category-11-nov and0 linked items. Uncategorised stayed protected.
+- Both synthetic review records remain unused and Active. No record deletion,
+  unit/category reassignment or access change was performed. Multiple-category
+  ordering, status changes and every permission/error variant are not claimed.
+
+Files changed in this batch, within existing architecture:
+- frontend/src/features/measurement-units/components/MeasurementUnitFormDialog.tsx:
+  shared dirty guard, save lock, unchanged Save gating and truthful refresh result.
+- frontend/src/features/categories/components/CategoryFormDialog.tsx:
+  matching lifecycle/locking and readable Category code wording.
+- frontend/src/shared/ui/dialogs/FormDialogShell.tsx:
+  neutral disabled fieldset locks pending inputs for its three production users
+  (unit dialog, category dialog and shared CommandForm); no new parallel shell.
+- Existing measurement-units.test.tsx/categories.test.tsx add dirty-discard
+  regressions; existing FormDialogShell.test.tsx also checks pending field lock.
+No new production/test files or dependencies were introduced in this batch.
+
+11 November 2026 — collected validation and current completion notice
+COMPLETED in native desktop browser: named billing/business/financial/quotation
+settings workflows; synthetic bank create/edit and compact action table; later
+provider wording and four owner-approved local-first exclusions; both labelled
+colour-input consumers. Existing issued documents/financial choices and role
+permissions were retained. Detailed failures, recovery and scope follow below.
+
+Checks executed under persisted explicit approvals (all exit0):
+- Full FE: npm test -- --maxWorkers=1 --minWorkers=1
+ 67 files/366 checks passed; start16:19:19, duration352.55s.
+ Log:/tmp/bhuminex-closeout-frontend-full-current.log.
+- Later provider presentation/permission-path change plus affected shared users:
+ npm test -- --maxWorkers=1 --minWorkers=1
+ src/features/connections/connections.test.tsx
+ src/features/audit-logs/audit-logs.test.tsx
+ src/features/settings/components/BusinessPolicyPanel.test.tsx
+ src/app/theme/theme.test.ts
+ 4files/19checks passed16:50:22,23.86s; includes one new provider-only access check.
+ Log:/tmp/bhuminex-closeout-final-scope-tests.log.
+ The19 overlap the full run; they must not be summed as385 distinct tests.
+ The earlier full366 run preceded this last wording/access-test addition.
+- Current FE typecheck passed after provider changes:
+ /tmp/bhuminex-closeout-fe-provider-types.log.
+- Final FE lint passed:/tmp/bhuminex-closeout-fe-final-lint.log.
+- Final FE build(tsc-b+Vite) passed:/tmp/bhuminex-closeout-fe-final-build.log.
+ Main bundle933.11kB/287.44kBgzip; existing>500kBwarning retained, not suppressed.
+- Current BE typecheck/lint passed after diagnostic-copy changes:
+ /tmp/bhuminex-closeout-be-provider-types.log and
+ /tmp/bhuminex-closeout-be-provider-lint.log.
+- Earlier affected BE financial/portal/entitlement unit runs and their exact
+ counts/logs remain in the earlier delivery entry. No MySQL integration run was
+ executed or counted as passing; no provider callout was performed.
+
+Validation conclusion: the identified settings lifecycle, response-shape and
+bank-table layout causes were corrected in the existing feature/common layers.
+Affected API consumers/types were updated; status/permission/provider identifiers
+and financial calculation/issue-snapshot contracts were preserved. No duplicate
+client/ledger/auth framework, production file or dependency was introduced.
+This is implementation and named-journey evidence, not full release certification.
+
+Current remaining count:3 work groups; tracker remains4completed/3open.
+1 Remaining desktop route/action/negative/pagination/document variants.
+2 Complete composed business journeys and tenant/role/plan/quota acceptance.
+3 India local-release accounting/document/legal/localization and operational
+ security/scale/backup/restore/recovery/rollout acceptance.
+Owner-selected external activation is excluded; four integration features are
+verified disabled across this local installation. Mobile is owner-deferred.
+No migration, seed, Git, install, format command, Docker, backend build or
+ deployment was executed. Browser outcomes, not tests alone, determine the
+completed UI journeys. Pending variants are not marked passed.
+
+11 November 2026 — owner-confirmed India local-first scope
+The owner selected: Local ERP workflows first; keep unverified external
+integrations disabled. Provider activation is excluded from the first release,
+not an unfulfilled requirement to activate a gateway/SMTP/tax/LLM service now.
+
+Applied through the existing audited platform controls, without new environment
+flags, erased credentials, plan-version edits or a parallel authorization path:
+- quotations.email: globally hard disabled,16:27:29 Asia/Kolkata.
+- integrations.api: globally hard disabled,16:27:39.
+- integrations.webhooks: globally hard disabled,16:27:48.
+- ai.credits: globally hard disabled,16:28:06.
+Reason records the owner's India local-first decision and later provider
+acceptance requirement. Platform audit identifies administrator1 for all four.
+The changes affect all firms in this local installation. They are reversible
+through the existing controls, with a new explicit audited change reason.
+
+Reload proved all four persisted. Firm-admin Subscription & Usage independently
+showed Denied / Disabled by the platform administrator for all four; local
+assistant and report downloads remained Allowed / Included in your plan.
+The QA plan still contains33 selected features; its published revision and
+assignment were not edited.29 remain effectively allowed after these exclusions.
+
+Provider readiness: only the read-only diagnostic tab remains for this actor;
+API-key and webhook management tabs are absent. SMTP now Enabled No; payment and
+India e-invoice/e-way services Enabled No and unavailable. No outbound message,
+provider validation call, payment, tax submission, new credential or wider access
+was created. The shared provider table uses readable status/provider names and
+business guidance, while response status/provider identifiers remain unchanged.
+
+Important chronology correction: SMTP configuration was already present and
+quotation-email permission was previously allowed. Configuration alone did not
+mean email was disabled. Earlier broad statements that all integrations were
+off must be read with this later verified exclusion. SMTP secrets were preserved,
+not printed, copied into reports or modified. No .env edit was needed.
+
+This closes the owner scope decision and named exclusion checks only. Desktop
+variants, composed business/access/quota coverage, local accounting/document/
+legal review and operational recovery/load/security/rollout acceptance remain
+open. Mobile is owner-deferred. No release/deployment is accepted by this note.
+
+Later scope-driven presentation changes:
+- frontend/src/features/connections/ConnectionsPage.tsx: shared readable provider/
+  delivery status labels, readable provider names and displayed-label sorting;
+  permission-gated management tabs and API identifiers remain unchanged.
+- frontend/src/shared/ui/display/recordLabels.ts: additional provider-availability
+  display labels. Existing domain codes and stored history are unchanged.
+- backend/src/modules/connections/provider-status.repository.ts: business-readable
+  diagnostic reasons/capability wording; existing state/authorization/provider
+  availability decisions and no-callout behavior are unchanged.
+- frontend/src/features/connections/connections.test.tsx: provider-only permission
+  path does not request or expose API-key/webhook management; readable states.
+- Wave11 entry status and operations runbook now record approved checks and the
+  actual owner scope, superseding stale claims that all checks remain deferred.
+No new production files, dependencies or activation flags were introduced.
+
+11 November 2026 — later desktop administration/settings delivery
+Tracker:4 completed work groups/3 open. Group5 has additional completed named
+subtasks; the whole desktop/role/release acceptance matrix remains open.
+See the latest browser journal for actual records and exact limits. Mobile is
+owner-deferred. These pages were checked as QA firm administrator6 in firm3.
+
+Completed implementation and root causes
+- Subscription features/denial reasons exposed internal codes and byte counts
+  lacked readable grouping. Registry descriptions and display-only reason/label
+  maps now explain the existing access result; exact quota strings still sort
+  without floating-point loss. Permission keys/dependencies/evaluator unchanged.
+- Role permissions were generated by splitting code strings. One exhaustive typed
+  permission-label map now supplies readable action names. Role editor uses the
+  common md dialog/discard boundary, sorted permission fingerprint, synchronous
+  save lock, disabled pending controls and permission-read Retry. No new grants.
+- Audit rows expanded raw before/after JSON, making list rows unusably tall.
+  Common numbered/server-sorted list now opens a shared detail dialog. Both exact
+  snapshots, original raw data, record IDs and hash evidence are preserved.
+  Actor/firm boundaries clear selected private details; reads are abortable.
+- Billing configuration mixed two inline forms that could overwrite each other's
+  unsaved state on refresh. Common read summaries, explicit single editor,
+  captured version/payload and shared command confirmation/dirty/save lifecycle
+  preserve each operation. Existing field types/order/options/visibility retained.
+- Actual billing PUT committed successfully but returned only version/config;
+  GET also returns state names and automation field-management metadata. Treating
+  PUT as a complete GET caused a post-commit UI crash. Separate write typing and
+  authoritative GET refresh now preserve read metadata and access masking. The
+  failed UI did not justify a duplicate submission; persisted state was inspected
+  before proceeding. The optional field does not change issued snapshots.
+- Business/quotation settings were permanent long forms. Existing pages now show
+  common saved summaries and md editors; validation, dirty navigation/discard,
+  pending save locks, success-close-summary/toast and failed-input retention are
+  consistent. Editor values are initialized deliberately from the current read,
+  not reset by a background refresh. Actor/firm remounts fence local form state.
+- Financial policies were a second inline form inside Business Settings. Their
+  on-demand summary and deliberate shared command editor pin the policy version,
+  confirm the effect on new workflows, close/toast after commit and retain failed
+  edits. Rounding/time-zone/locale wording explains the existing stored choices.
+- Bank forms discarded edits silently and the account-type field had unequal
+  width. Shared discard protection/full-width field now match other editors.
+  Global synchronous action locking prevents competing saves/default/delete
+  operations. An unchanged edit cannot save. Branch input no longer invites
+  unrelated browser home-address autofill.
+- The real populated bank table exposed three stacked action buttons, tall rows
+  and focus-induced horizontal scrolling. Existing RowActionsMenu, appropriate
+  short-column widths and available page width produce the common compact table;
+  all original columns, masked account strings and sorting remain available.
+- Cached background-read failures previously replaced settings pages and removed
+  open dirty editors. Initial errors still have Retry; cached error displays now
+  retain the summaries/editor/input. A real regression covers this transition.
+
+Files changed in this later batch (relative to frontend unless marked backend)
+- src/features/auth/model/permissions.ts: exhaustive readable action-label map;
+  stored authorization constants unchanged.
+- src/features/auth/index.ts: exports that existing-model map to its consumers.
+- src/features/administration/UsersPage.tsx: common Active status and username
+  guidance matching the backend's actual accepted characters.
+- src/features/administration/RolesPage.tsx: shared labels/editor/discard, save
+  locking, captured permissions and recoverable permission-list failures.
+- src/shared/forms/FormExitGuard.tsx: Keep editing wording in both discard paths.
+- src/features/platform/EffectiveAccessPanel.tsx: business-readable access reasons,
+  feature dependencies and exact grouped usage values; existing sorting retained.
+- src/shared/ui/display/recordLabels.ts: common audit field/action-value wording,
+  preserving the exact stored payload.
+- src/features/audit-logs/AuditLogsPage.tsx: compact list, exact shared detail,
+  private actor/firm state, server sort/paging and failed-read Retry.
+- src/features/audit-logs/audit-logs.api.ts: additive optional AbortSignal.
+- src/features/invoices/pages/BillingSettingsPage.tsx: read summary/single editor,
+  pinned version/hidden payload, validation/confirmation/save/refresh lifecycle.
+- src/features/invoices/model/invoices.types.ts: truthful SettingsWriteResponse.
+- src/features/invoices/api/invoices.api.ts: both PUT methods use the write type;
+  GET's richer response contract remains separate.
+- src/app/theme/component-overrides.ts: shared width/input sizing for labelled
+  native colour fields; existing unlabelled compact pickers retain their sizing.
+- src/features/settings/pages/BusinessSettingsPage.tsx: common profile summary,
+  protected md editor, explicit hydration/cache update/close/toast, separate assets
+  and preservation of cached records/editor on background read failure.
+- src/features/settings/pages/QuotationSettingsPage.tsx: common complete defaults/
+  terms/preferences summaries, protected md editor, clear percentage/sequence
+  guidance, save lock/close/toast and background-error input preservation.
+- src/features/settings/pages/BankDetailsPage.tsx: actor/firm keyed workspace,
+  scoped query cache, full desktop width, single action lock and read-error
+  preservation; existing domain API/validation/delete confirmation retained.
+- src/features/settings/components/BankDetailsDialog.tsx: shared FormExitGuard,
+  aligned account type, unchanged-edit disabled save and branch autocomplete.
+- src/features/settings/components/BankDetailsTable.tsx: existing RowActionsMenu
+  for all original actions, pending gating and appropriate short-column widths.
+- src/features/settings/components/BusinessPolicyPanel.tsx: common summary and
+  version-pinned command editor, confirmation/close/toast, clear choice labels.
+- backend/src/modules/entitlements/feature-registry.ts: descriptions only; feature
+  keys, scopes, rights, dependencies, defaults and access calculations unchanged.
+Regression files:
+- src/shared/forms/FormExitGuard.test.tsx: Keep editing and popup unmount followed
+  by later sidebar navigation, alongside existing routed discard protection.
+- src/features/audit-logs/audit-logs.test.tsx: only new file in this later batch;
+  compact/exact snapshots, original data, actor/firm privacy, server sort/paging
+  and read failure recovery. It is a test file, not a new production abstraction.
+- src/features/invoices/invoices.test.tsx: deliberate settings editor and real
+  partial-write-response metadata regression; prior draft access flows retained.
+- src/features/settings/settings.test.tsx: summary/edit/save/failure/discard,
+  background error retention and common bank menu/leading-zero behavior.
+- src/features/settings/components/BusinessPolicyPanel.test.tsx: captured version,
+  confirmation/closed summary, stale conflict retention/discard/reopen and dirty
+  input across background reads; existing recoverable load failure retained.
+Documentation: this report, browser journal, record-view checklist, remediation
+plan and Wave10/11 current verification/delivery pointers. No dependency, new
+production file, API client, ledger, authentication or calculation framework added.
+
+Actual browser outcomes
+- All33 feature labels and usage/name orders inspected; existing role retained61
+  permissions. Role description discard and user editor cancel made no grants.
+- Audit1739 exact detail/raw expansion, page2 numbers21..40 and date both ways.
+- Billing settings initial write1->2 exposed/fixed the read/write contract;
+  original QA instructions restored at3, optional UI QA reference field saved at4.
+- Business QA display-name edit saved and original restored; required blank name
+  blocked, Keep editing retained input, both saves closed with truthful feedback.
+- Financial policy notification On->Off(version1)->On(version2), exact confirmation
+  and close/summary/toast. Currency/tax/rounding/sales/portal values preserved.
+- Quotation QA remark saved then cleared; GST100.01 blocked,18.00 restored;
+  sequence4/prefix/validity/tax/PDF choices preserved. Both saves closed/toasted.
+- One synthetic QA bank documentation record created, masked in the numbered
+  list, leading zeros independently re-opened, optional IFSC validation checked,
+  Keep editing retained data. Final edit changed only branch text and returned
+  to the compact table/toast. No transfer/default change/permanent delete.
+
+Validation note
+Settings scope:2 files/22 tests passed16:18:52 in10.62s, including the
+background-failure regression. The collected full run and subsequent affected
+checks are recorded in the validation addendum above this entry.
+Earlier full serial FE run:66 files/356 tests passed15:35:40, before the new audit,
+settings and later metadata changes; it is historical, not full current coverage.
+An intervening4-file run had38 passes/1 invoice5s timeout. Another3-file run had
+39 passes/7 five-second timeouts during active native browser review. Those logs
+are retained; tests were not skipped or given longer global timeouts to hide them.
+No production browser outcome is inferred solely from automated checks.
+
+Risks and remaining acceptance
+The named local desktop journeys passed. Unrecorded role/error/keyboard/browser-
+back/filter/paging/other-document variants remain separate acceptance work.
+Both labelled colour-input consumers were subsequently visually checked; the
+existing disabled Quotation template stayed at version2 with no edit saved.
+Full composed business/tenant/plan/quota coverage and Wave10/11 local-release
+accountant/legal/localization/security/scale/backup/restore/recovery/rollout gates
+are open. Owner excluded external-provider activation from the first release. India confirmed; mobile deferred; live integrations remain disabled.
+No migration, seed, Git, install, format, Docker, backend build or deployment
+command was executed. FE checks and BE typecheck/lint/affected unit checks rely
+on the user's explicit persisted approvals; no disposable MySQL suite was run.
+
+ERP UI/UX closeout continuation — 11 November 2026 (latest)
+Status: named recurring/payment/proforma/portal/import/report/accounting journeys
+implemented and browser-verified. Tracker remains4completed/3open workgroups;
+this is NOT whole-ERP acceptance or a9/10rating. Mobile is owner-deferred.
+The newest browser journal and plan contain exact records and open acceptance.
+Older statements below are historical where this section supersedes them.
+
+Root causes and completed changes
+- Recurring detail actions could compete, stale conflict previews could survive
+  and successful saves did not consistently close/refetch. Synchronous preview/
+  action locks, stale-preview reset, accurate success-versus-refresh feedback,
+  actor/firm remount and common failure/retry paths now keep the lifecycle clear.
+- Payment and receivable views had inconsistent links/errors and ambiguous empty
+  allocations/provider reasons. Existing common layouts/links/errors now present
+  exact values, Applied/Undone status and business-readable capability guidance.
+- PDF generation omitted page numbering. Existing shared PDF options now reserve
+  a footer and render PageNofM for new documents. Stored artifacts are not edited.
+- Portal staff forms used raw IDs and mixed inline operations; the public page
+  was outside the internal layout and lacked padding/table navigation. Existing
+  common page/detail/table/form primitives now serve both surfaces while the
+  public client/session remains isolated. Scoped company/contact/document options
+  preserve rights; metadata projections require their source view feature/right.
+  ID ordering is validated before paging, nested history uses stable ID ties.
+- Public detail reads are fenced against later page/sort/session changes. Customer
+  decisions confirm the exact revision and consent, lock duplicate submissions,
+  retain retry identity and distinguish committed success from refresh failure.
+  Contact revocation still invalidates the separate customer session.
+- New invoice portal snapshots include stored discount/taxable/rounding fields.
+  Historical grants/hashes stay unchanged. Exact presentation pads money using
+  strings, preserving large values/extra precision and default consumers.
+- Import CSV users had no discoverable unit/category reference IDs. The same
+  editor now includes actual scoped option tables. Action locks, common errors,
+  explicit compensation and truthful refresh feedback preserve row/batch history.
+- Report/export controls could shrink, labels exposed internal enum names and
+  rapid clicks could duplicate operations. Readable labels, flexible min widths,
+  shared errors and synchronous queue/file/download guards correct these paths.
+- Actual report PDF pagination orphaned a heading and later a final expense row.
+  Existing report HTML now provides readable section/unit/date labels, aligned
+  exact-value tables, repeating headers, short-section grouping and compact A4
+  density. CSV/XLSX machine contracts/calculations are unchanged.
+- Accounting mapping was permanently inline and could reset edited state on read
+  refresh. It now uses shared summary, explicit md editor, dirty/discard handling,
+  exact code/version confirmation, optimistic-version pinning and save/close/toast.
+  Downloads pin period/version, lock duplicates and abort/ignore late results.
+- Real journal export selected cancelled, never-issued drafts by voidedAt. Those
+  have no accounting event/snapshot and blocked a valid issued invoice export.
+  The invoice-owned reader now requires issuedAt while keeping earlier issues'
+  current-period cancellations. Invalid issued snapshots still fail closed.
+- File response failures arrived as Blobs, hiding safe server explanations behind
+  generic duplicate wording. Existing shared HTTP factory now decodes bounded
+  JSON error envelopes before safe-message and internal firm fencing. Successful
+  file bytes and separate portal auth remain unchanged; generic409text is neutral.
+
+Files changed in this continuation (relative to frontend/ or backend/)
+Frontend production:
+- src/features/billing-schedules/BillingSchedulesPage.tsx: lifecycle locks, preview
+  conflict reset, contextual closure/refetch, readable values/common detail errors.
+- src/features/payments/PaymentDetailsPage.tsx: common linked allocations,
+  errors, refund width and meaningful empty allocation text.
+- src/features/payments/PaymentsPage.tsx: common links and read retry.
+- src/features/payments/ReceiptForm.tsx: md form width.
+- src/features/payments/InvoiceSettlementPanel.tsx: shared links,
+  readable allocation states and failure retry.
+- src/features/payments/ReceivablesPanel.tsx: links/common read errors.
+- src/features/customer-portal/PortalAccessPage.tsx: staff scoped selection forms,
+  common list/history/actions, confirmations, actor/firm fencing and pending locks.
+- src/features/customer-portal/portal.api.ts: scoped option APIs, additive remote
+  public document ordering and optional expiry typing; isolated client retained.
+- src/features/customer-portal/CustomerPortalPage.tsx: padded public list/detail,
+  numbered remote-sorted table, cookie retry/session ending, stale read fencing,
+  exact decision review and command lifecycle.
+- src/features/customer-portal/PortalDocument.tsx: shared bank/terms labels and
+  exact snapshot financial breakdown/padded string amounts.
+- src/features/imports/ImportsPage.tsx: in-place CSV reference guide, scoped options,
+  common errors and synchronous commit/compensation completion lifecycle.
+- src/features/reports/ExportJobsPanel.tsx: common status/error/retry and single-
+  flight queue/download/removal, truthful completion/refetch feedback.
+- src/features/reports/ReportsPage.tsx: non-shrinking selectors, readable source
+  presentation and single-flight direct export.
+- src/features/reports/ReportSections.tsx: readable pipeline group statuses.
+- src/features/reports/AccountingExportPanel.tsx: common read summary/editor,
+  snapshot version/inputs, dirty/confirmation/save lifecycle and download fencing.
+- src/shared/ui/tables/AppTablePagination.tsx: optional unknown-count
+  next-page control, existing known-count defaults retained.
+- src/shared/ui/tables/DataTableShell.tsx: optional hasMore/unknown-count paging
+  without resetting legitimate pages; existing known totals unchanged.
+- src/shared/localization/presentation.ts: optional minimum exact fraction digits,
+  no floating point conversion or precision truncation.
+- src/shared/api/apiClient.ts: shared bounded error-Blob decoding, existing
+  safe-message sanitization/refresh/firm fencing retained, neutral conflict fallback.
+Backend production:
+- src/modules/payments/payment-links.ts: business-readable provider capability
+  reasons; unavailable payment/tax integrations remain disabled.
+- src/config/pdf.config.ts: shared reserved page-number footer for newly generated
+  quotation, billing and report PDFs using the existing PDF integration.
+- src/modules/reports/reports.formats.ts: readable, escaped compact report PDF
+  presentation and grouped pagination; exact CSV/XLSX contracts unchanged.
+- src/modules/customer-portal/portal.schema.ts: scoped options and additive public
+  ID ordering validated; old default behavior preserved.
+- src/modules/customer-portal/portal.routes.ts: narrow options and ordered document
+  arguments through existing permission/session route boundaries.
+- src/modules/customer-portal/portal.repository.ts: scoped projected options,
+  conditional source metadata, stable server/nested sorting/paging and exact
+  additive financial grant snapshot. Historical grant payloads not rewritten.
+- src/modules/invoices/journal-sources.repository.ts: require an issued source for
+  issue/cancellation accounting events; existing source permissions/range/cap kept.
+Regression files:
+- frontend/src/features/billing-schedules/billing-schedules.test.tsx: competing
+  actions/double clicks and stale-version preview recovery.
+- frontend/src/features/customer-portal/customer-portal.test.tsx: staff/public
+  lifecycle, source-right unavailable/error distinction, ordering/page late reads,
+  exact decisions/retries/refresh failures and cookie session retry/signout.
+- frontend/src/shared/ui/tables/AppTablePagination.test.tsx: unknown-count
+  next-page behavior alongside existing known-count consumers.
+- frontend/src/shared/localization/presentation.test.ts: exact padding and
+  high-precision/large/negative/default compatibility.
+- frontend/src/features/imports/imports.test.tsx: actual reference ID guide and
+  same-event duplicate commit/close protection, existing private contexts.
+- frontend/src/features/reports/reports-panels.test.tsx: queue/removal locks,
+  mapping confirmation/save/failure retention and download abort/duplicate guards.
+- frontend/src/shared/api/apiClient.test.ts: error-Blob decode, unchanged file bytes,
+  malformed/unsafe fallback and firm change during asynchronous decoding.
+- backend/tests/wave06.test.ts: scoped source projections/order/strict queries,
+  nested stable paging/public ordering and additive exact invoice snapshot.
+- backend/tests/wave10.accounting.test.ts: previously issued source query scope,
+  preserving earlier-period cancellations and existing financial invariant tests.
+Documentation: plan, browser review, record-view checklist, this delivery report,
+Wave10 continuation/verification and Wave11 delivery/verification current notes.
+All production changes reused existing files and common abstractions. No new
+production file, dependency, API client, ledger or auth framework was introduced.
+
+Actual browser completion and independent outcomes
+The browser review contains the full native-UI evidence. Key outcomes:
+- Schedule1Active -> worker-created invoiceDraft7/51.00 -> scheduleCancelled.
+- Synthetic receipt2/50.00 -> refund10.00 -> remaining40.00cancelled -> credit0.
+- Proforma6issued PF/2627/000001v3/26.00; long-note PDFv2bothpages/numbered.
+- Approved contact invitation/invoice-only view grant -> padded customer table,
+  exact100.10/-0.10/100.00totals and both sort directions -> revocation/401.
+- Import3:1accepted/1rejected, item3Active -> compensation -> independentlyInactive.
+- Final reportf506b8e6...159881bytes/2pages/all8sections inspected in Chrome.
+- Approved removal3830b068...confirmed viaUI/list/toast; replacement jobs retained.
+- QA accounting mapping1published/closed/toast; Keep editing/Discard verified.
+  Downloaded937-byte journal,3rows,issued source1only,eventbilling:1:2:ISSUE,
+  debit100.00+0.10=credit100.10,exactbalance0. Never-issued drafts3/4excluded.
+- Read-only DB ledger20source/20applied/allchecksums match/no unfinished/missing.
+No credentials, invitation tokens, live provider secrets or bank instructions are
+stored in this report. QA data remains only in the existing isolated QA firm.
+
+Validation (executed under the owner's persisted approvals)
+- Current FE typecheck passed; later full build(tsc-b+Vite) and lint passed.
+  Latest main chunk928.82kB/286.12kBgzip; >500kBwarning remains a performance gate.
+- Earlier bounded full FE run:66files/347checks passed at14:55:11. This precedes
+  the final import/report/accounting/shared-HTTP changes, which have scoped passes.
+- Latest HTTP/report affected run:3files/24checks passed at15:25:20 (HTTP12,
+  report panels7, report workspace5). Import/report earlier3files/15checks passed;
+  these overlap and are NOT additive. Full bounded rerun in progress at time of
+  this entry; append its observed outcome rather than inferring it passed.
+- Final BE typecheck/lint passed. Accounting+formats2files/9checks passed15:25:20.
+  Portal+formats2files/19checks passed15:15:45; earlier renderer/localization/
+  Wave11affected6files/40checks passed. Counts overlap and are not additive.
+- Earlier unbounded FE run timed out under concurrent load; retained failure log.
+  Subsequent bounded full347and affected runs passed. Initial mapping import-path
+  compile failure and report test void-type build failure were corrected and
+  checks rerun successfully. Do not discard these failed-run records.
+- Logs:/tmp/bhuminex-closeout-fe-bounded-tests.log,
+  /tmp/bhuminex-closeout-download-tests.log,
+  /tmp/bhuminex-closeout-accounting-ui-tests-final.log,
+  /tmp/bhuminex-closeout-journal-source-tests.log,
+  /tmp/bhuminex-closeout-be-formats-portal-final.log,
+  /tmp/bhuminex-closeout-{fe-build,fe-lint,be-types,be-lint}-accepted.log.
+
+Architecture impact / validation conclusion
+Fixes live in the existing source reader, shared HTTP/PDF/presentation boundaries
+and their established feature views. Domain authorization, firm and actor scope,
+immutable financial/issued/grant snapshots, exact decimals, storage ownership and
+server-before-pagination behavior are retained. Affected consumers were checked
+in scoped tests and the named actual browser journeys; this is not proof of the
+entire role/tenant/provider/release matrix. No diagnostic logs or duplicate domain
+implementation were introduced. Additive optional arguments preserve existing
+consumers; invalid issued accounting snapshots still fail closed.
+
+Risks and assumptions / required follow-up
+The local isolated QA firm is the only writable review environment used here.
+Mapping codes and payment/refund references are explicitly synthetic, not legal/
+accountant/provider acceptance. Remaining desktop admin/settings/negative/paging,
+other document/PDF/decision variants, whole-platform tenant/role/quota/composed
+journeys, broader accounting contracts/localization/fonts/legal wording and
+provider sandboxes remain open. Process death, backup/restore, production load,
+security scan, monitoring/service objectives and rollout decisions remain open.
+Portal invitation/document defaults are24h/14d in this UI; custom-expiry UX and
+expiry acceptance remain pending. Portal management POSTs keep their existing
+version/confirmation contracts; no new durable server idempotency is claimed.
+
+Commands not executed
+No Git, installs, formatting command, migrations, seeds, Docker, backend build,
+deployment or disposable-MySQL integration suite was executed. FE build/type/
+lint/tests and BE type/lint/affected unit tests used explicit prior approvals.
+Read-only Prisma ledger/source diagnostics did not migrate or modify DB data.
+
+Earlier delivery history follows:
+
+ERP UI/UX remediation — 11 November 2026 continuation
+Status: Current Assistant, invoice selection/conversion/navigation, dashboard and
+manufacturing fixes implemented. Named desktop journeys verified below.
+Whole ERP and Wave 10/11 production acceptance remains OPEN.
+
+Completed implementation and root causes
+1. Main Assistant was a single long page mixing diagnostics, questions, drafts,
+   extraction and history. Shared workspace tabs, compact availability, optional
+   usage details, quotation-style sections and numbered tables now separate tasks.
+   Selected customer/item names are visible. Original questions stay with results;
+   server sort/page changes replace that result. New results scroll into view.
+2. Search/history sorting reaches validated backend request schemas and domain
+   queries before pagination. ID tie-breakers are stable. Existing default orders
+   and optional positional signatures remain compatible. Common label sorting is
+   deliberately not offered where labels are computed from different fields.
+3. Pending requests have synchronous locks. Lost-response retries keep the same
+   request UUID. Action proposals use the clicked result's conversation/mode.
+   Preview shows exact target/current/proposed values; expiry disables confirmation.
+   A committed execution remains successful if a later cache refresh fails.
+   History clearing requires explicit consequences and target confirmation.
+4. Customer display incorrectly depended on a changing bounded search result.
+   MUI reset events also changed search text. Invoice/proforma forms now resolve
+   selected identity independently by exact ID, seed it when choosing an option,
+   and ignore automatic input resets. Billing's existing option API adds selectedId
+   with active same-firm filtering and only ID/name/GSTIN projection. Required
+   loading/retry/unavailable guidance preserves lines and addresses.
+5. Order conversion now preserves service type and the service supply rule,
+   retains exact quantity strings and blocks blank/all-zero selections. Both
+   conversion dialogs use md width, retain entered data through Keep editing and
+   keep source-version locking/idempotency intact. Creators without invoice-view
+   permission stay on the source after conversion. Generic invoice/proforma editors
+   now close to a saved summary on their authorized editor route when list access
+   is absent; Create another draft starts a fresh form. Viewers still return to
+   their safe filtered list. No permission or financial contract was broadened.
+6. Shared field/value/action/status labels cover Assistant and approval evidence.
+   Cancellation replaces technical Void wording; quotation status updates are
+   distinguished from sending email. Exact amounts remain strings. Shared section
+   actions no longer shrink beside long descriptions. Assistant links use the
+   existing theme. No parallel API client or new production file was introduced.
+7. Dashboard recent quotations use the common numbered/sortable table, preserving
+   the bounded newest-eight scope and original currency. Complete work-order
+   components/movements now use shared exact-value sorting; paginated master lists
+   retain server sorting.
+
+Files changed (paths relative to frontend/ or backend/)
+Frontend:
+- src/features/assistant/AssistantPage.tsx: task layout, result/selection/history
+  lifecycle, permissions, exact draft transfer and request/retry locks.
+- src/features/assistant/assistant.api.ts: additive search/history sort types and
+  parameters; existing shared client/response unwrapping preserved.
+- src/features/assistant/ProposalReview.tsx: shared review fields/table/dialog,
+  plain labels, exact confirmation, synchronized requests and live expiry.
+- src/features/assistant/ProposalReview.test.tsx: proposal/policy/workspace failures,
+  retries, exact transfer, origin-bound actions and permission/confirmation checks.
+- src/features/invoices/components/InvoiceDraftForm.tsx: independent selected
+  customer identity, input-reset handling, status/retry/unavailable states.
+- src/features/invoices/api/invoices.api.ts: backward-compatible selectedId option.
+- src/features/invoices/components/OrderInvoiceConversion.tsx: exact selected
+  quantities/service defaults/no-view navigation and desktop dialog width.
+- src/features/invoices/components/QuotationInvoiceConversion.tsx: no-view source
+  return and desktop dialog width; accepted financial snapshot preserved.
+- src/features/invoices/model/invoices.types.ts and pages/InvoiceDetailsPage.tsx:
+  optional read-only state name and shared invoice/proforma/adjustment display.
+- src/features/invoices/pages/InvoicesPage.tsx: actor/firm-keyed editor sessions,
+  permission-aware saved summary and fresh next-draft lifecycle.
+- src/features/invoices/invoices.test.tsx: conversions, retry payload identity,
+  selected-customer hydration, invoice/proforma create/edit and no-view completion.
+- src/shared/routing/returnNavigation.ts: optional navigateAfterSave flag; existing
+  consumer defaults and truthful save/refresh-failure handling preserved.
+- src/shared/ui/display/recordLabels.ts and index.ts: shared readable fields,
+  evidence values, business actions and fallback explanations.
+- src/shared/ui/layout/DetailLayout.tsx: prevent section actions shrinking.
+- src/features/automation/pages/ApprovalsPage.tsx: reuse shared evidence/action
+  presentation across inbox, detail and decision preview.
+- src/features/dashboard/components/RecentQuotationsSection.tsx: common recent
+  table, numbers, explicit local scope and exact original-currency amounts.
+- src/features/manufacturing/ManufacturingPage.tsx: sortable complete component
+  and movement arrays with exact values/business IDs retained.
+Backend:
+- src/core/validation/list-sort.ts: backward-compatible generic allowed-field type.
+- src/modules/assistant/assistant.schema.ts, assistant.tools.ts,
+  assistant.repository.ts and assistant.routes.ts: allowlist/forward/execute
+  search/history sorting and plain action-effect descriptions.
+- src/modules/companies/assistant-read.repository.ts,
+  src/modules/items/assistant-read.repository.ts,
+  src/modules/quotations/assistant-read.repository.ts,
+  src/modules/invoices/assistant-read.repository.ts,
+  src/modules/sales-orders/assistant-read.repository.ts,
+  src/modules/payments/assistant-read.repository.ts,
+  src/modules/audit-logs/assistant-read.repository.ts: optional ID ordering passed
+  to existing authorized domain reads, projections unchanged.
+- Companies/items/quotations schema and repository files: additive ID ordering.
+  src/modules/quotations/quotations.types.ts aligns the handwritten query union.
+- src/modules/invoices/invoices.schema.ts, invoices.routes.ts and
+  invoices.repository.ts: additive ID sorting and bounded selected-customer lookup
+  under existing billing route permissions and same-firm projection. Serializer
+  derives placeOfSupplyStateName from the existing India state master without
+  changing stored codes, statutory snapshots, taxes or money.
+- tests/wave09.evaluation.test.ts and tests/wave09.reports.test.ts: dispatch,
+  repository order/pagination, actor/firm denial and customer-option contracts.
+Documentation:
+- ui-ux-remediation-plan.txt, ui-ux-browser-review.txt,
+  ui-ux-record-view-checklist.txt and this report: current evidence and priorities.
+- wave-11-delivery-report.txt and wave-11-verification-matrix.txt: supersede stale
+  historical command/DB claims without claiming full release acceptance.
+
+Browser validation (not inferred from automated tests)
+QA firm #3, firm administrator #6; frontend 5173/backend 3004. Full evidence and
+limits are in ui-ux-browser-review.txt, 11 November section.
+- Assistant customer ID ascending/descending, named customer/item selection and
+  normal quotation editor handoff. Real quotation #3 saved for INR 30 to list/toast.
+- Two extracted lines, one selected. Normal invoice editor preserved selected line
+  and exact 0.003/25.50. After explicit review to quantity 2, invoice draft #5 saved
+  for INR 51 to list/toast. Reopened/edited notes and saved to list/toast again.
+- Quotation #3 proposal preview/cancel; Draft unchanged. Cancelled review visible
+  in private history. Started-at history both directions and clear-content Cancel.
+- Order #2 blank/zero prevention and Keep editing retained fields. Invoice draft
+  #4 created for INR 25, then cancelled; linked history and available 1.000 restored.
+- Proforma #6 saved/list/toast and shared details observed: subtotal25.50,
+  round-off0.50, total26.00; issue preview cancelled. Gujarat (24) verified after
+  replacing the raw state-code presentation. Issue/conversion/PDF remain open.
+- Dashboard recent quotation number both directions and exact amounts inspected.
+- Work order #1 shared detail/table screenshot; signed quantities ascending
+  -4,-2,2,4 and descending 4,2,-2,-4. Close restored focus to the original View action.
+
+Validation and commands
+All execution used the owner's persisted approvals for FE typecheck/lint/tests/
+build and BE typecheck/lint/affected unit tests.
+- Frontend full suite: 66 files / 331 checks passed at 13:45:08. This preceded the
+  final small presentation and create-only completion changes.
+- Later affected suite: Assistant/invoice/automation, 3 files / 46 checks passed.
+- Latest save-navigation suite after the completion change: invoice + existing
+  shared return-navigation, 2 files / 29 checks passed. Invoice suite now 24 checks.
+- Final frontend typecheck/lint/build passed. Main chunk 928.14 kB (285.89 kB gzip);
+  Vite's existing >500kB warning remains a performance acceptance item.
+- Backend typecheck/lint passed. Final combined affected suite: 3 files / 66
+  checks passed (evaluation 28, reports/options 33, shared sorting 5); latest
+  rerun after the additive state-name serializer passed at 14:10:25.
+- Latest invoice suite after the state-name change: 24 checks passed at 14:10:25.
+  Earlier sorting 62 and customer-option 33 checks overlap and are not additive.
+- Logs: /tmp/bhuminex-nov11-frontend-full-tests.log,
+  /tmp/bhuminex-nov11-final-affected-tests.log,
+  /tmp/bhuminex-nov11-save-navigation-{tests,types}.log,
+  /tmp/bhuminex-nov11-completion-{lint,build}.log,
+  /tmp/bhuminex-nov11-backend-affected-tests.log and
+  /tmp/bhuminex-nov11-state-label-be-{types,lint}.log and
+  /tmp/bhuminex-nov11-invoice-final-tests.log.
+No Git, installs, format, migrations, seeds, Docker, backend build, deployment or
+MySQL integration suites were executed. No temporary diagnostics remain.
+
+Architecture and compatibility
+Root causes were corrected at the existing form, presentation, API-option and
+query layers. Affected consumers retain existing permissions, actor/firm fences,
+financial snapshots, expected versions, source locking, exact decimals and shared
+client configuration. New query arguments/options are additive; old consumers
+retain defaults. No duplicate implementation or new production files were added.
+The named root causes and affected integration paths are resolved; production
+acceptance is limited to the explicit evidence, not the entire ERP.
+
+Remaining work in execution order
+1. Real restricted-role/error/expiry/multi-page variants for current fixes.
+2. Proforma/adjustment/receipt cancellation and reverse-allocation journeys;
+   recurring generation, portal invitation/customer session and import recovery.
+3. Nonempty automation runs/independent approvals; remaining platform/settings/
+   report/detail variants and long/multi-page PDF documents.
+4. Wave10/11 exhaustive tenant/role/plan/quota negatives and financial/stock
+   reconciliation; upgrade/backup/restore, process-death/recovery and load drills.
+5. Launch module/provider scope, approved test receivers/accounts, accounting and
+   localization completeness, security scans, monitoring/SLO/RPO/RTO and rollout
+   ownership. India is confirmed; unverified external providers remain disabled.
+Phone/tablet review is explicitly owner-deferred. The owner reports the DB is
+updated; migration ledger and isolated rehearsal evidence are still separate.
+Known risks: the above unaccepted variants and release gates; current bundle
+warning. No credential appears in these reports. No blanket 9/10 score assigned.
+
+Historical 10 November continuation follows (preserved evidence):
+
+ERP UI/UX remediation — desktop continuation delivery
+Date: 10 November 2026 (Asia/Kolkata)
+Status: Assistant Settings desktop slice completed and browser-verified.
+Whole ERP and Waves 10/11 remain IN PROGRESS / NOT RELEASE-ACCEPTED.
+The owner deferred phone/tablet review. No 9/10 score or blanket acceptance.
+
+Completed implementation and root causes
+
+1. Assistant Settings
+The page previously exposed an always-open ungrouped editor, technical labels,
+no saved-policy summary, and no save completion feedback. It now uses the same
+shared detail and form components as the preferred quotation-style views.
+Availability, firm policy and account connection have separate readable sections.
+An explicit Edit policy dialog groups connected use/request limits and privacy.
+An optional shared md dialog width keeps desktop consent and Save/Cancel visible.
+The existing API, expected version, firm/actor query keys, consent, limit checks,
+and unavailable provider boundary remain intact. Native validation handles numeric
+ranges; rejected saves keep the editor and values. Successful writes close and
+notify; refresh failure is distinguished from failure to save. Clearing previously
+retained text requires an explicit deletion confirmation. No retained text was
+deleted during the browser review, and no connected AI service was enabled.
+
+2. Quotation documents and email history
+The API returned pagination but the screen always fetched page 1, leaving older
+rows unreachable. Page/sort state now travels through query keys, API, validated
+routes and repositories. Stable ID tie-breakers precede database pagination.
+Shared numbered tables, page controls, empty/error/retry states replace duplicate
+desktop/card structures. Email details retain message, recipients, revision,
+attachments, sender, status and failure evidence in a shared dialog. Partial query
+key invalidation correctly reaches all pages. PDF preview/download requests have
+single-flight guards and stable named actions. No email was sent in browser QA.
+
+3. Automation and approvals
+Published configuration heads use a shared complete-set table. Create/Edit is a
+shared command dialog; saving closes to the list and shows feedback. Version and
+run ordering is performed on the server before pagination. Published history is
+preserved; republishing and run cancellation/retry have consequence confirmations.
+The approval inbox uses a shared numbered table and server sorting. Read-only
+requester/reviewer names are projected within existing firm-boundary relations.
+Request evidence, original command, exact reasons and immutable decision history
+remain available in shared details. Independent-review, requester-only execution,
+self-approval restrictions, expiry and domain revalidation are preserved.
+Notification settings now use a saved summary plus guarded edit/save dialog.
+Notifications stay an explicitly named bounded recent-100 list; they are not
+presented as an unlimited complete notification archive.
+
+4. Shared presentation
+AppDialog title/content spacing now protects the first floating field label;
+plain status/action labels retain internal command and status codes. CommandForm
+accepts an optional existing FormDialogShell width type; default width is unchanged.
+The item-name wrapping/root table-width fix and previous old-master migrations
+remain documented separately in the record-view checklist and browser journal.
+
+Files changed in this continuation (paths relative to their repository)
+
+Frontend source:
+src/features/assistant/AssistantSettingsPage.tsx
+  Shared grouped summary, readable connection states, explicit policy editor,
+  consent/retention confirmation, save/close feedback and firm/user fencing.
+src/shared/forms/CommandForm.tsx
+  Optional typed maxWidth forwarded to FormDialogShell; existing default retained.
+src/shared/ui/dialogs/AppDialog.tsx
+  Title-adjacent content padding prevents floating-label clipping; custom content
+  styling remains composable.
+src/shared/ui/display/recordLabels.ts
+  Added business-action/trigger labels and a readable failed-job status.
+src/shared/ui/display/index.ts
+  Exposed the existing shared-file formatter through the common barrel.
+src/features/automation/pages/AutomationPage.tsx
+  List-first shared editor, complete configuration table, URL category retention,
+  server-sorted version/run tables, shared history/details and confirmations.
+src/features/automation/pages/ApprovalsPage.tsx
+  Shared request/decision/notification tables and detail dialogs, truthful status
+  and outcome feedback, guarded decisions and preserved execution authority.
+src/features/automation/components/DefinitionEditor.tsx
+  Uses readable shared business-action and event labels; saved codes unchanged.
+src/features/automation/components/NotificationPreferences.tsx
+  Saved summary and shared guarded edit/save lifecycle; UTC+05:30 display.
+src/features/automation/api/automation.api.ts
+  Sends optional version/run/approval sorting through the existing API client.
+src/features/automation/model/automation.types.ts
+  Optional named requester/reviewer read projections; old payloads remain valid.
+src/features/quotations/documents/components/QuotationDocumentsSection.tsx
+  Shared numbered document/communication tables, independent URL paging/sorting,
+  full email detail dialog and nonoverlapping private-file actions.
+src/features/quotations/documents/api/quotation-documents.api.ts
+  Accepts history query parameters while preserving legacy numeric page calls.
+src/features/quotations/documents/model/quotation-documents.types.ts
+  Shared typed history request parameters in the existing feature model.
+src/features/quotations/documents/model/quotation-documents.query-keys.ts
+  Prefix-safe invalidation plus page/sort cache identity.
+
+Backend source:
+src/modules/quotations/email/quotation-email.schema.ts
+  Allowlisted history sorting and bounded integer pagination.
+src/modules/quotations/email/quotation-email.routes.ts
+  Validates and forwards the history query; existing permissions preserved.
+src/modules/quotations/communications/quotation-communications.repository.ts
+  Forwards document sorting and applies stable communication ordering before paging.
+src/modules/quotations/documents/quotation-documents.repository.ts
+  Stable allowlisted document ordering within existing firm-scoped reads.
+src/modules/automation/automation.schema.ts
+  Allowlisted version, workflow-run and approval list queries.
+src/modules/automation/automation.routes.ts
+  Parses each list query once and forwards page/sorting without changing responses.
+src/modules/automation/automation.repository.ts
+  Server version ordering before pagination; compatible optional query argument.
+src/modules/automation/workflows.repository.ts
+  Stable server run ordering before pagination; existing access checks retained.
+src/modules/automation/approvals.repository.ts
+  Stable server approval sorting and named, firm-related requester/reviewer reads.
+
+Regression coverage:
+frontend/src/features/assistant/ProposalReview.test.tsx
+  Adds policy-summary/editor, versioned save/closure, failed-save retention and
+  retained-content confirmation checks alongside existing assistant feature tests.
+frontend/src/features/automation/automation.test.tsx
+  Covers explicit configuration entry, successful save/close/list and existing
+  independent-review authority after the shared UI migration.
+frontend/src/features/quotations/quotation-documents.test.tsx
+  Covers older-page requests and sort reset, shared document/email views/actions.
+frontend/src/features/measurement-units/measurement-units.test.tsx
+  Targets actual form inputs, avoiding matches against accessible table headers.
+backend/tests/quotation-communications.repository.test.ts
+  Covers exact revision, stable server sort/pagination and invalid query rejection.
+backend/tests/list-sort.test.ts
+  Validates the new list contracts without accepting unsupported fields.
+backend/tests/wave08.approvals.test.ts
+  Verifies firm-scoped, stably sorted paginated approval reads with named projections.
+Earlier company/category/quotation/payment/attachment assertions were aligned with
+shared UI behavior; the full-suite result below includes those corrections.
+
+Documentation updated:
+docs/implementation/ui-ux-remediation-plan.txt
+  Owner's desktop priority, recovered firm-admin access and current slice scope.
+docs/implementation/ui-ux-browser-review.txt
+  Corrected stale pending statements and recorded concrete records/observations.
+docs/implementation/ui-ux-record-view-checklist.txt
+  Updated Automation/Assistant evidence; mobile review explicitly deferred.
+docs/implementation/wave-11-verification-matrix.txt
+  Distinguishes incremental runtime evidence from unexecuted release certification.
+
+Actual desktop evidence
+See ui-ux-browser-review.txt for the detailed module/record journal.
+- Existing QA firm administrator #6 recovered using supported audited APIs;
+  mandatory change completed, previous sessions revoked, Incognito sign-in observed.
+  Working credentials saved outside the repositories in the requested private MD,
+  file mode 0600. No auth source or permissions were bypassed or weakened.
+- Inactive QA quotation template v1 created and previewed. Saving v2 after the
+  UI fix closed the editor, showed a toast and refreshed the list. Both version
+  ordering directions and retained versions were visually verified.
+- Shared dialog label clipping reproduced, fixed and visually rechecked.
+- QA quotation #2 real PDF v1/v2 generated, numbered and server-sorted both ways.
+  Actual one-page PDF inspected: header/parties/table/totals/words/footer aligned,
+  taxable INR 74.99 + INR .01 round-off = INR 75. No real email sent.
+- Disabled notification preferences saved; dialog closed, focus returned to its
+  edit button, toast appeared, summary retained UTC+05:30 and notifications off.
+- Firm-admin local assistant search returned both QA items without connected AI.
+- Assistant Settings summary and wide editor inspected. Actual unchanged-policy
+  save created QA policy version 1, closed the dialog and showed success. Entered
+  daily limit 25, Cancel prompted discard, Keep editing retained it, Discard
+  returned to version 1 / limit Not set. Connected AI and storage stayed off.
+
+Engineering checks actually executed (authorized earlier by the owner)
+- Frontend full suite: 66 files / 305 checks passed at 21:34:27, before the later
+  Assistant Settings additions. No inference that all screens are browser-passed.
+- Latest frontend affected suite: 5 files / 26 checks passed at 21:55:31:
+  npm run test -- src/features/assistant/ProposalReview.test.tsx
+    src/features/automation/automation.test.tsx src/shared/forms/CommandForm.test.tsx
+    src/shared/ui/dialogs/AppDialog.test.tsx
+    src/features/quotations/quotation-documents.test.tsx --maxWorkers=1 --minWorkers=1
+- Earlier final firm-admin suite: 3 files / 16 checks passed; backend affected
+  quotation/automation suite: 6 files / 43 checks passed. Earlier master/stock/order
+  affected suite: 11 files / 89 checks passed. No MySQL integration acceptance.
+- Frontend typecheck and final frontend/backend lint passed. Backend final
+  typecheck passed. Latest frontend build (tsc -b plus Vite) passed.
+- Current main bundle 926.56 kB / 284.61 kB gzip. Vite's >500 kB warning remains;
+  no performance/production-load certification is claimed.
+- Redacted command logs are in /tmp/bhuminex-*-desktop-final-*.log and the earlier
+  history/firm-admin logs. No credentials or session tokens were logged there.
+
+Architecture impact and compatibility
+Existing shared detail/form/dialog/table/API primitives were extended. No new
+production source file, dependency, router, auth framework, financial ledger or
+parallel API client was introduced in this continuation. Optional query arguments,
+read projections and dialog width retain old consumers. Server validation and
+ordering precede pagination, avoiding a misleading sort of a fetched page.
+
+Known risks, assumptions and remaining acceptance
+The environment is the owner's local application, isolated QA firm #3. Native
+browser evidence is limited to the named desktop paths. Assistant deletion and
+retention-worker processing were not executed; unavailable external providers
+remain disabled. Multi-page history/negative/permission/concurrency variants need
+additional real records. The broader UI checklist, local Assistant result/history
+layouts, independent approval/expiry/execution journeys, conversion dialogs,
+portal, recurring/proforma/adjustments, remaining platform/settings/report views,
+and long/multi-page PDFs remain open. Phone/tablet review is owner-deferred.
+Wave 10/11 external-provider, accounting/localization scope, security, load,
+restore/recovery, monitoring and rollout gates remain separate and incomplete.
+
+Validation conclusion
+The described Assistant Settings root UX issues are resolved at the shared form
+and feature layout layers, with actual save/cancel browser evidence. Affected
+contracts/consumers were checked, API/permission/financial boundaries retained,
+and no duplicate implementation or diagnostic logs introduced. This conclusion
+is intentionally narrower than whole-ERP or release acceptance.
+
+Commands not executed
+No Git, installs, migrations, seeds, Docker, backend build, deployment or MySQL
+integration suite was executed. Frontend build/type/lint/tests and backend
+ type/lint/affected tests were executed under the owner's explicit prior approvals.

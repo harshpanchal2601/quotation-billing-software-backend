@@ -1,3 +1,4 @@
+import { listOrderBy, type ListSort } from '../../core/validation/list-sort.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { AuditAction, type OutboxEvent, type Prisma, type PrismaClient } from '@prisma/client';
 import { z } from 'zod';
@@ -57,13 +58,13 @@ export class WebhooksRepository {
       return { endpoint, ...(secret ? { secret } : {}) };
     });
   }
-  async deliveries(firmId: number, actorId: number, id: string, page: number, limit: number) {
+  async deliveries(firmId: number, actorId: number, id: string, page: number, limit: number, sort: ListSort = {}) {
     return this.db.$transaction(async (tx) => {
       await access(tx, firmId, actorId);
       if (!await tx.webhookEndpoint.findFirst({ where: { id, firmId, actorId }, select: { id: true } })) throw new AppError('Webhook endpoint not found', 404);
       const where = { firmId, endpointId: id };
       const [deliveries, total] = await Promise.all([
-        tx.webhookDelivery.findMany({ where, select: { id: true, sourceEventId: true, secretVersion: true, createdAt: true, event: { select: { status: true, attempts: true, maxAttempts: true, availableAt: true, completedAt: true, jobAttempts: { select: { attempt: true, startedAt: true, finishedAt: true, outcome: true, errorCode: true }, orderBy: { attempt: 'desc' }, take: 20 } } } }, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit }),
+        tx.webhookDelivery.findMany({ where, select: { id: true, sourceEventId: true, secretVersion: true, createdAt: true, event: { select: { status: true, attempts: true, maxAttempts: true, availableAt: true, completedAt: true, jobAttempts: { select: { attempt: true, startedAt: true, finishedAt: true, outcome: true, errorCode: true }, orderBy: { attempt: 'desc' }, take: 20 } } } }, orderBy: listOrderBy(sort, ['id', 'createdAt', 'secretVersion'], 'createdAt'), skip: (page - 1) * limit, take: limit }),
         tx.webhookDelivery.count({ where }),
       ]);
       return { deliveries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };

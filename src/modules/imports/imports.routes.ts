@@ -21,8 +21,8 @@ importsRouter.use((req, res, next) => {
 });
 importsRouter.use(rateLimit({ windowMs: 60_000, limit: 15, standardHeaders: true, legacyHeaders: false, keyGenerator: (req) => `${getFirmId(req)}:${actor(req)}`, handler: (_req, res) => { sendError(res, 429, 'Import request rate limit reached'); } }));
 importsRouter.get('/', asyncHandler(async (req, res) => {
-  const { page, limit } = importListSchema.parse(req.query);
-  return sendSuccess(res, 200, 'Imports retrieved', await repository.list(getFirmId(req), actor(req), page, limit));
+  const { page, limit, ...sort } = importListSchema.parse(req.query);
+  return sendSuccess(res, 200, 'Imports retrieved', await repository.list(getFirmId(req), actor(req), page, limit, sort));
 }));
 importsRouter.post('/preview', asyncHandler(async (req, res) => {
   const input = importPreviewSchema.parse(req.body);

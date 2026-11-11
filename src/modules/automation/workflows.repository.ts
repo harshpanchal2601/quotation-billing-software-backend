@@ -1,3 +1,4 @@
+import { listOrderBy, type ListSort } from '../../core/validation/list-sort.js';
 import { randomUUID } from 'node:crypto';
 import type { OutboxEvent, PrismaClient } from '@prisma/client';
 import { z } from 'zod';
@@ -97,10 +98,10 @@ export const workflowNotificationHandler: JobHandler = {
 
 export class WorkflowsRepository {
   constructor(readonly db: PrismaClient) {}
-  async runs(firmId: number, actorId: number, page = 1) {
+  async runs(firmId: number, actorId: number, page = 1, sorting: ListSort = {}) {
     return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
       await automationAccess(tx, firmId, actorId, true);
-      const rows = await tx.workflowRun.findMany({ where: { firmId }, include: { definition: true, actions: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 50, skip: (page - 1) * 50 });
+      const rows = await tx.workflowRun.findMany({ where: { firmId }, include: { definition: true, actions: true }, orderBy: listOrderBy(sorting, ['id', 'createdAt', 'expiresAt', 'status', 'actorId'], 'createdAt'), take: 50, skip: (page - 1) * 50 });
       const ids = rows.map((run) => run.id);
       const [jobs, logs] = await Promise.all([
         tx.outboxEvent.findMany({ where: { firmId, correlationId: { in: ids } }, include: { jobAttempts: { orderBy: { attempt: 'asc' } } }, orderBy: { createdAt: 'asc' } }),

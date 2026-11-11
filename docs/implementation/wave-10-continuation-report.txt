@@ -1,3 +1,67 @@
+11 November 2026 — owner-confirmed India local-first scope
+The owner selected: Local ERP workflows first; keep unverified external
+integrations disabled. Provider activation is excluded from the first release,
+not an unfulfilled requirement to activate a gateway/SMTP/tax/LLM service now.
+
+Applied through the existing audited platform controls, without new environment
+flags, erased credentials, plan-version edits or a parallel authorization path:
+- quotations.email: globally hard disabled,16:27:29 Asia/Kolkata.
+- integrations.api: globally hard disabled,16:27:39.
+- integrations.webhooks: globally hard disabled,16:27:48.
+- ai.credits: globally hard disabled,16:28:06.
+Reason records the owner's India local-first decision and later provider
+acceptance requirement. Platform audit identifies administrator1 for all four.
+The changes affect all firms in this local installation. They are reversible
+through the existing controls, with a new explicit audited change reason.
+
+Reload proved all four persisted. Firm-admin Subscription & Usage independently
+showed Denied / Disabled by the platform administrator for all four; local
+assistant and report downloads remained Allowed / Included in your plan.
+The QA plan still contains33 selected features; its published revision and
+assignment were not edited.29 remain effectively allowed after these exclusions.
+
+Provider readiness: only the read-only diagnostic tab remains for this actor;
+API-key and webhook management tabs are absent. SMTP now Enabled No; payment and
+India e-invoice/e-way services Enabled No and unavailable. No outbound message,
+provider validation call, payment, tax submission, new credential or wider access
+was created. The shared provider table uses readable status/provider names and
+business guidance, while response status/provider identifiers remain unchanged.
+
+Important chronology correction: SMTP configuration was already present and
+quotation-email permission was previously allowed. Configuration alone did not
+mean email was disabled. Earlier broad statements that all integrations were
+off must be read with this later verified exclusion. SMTP secrets were preserved,
+not printed, copied into reports or modified. No .env edit was needed.
+
+This closes the owner scope decision and named exclusion checks only. Desktop
+variants, composed business/access/quota coverage, local accounting/document/
+legal review and operational recovery/load/security/rollout acceptance remain
+open. Mobile is owner-deferred. No release/deployment is accepted by this note.
+
+11 November 2026 — administration/settings evidence update
+Later named desktop checks now cover subscription feature/usage wording and
+ordering; users/roles labels and discard; compact audit detail/paging/order;
+billing configuration's read/write response fix; protected business/quotation
+settings; version-confirmed financial policies; and synthetic bank create/edit
+with the common compact row-action menu. The exact native-browser outcomes,
+modified files, validation and limits are recorded in the newest sections of
+ui-ux-browser-review.txt and ui-ux-remediation-delivery-report.txt.
+These advance desktop group5; the tracker remains4completed/3open workgroups.
+They do not certify whole-module, full ERP or Wave10/11 release acceptance.
+India confirmed, mobile deferred, all unverified live integrations remain off.
+
+11 November 2026 — latest incremental evidence
+Current desktop evidence is in ui-ux-browser-review.txt and the newest section
+of ui-ux-remediation-delivery-report.txt. Recurring worker generation, simulated
+payment refund/cancellation, long proforma PDF, portal invitation/view/revocation,
+controlled mixed import/undo, queued report PDF/download/removal and QA accounting
+mapping/balanced journal download have named real local browser evidence.
+Read-only migration ledger:20source/20applied,allSHA-256checksums match,no missing
+or unfinished/rolled-back entries. No migration command was executed. Whole
+release/role/tenant/quota/provider/load/upgrade/restore acceptance remains OPEN.
+India confirmed; mobile deferred; live external providers remain disabled.
+Older per-batch pending claims are historical where current evidence supersedes.
+
 Wave 10 continuation delivery report
 Date: 9 November 2026
 Updated: 10 November 2026. India is the user-confirmed primary launch country.

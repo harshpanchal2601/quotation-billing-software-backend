@@ -12,7 +12,7 @@ function actor(req: Request) { if (!req.user) throw new AppError('Authentication
 function metadata(req: Request) { return { firmId: getFirmId(req), userId: actor(req), ipAddress: req.ip, userAgent: req.get('user-agent') }; }
 export const billingSchedulesRouter = Router();
 billingSchedulesRouter.use(requireAuthentication, requireFirmContext, requirePermission(PERMISSIONS.BILLING_RECURRING), requirePermission(PERMISSIONS.INVOICES_CREATE));
-billingSchedulesRouter.get('/', asyncHandler(async (req, res) => { const query = scheduleListSchema.parse(req.query); return sendSuccess(res, 200, 'Billing schedules retrieved', await repository.list(getFirmId(req), actor(req), query.page, query.limit)); }));
+billingSchedulesRouter.get('/', asyncHandler(async (req, res) => { const query = scheduleListSchema.parse(req.query); return sendSuccess(res, 200, 'Billing schedules retrieved', await repository.list(getFirmId(req), actor(req), query.page, query.limit, query)); }));
 billingSchedulesRouter.post('/', asyncHandler(async (req, res) => sendSuccess(res, 201, 'Paused schedule created', { schedule: await repository.create(getFirmId(req), actor(req), scheduleCreateSchema.parse(req.body), metadata(req)) })));
 billingSchedulesRouter.get('/:id', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Billing schedule retrieved', { schedule: await repository.get(getFirmId(req), actor(req), scheduleIdSchema.parse(req.params).id) })));
 billingSchedulesRouter.patch('/:id', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Schedule revision created', { schedule: await repository.update(getFirmId(req), actor(req), scheduleIdSchema.parse(req.params).id, scheduleUpdateSchema.parse(req.body), metadata(req)) })));

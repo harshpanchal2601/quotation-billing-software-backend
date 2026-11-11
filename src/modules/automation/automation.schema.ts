@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { listSortFields } from '../../core/validation/list-sort.js';
 import { validateCustomFieldValues } from '../../core/validation/custom-field-values.js';
 import { commandKeySchema } from '../../core/idempotency/command-key.js';
 import { positiveQuantitySchema } from '../../core/validation/quantity.js';
@@ -130,3 +131,17 @@ export const customValuesSchema = z.record(z.union([z.string().max(4000), z.bool
 export function validateFieldValues(fields: z.infer<typeof customFieldSchema>[], input: z.infer<typeof customValuesSchema>) {
   return validateCustomFieldValues(fields, input, true);
 }
+
+export const automationVersionListSchema = z.object({
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  ...listSortFields(['id', 'version', 'publishedAt', 'publishedById']),
+});
+export const workflowRunListSchema = z.object({
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  ...listSortFields(['id', 'createdAt', 'expiresAt', 'status', 'actorId']),
+});
+
+export const approvalListSchema = z.object({
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  ...listSortFields(['id', 'createdAt', 'expiresAt', 'status', 'requesterId']),
+});

@@ -42,13 +42,13 @@ export async function executeAssistantRead(firmId: number, actorId: number, plan
   if (plan.tool === 'CLARIFY') return { message: plan.message };
   if (plan.tool === 'OUTSTANDING') return readAssistantReceivables(firmId, actorId, plan);
   if (plan.tool === 'SALES') return readAssistantSales(firmId, actorId, plan);
-  if (plan.resource === 'CUSTOMERS') return searchAssistantCustomers(firmId, plan.query, plan.page);
-  if (plan.resource === 'ITEMS') return searchAssistantItems(firmId, plan.query, plan.page);
-  if (plan.resource === 'QUOTATIONS') return searchAssistantQuotations(firmId, plan.query, plan.page);
-  if (plan.resource === 'INVOICES') return searchAssistantInvoices(firmId, plan.query, plan.page);
-  if (plan.resource === 'PAYMENTS') return searchAssistantPayments(firmId, actorId, plan.query, plan.page);
-  if (plan.resource === 'ORDERS') return searchAssistantOrders(firmId, actorId, plan.query, plan.page);
-  return readAssistantAudit(firmId, plan.page);
+  if (plan.resource === 'CUSTOMERS') return searchAssistantCustomers(firmId, plan.query, plan.page, plan);
+  if (plan.resource === 'ITEMS') return searchAssistantItems(firmId, plan.query, plan.page, plan);
+  if (plan.resource === 'QUOTATIONS') return searchAssistantQuotations(firmId, plan.query, plan.page, plan);
+  if (plan.resource === 'INVOICES') return searchAssistantInvoices(firmId, plan.query, plan.page, plan);
+  if (plan.resource === 'PAYMENTS') return searchAssistantPayments(firmId, actorId, plan.query, plan.page, plan);
+  if (plan.resource === 'ORDERS') return searchAssistantOrders(firmId, actorId, plan.query, plan.page, plan);
+  return readAssistantAudit(firmId, plan.page, plan);
 }
 export async function prepareAssistantDraft(tx: Prisma.TransactionClient, firmId: number, plan: Extract<ToolPlan, { tool: 'DRAFT' }>) {
   const company = await tx.company.findFirst({ where: { id: plan.companyId, firmId, deletedAt: null, isActive: true }, select: { id: true, name: true } });

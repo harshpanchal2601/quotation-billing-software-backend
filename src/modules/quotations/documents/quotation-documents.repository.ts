@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { listOrderBy } from '../../../core/validation/list-sort.js';
 
 import { AuditAction, DocumentType, type PrismaClient } from '@prisma/client';
 
@@ -342,16 +343,16 @@ export class QuotationDocumentsRepository {
   async listDocumentHistory(
     firmId: number,
     quotationId: number,
-    query: { page: number; limit: number; sortOrder: 'asc' | 'desc' },
+    query: { page: number; limit: number; sortBy?: string; sortOrder: 'asc' | 'desc' },
   ) {
-    const { page, limit, sortOrder } = query;
+    const { page, limit } = query;
     const skip = (page - 1) * limit;
 
     const [total, documents] = await Promise.all([
       this.db.generatedDocument.count({ where: { quotationId, quotation: { firmId } } }),
       this.db.generatedDocument.findMany({
         where: { quotationId, quotation: { firmId } },
-        orderBy: { generatedAt: sortOrder },
+        orderBy: listOrderBy(query, ['id', 'versionNumber', 'generatedAt', 'documentType'], 'generatedAt'),
         skip,
         take: limit,
         include: {

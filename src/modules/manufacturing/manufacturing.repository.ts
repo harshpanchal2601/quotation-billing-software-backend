@@ -1,3 +1,4 @@
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import { AuditAction, Prisma, type PrismaClient } from '@prisma/client';
 import type { z } from 'zod';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
@@ -48,7 +49,7 @@ export class ManufacturingRepository {
   async list(firmId: number, actorId: number, kind: 'boms' | 'work-orders', query: z.infer<typeof manufacturingListSchema>) {
     return this.db.$transaction(async (tx) => {
       await this.access(tx, firmId, actorId, PERMISSIONS.MANUFACTURING_VIEW);
-      const page = { take: query.limit, skip: (query.page - 1) * query.limit, orderBy: { id: 'desc' as const } };
+      const page = { take: query.limit, skip: (query.page - 1) * query.limit, orderBy: listOrderBy(query, kind === 'boms' ? ['id', 'code', 'name', 'revision', 'outputQuantity', 'createdAt'] : ['id', 'status', 'quantity', 'createdAt']) };
       if (kind === 'boms') {
         const where = { firmId, OR: [{ code: { contains: query.search } }, { name: { contains: query.search } }] };
         return { records: (await tx.billOfMaterials.findMany({ where, ...page, include: bomInclude })).map(bomDto), pagination: { page: query.page, limit: query.limit, total: await tx.billOfMaterials.count({ where }) } };
@@ -60,9 +61,9 @@ export class ManufacturingRepository {
   async getOrder(firmId: number, actorId: number, id: number) {
     return this.db.$transaction(async (tx) => {
       await this.access(tx, firmId, actorId, PERMISSIONS.MANUFACTURING_VIEW);
-      const row = await tx.workOrder.findFirst({ where: { id, firmId }, include: orderInclude });
+      const row = await tx.workOrder.findFirst({ where: { id, firmId }, include: { ...orderInclude, warehouse: { select: { code: true, name: true } } } });
       if (!row) throw new AppError('Work order not found', 404);
-      return orderDto(row);
+      return { ...orderDto(row), warehouse: row.warehouse };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
   async createBom(firmId: number, actorId: number, input: z.infer<typeof bomCreateSchema>, metadata: RequestMetadata) {
@@ -74,10 +75,10 @@ export class ManufacturingRepository {
       const replay = await tx.billOfMaterials.findUnique({ where: { firmId_idempotencyKey: { firmId, idempotencyKey: input.idempotencyKey } }, include: bomInclude });
       if (replay) { if (replay.requestHash !== hash) throw new AppError('BOM request key conflict', 409); return bomDto(replay); }
       const output = await this.item(tx, firmId, input.outputItemId); assertStockQuantity(decimal(input.outputQuantity), output.measurementUnit.allowDecimal);
-      const components = [];
+      const components: Prisma.BomComponentUncheckedCreateWithoutBomInput[] = [];
       for (const line of input.components) {
         const item = await this.item(tx, firmId, line.itemId); assertStockQuantity(decimal(line.quantity), item.measurementUnit.allowDecimal);
-        components.push({ firmId, itemId: item.id, quantity: decimal(line.quantity), unitId: item.measurementUnitId, name: item.name, unit: item.measurementUnit.symbol });
+        components.push({ itemId: item.id, quantity: decimal(line.quantity), unitId: item.measurementUnitId, name: item.name, unit: item.measurementUnit.symbol });
       }
       const latest = await tx.billOfMaterials.findFirst({ where: { firmId, code: input.code }, orderBy: { revision: 'desc' }, select: { revision: true } });
       const row = await tx.billOfMaterials.create({ data: { firmId, code: input.code, name: input.name, revision: (latest?.revision ?? 0) + 1, outputItemId: output.id, outputQuantity: decimal(input.outputQuantity), outputUnitId: output.measurementUnitId, outputName: output.name, outputUnit: output.measurementUnit.symbol, actorId, idempotencyKey: input.idempotencyKey, requestHash: hash, components: { create: components } }, include: bomInclude });

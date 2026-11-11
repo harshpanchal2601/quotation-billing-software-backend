@@ -1,3 +1,4 @@
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import { AuditAction, Prisma, type PrismaClient } from '@prisma/client';
 import { discountPercentage, emitAutomationEvent, enforceApproval } from '../automation/runtime.js';
 import type { z } from 'zod';
@@ -15,7 +16,9 @@ import { readAcceptedQuotationForBilling, customerQuotationSnapshot } from '../q
 import { assertSalesCapability, readCustomerSellerSnapshot } from '../settings/index.js';
 import { postFulfillmentStock, reverseFulfillmentStock, releaseOrderStock } from '../inventory/index.js';
 import { availableOrderQuantity, fulfillmentStatus } from './order-quantities.js';
-import type { cancelSalesSchema, fulfillmentSchema, orderConversionSchema, salesListSchema } from './sales-orders.schema.js';
+import type { cancelSalesSchema, fulfillmentSchema, orderConversionSchema, salesDetailSchema, salesListSchema } from './sales-orders.schema.js';
+
+type DetailQuery = Partial<z.infer<typeof salesDetailSchema>>;
 
 export async function readOrderForInvoicing(tx: Prisma.TransactionClient, firmId: number, id: number) {
   await assertSalesCapability(tx, firmId, 'orders');
@@ -36,12 +39,26 @@ export class SalesOrdersRepository {
     return this.db.$transaction(async (tx) => { await this.access(tx, firmId, actorId, PERMISSIONS.FULFILLMENTS_MANAGE); await assertTransactionFeature(tx, firmId, 'inventory'); return { warehouses: await tx.warehouse.findMany({ where: { firmId, isActive: true, OR: [{ name: { contains: search } }, { code: { contains: search } }] }, select: { id: true, name: true }, orderBy: { name: 'asc' }, take: 100 }) }; });
   }
   private async access(tx: Prisma.TransactionClient, firmId: number, actorId: number, permission: Permission) { await authorizeFirmJobActor(tx, firmId, actorId, permission); await assertTransactionFeature(tx, firmId, 'sales.orders'); await assertSalesCapability(tx, firmId, 'orders'); }
-  private async detail(tx: Prisma.TransactionClient, firmId: number, id: number, historyPage = 1) {
-    const paging = { skip: (historyPage - 1) * 20, take: 20 };
-    const row = await tx.salesOrder.findFirst({ where: { id, firmId }, include: { lines: { orderBy: { lineNumber: 'asc' } }, history: { orderBy: { version: 'desc' }, ...paging }, fulfillments: { orderBy: { id: 'desc' }, ...paging, include: { lines: true } }, _count: { select: { history: true, fulfillments: true, invoices: true } } } });
+  private async detail(tx: Prisma.TransactionClient, firmId: number, id: number, query: DetailQuery = {}) {
+    const historyPage = query.historyPage ?? 1;
+    // Preserve the former shared-page contract for callers that only send historyPage.
+    const completionPage = query.completionPage ?? historyPage;
+    const invoicePage = query.invoicePage ?? historyPage;
+    const paging = (page: number) => ({ skip: (page - 1) * 20, take: 20 });
+    const row = await tx.salesOrder.findFirst({ where: { id, firmId }, include: {
+      lines: { orderBy: { lineNumber: 'asc' } },
+      history: { orderBy: listOrderBy({ sortBy: query.historySortBy, sortOrder: query.historySortOrder }, ['id', 'version', 'status', 'actorId', 'createdAt'], 'version'), ...paging(historyPage) },
+      fulfillments: { orderBy: listOrderBy({ sortBy: query.completionSortBy, sortOrder: query.completionSortOrder }, ['id', 'reference', 'occurredAt', 'cancelledAt']), ...paging(completionPage), include: { lines: { orderBy: { id: 'asc' } } } },
+      _count: { select: { history: true, fulfillments: true, invoices: true } },
+    } });
     if (!row) throw new AppError('Sales order not found', 404);
     const quantities = row.status === 'CANCELLED' ? null : await readOrderForInvoicing(tx, firmId, id);
-    return { ...row, historyPagination: { page: historyPage, hasMore: Math.max(row._count.history, row._count.fulfillments, row._count.invoices) > historyPage * 20 }, lines: row.lines.map((line) => { const totals = quantities?.lines.find((entry) => entry.id === line.id); return { ...line, quantity: line.quantity.toFixed(3), fulfilled: totals?.fulfilled.toFixed(3) ?? '0.000', reserved: totals?.reserved.toFixed(3) ?? '0.000', available: totals?.available.toFixed(3) ?? '0.000' }; }), invoices: await tx.invoice.findMany({ where: { firmId, sourceSalesOrderId: id }, select: { id: true, documentNumber: true, status: true }, orderBy: { id: 'desc' }, ...paging }) };
+    return { ...row,
+      historyPagination: { page: historyPage, hasMore: Math.max(row._count.history, row._count.fulfillments, row._count.invoices) > historyPage * 20 },
+      pagination: { history: { page: historyPage, limit: 20, total: row._count.history }, completions: { page: completionPage, limit: 20, total: row._count.fulfillments }, invoices: { page: invoicePage, limit: 20, total: row._count.invoices } },
+      lines: row.lines.map((line) => { const totals = quantities?.lines.find((entry) => entry.id === line.id); return { ...line, quantity: line.quantity.toFixed(3), fulfilled: totals?.fulfilled.toFixed(3) ?? '0.000', reserved: totals?.reserved.toFixed(3) ?? '0.000', available: totals?.available.toFixed(3) ?? '0.000' }; }),
+      invoices: await tx.invoice.findMany({ where: { firmId, sourceSalesOrderId: id }, select: { id: true, documentNumber: true, status: true }, orderBy: listOrderBy({ sortBy: query.invoiceSortBy, sortOrder: query.invoiceSortOrder }, ['id', 'documentNumber', 'status']), ...paging(invoicePage) }),
+    };
   }
   private async audit(tx: Prisma.TransactionClient, firmId: number, actorId: number, id: number, reason: string, metadata: RequestMetadata) {
     const row = await this.detail(tx, firmId, id);
@@ -52,10 +69,10 @@ export class SalesOrdersRepository {
     return this.db.$transaction(async (tx) => {
       await this.access(tx, firmId, actorId, PERMISSIONS.SALES_ORDERS_VIEW);
       const where: Prisma.SalesOrderWhereInput = { firmId, companyId: query.companyId, orderNumber: { contains: query.search } };
-      return { orders: await tx.salesOrder.findMany({ where, orderBy: { id: 'desc' }, take: query.limit, skip: (query.page - 1) * query.limit, select: { id: true, orderNumber: true, status: true, currency: true, companyId: true, company: { select: { name: true } }, createdAt: true } }), pagination: { page: query.page, limit: query.limit, total: await tx.salesOrder.count({ where }) } };
+      return { orders: await tx.salesOrder.findMany({ where, orderBy: listOrderBy(query, ['id', 'orderNumber', 'status', 'currency', 'createdAt']), take: query.limit, skip: (query.page - 1) * query.limit, select: { id: true, orderNumber: true, status: true, currency: true, companyId: true, company: { select: { name: true } }, createdAt: true } }), pagination: { page: query.page, limit: query.limit, total: await tx.salesOrder.count({ where }) } };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
-  async get(firmId: number, actorId: number, id: number, historyPage = 1) { return this.db.$transaction(async (tx) => { await this.access(tx, firmId, actorId, PERMISSIONS.SALES_ORDERS_VIEW); return this.detail(tx, firmId, id, historyPage); }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead }); }
+  async get(firmId: number, actorId: number, id: number, query: DetailQuery | number = {}) { return this.db.$transaction(async (tx) => { await this.access(tx, firmId, actorId, PERMISSIONS.SALES_ORDERS_VIEW); return this.detail(tx, firmId, id, typeof query === 'number' ? { historyPage: query } : query); }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead }); }
   async convert(firmId: number, actorId: number, input: z.infer<typeof orderConversionSchema>, metadata: RequestMetadata) {
     return withFirmEntitlementTransaction(this.db, firmId, (tx) => this.convertInTransaction(tx, firmId, actorId, input, metadata));
   }

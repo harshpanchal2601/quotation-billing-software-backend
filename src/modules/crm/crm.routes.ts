@@ -7,7 +7,7 @@ import { AppError } from '../../core/errors/AppError.js';
 import { requireAuthentication, requirePermission } from '../auth/auth.middleware.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { crmRepository } from './crm.repository.js';
-import { activityCreateSchema, crmIdSchema, crmListSchema, leadConversionSchema, leadCreateSchema, leadUpdateSchema, opportunityCreateSchema, opportunityUpdateSchema, taskCreateSchema, taskUpdateSchema } from './crm.schema.js';
+import { activityCreateSchema, crmIdSchema, crmListSchema, customerTimelineListSchema, leadConversionSchema, leadCreateSchema, leadUpdateSchema, opportunityCreateSchema, opportunityUpdateSchema, taskCreateSchema, taskUpdateSchema } from './crm.schema.js';
 
 function actor(req: Request) { if (!req.user) throw new AppError('Authentication required', 401); return req.user.id; }
 function metadata(req: Request) { return { firmId: getFirmId(req), userId: actor(req), ipAddress: req.ip, userAgent: req.get('user-agent') }; }
@@ -28,5 +28,5 @@ opportunitiesRouter.post('/', requirePermission(PERMISSIONS.CRM_MANAGE), asyncHa
 opportunitiesRouter.patch('/:id', requirePermission(PERMISSIONS.CRM_MANAGE), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Opportunity updated', { record: await crmRepository.updateOpportunity(getFirmId(req), actor(req), crmIdSchema.parse(req.params).id, opportunityUpdateSchema.parse(req.body), metadata(req)) })));
 tasksRouter.post('/', requirePermission(PERMISSIONS.CRM_MANAGE), asyncHandler(async (req, res) => sendSuccess(res, 201, 'Follow-up assigned', { record: await crmRepository.createTask(getFirmId(req), actor(req), taskCreateSchema.parse(req.body), metadata(req)) })));
 tasksRouter.patch('/:id', requirePermission(PERMISSIONS.CRM_MANAGE), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Follow-up updated', { record: await crmRepository.updateTask(getFirmId(req), actor(req), crmIdSchema.parse(req.params).id, taskUpdateSchema.parse(req.body), metadata(req)) })));
-customerTimelineRouter.get('/', requirePermission(PERMISSIONS.CRM_VIEW), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Customer activity retrieved', await crmRepository.timeline(getFirmId(req), actor(req), crmListSchema.parse(req.query)))));
+customerTimelineRouter.get('/', requirePermission(PERMISSIONS.CRM_VIEW), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Customer activity retrieved', await crmRepository.timeline(getFirmId(req), actor(req), customerTimelineListSchema.parse(req.query)))));
 customerTimelineRouter.post('/', requirePermission(PERMISSIONS.CRM_MANAGE), asyncHandler(async (req, res) => sendSuccess(res, 201, 'Activity recorded', { record: await crmRepository.activity(getFirmId(req), actor(req), activityCreateSchema.parse(req.body), metadata(req)) })));

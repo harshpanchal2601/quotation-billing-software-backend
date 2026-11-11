@@ -6,6 +6,7 @@ import { createAuditLog } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
 import { AppError } from '../../core/errors/AppError.js';
 import { requestHash } from '../../core/idempotency/request-hash.js';
+import { listOrderBy, type ListSort } from '../../core/validation/list-sort.js';
 import { jsonObject } from '../../core/serialization/json.js';
 import { authorizeFirmJobActor, resolveUserPermissions } from '../auth/index.js';
 import { PERMISSIONS } from '../auth/permissions.js';
@@ -215,14 +216,14 @@ export class AssistantRepository {
       const expiresAt = new Date(Date.now() + 10 * 60000);
       await tx.assistantActionProposal.create({ data: { id, firmId, actorId, conversationId: input.conversationId, mode: input.mode, command: jsonObject(prepared.command), evidence: prepared.before, fingerprint: prepared.fingerprint, nonceHash: digest(nonce), expiresAt } });
       await audit(tx, firmId, actorId, id, { event: 'ACTION_PROPOSED', conversationId: input.conversationId, command: jsonObject(command), before: prepared.before, after: prepared.after });
-      const effect = command.action === 'INVOICE_ISSUE' ? `Issue an invoice for ${String(prepared.before.currency)} ${String(prepared.before.total)} and create its receivable.`
+      const effect = command.action === 'INVOICE_ISSUE' ? `Issue an invoice for ${String(prepared.before.currency)} ${String(prepared.before.total)} and record the amount due.`
         : command.action === 'CREDIT_NOTE_ISSUE' ? `Issue a credit note for ${String(prepared.before.currency)} ${String(prepared.before.total)} against its original invoice.`
-          : command.action === 'INVOICE_VOID' ? 'Void this issued invoice under the existing same-day cancellation rules.'
+          : command.action === 'INVOICE_VOID' ? 'Cancel this issued invoice under the existing same-day cancellation rules.'
             : command.action === 'ORDER_CONFIRM' ? 'Create one sales order from the displayed accepted quotation revision.'
-              : command.action === 'STOCK_ADJUST' ? 'Post one stock movement with the displayed quantity and valuation effect.'
+              : command.action === 'STOCK_ADJUST' ? 'Record one stock movement with the displayed quantity and value.'
                 : 'Change only the quotation status shown below; this does not send an email.';
       return { id, nonce, expiresAt, command, before: prepared.before, after: prepared.after, permissionChecked: true, entitlementChecked: true,
-        effects: `${effect} Domain validation and any separate Wave 08 approval still apply.` };
+        effects: `${effect} Business validation and any required approval still apply.` };
     });
   }
   async confirm(firmId: number, actorId: number, id: string, nonce: string) {
@@ -255,12 +256,12 @@ export class AssistantRepository {
       await audit(tx, firmId, actorId, id, { event: 'ACTION_CANCELLED' });
     });
   }
-  async history(firmId: number, actorId: number, page: number) {
+  async history(firmId: number, actorId: number, page: number, sorting: ListSort<'createdAt' | 'id'> = {}) {
     return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
       const snapshot = await this.snapshot(tx, firmId, actorId, 'AUTO');
       if (!snapshot.localAllowed && !snapshot.llmAllowed) throw new AppError('Assistant access is unavailable', 403);
-      const conversations = await tx.assistantConversation.findMany({ where: { firmId, actorId, deletedAt: null }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 20, skip: (page - 1) * 20,
-        select: { id: true, createdAt: true, messages: { orderBy: { createdAt: 'desc' }, take: 20, select: { id: true, mode: true, tool: true, status: true, errorCode: true, createdAt: true } }, proposals: { orderBy: { createdAt: 'desc' }, take: 20, select: { id: true, status: true, expiresAt: true, createdAt: true, command: true, execution: { select: { id: true, result: true } } } } } });
+      const conversations = await tx.assistantConversation.findMany({ where: { firmId, actorId, deletedAt: null }, orderBy: listOrderBy(sorting, ['createdAt', 'id'], 'createdAt'), take: 20, skip: (page - 1) * 20,
+        select: { id: true, createdAt: true, messages: { orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 20, select: { id: true, mode: true, tool: true, status: true, errorCode: true, createdAt: true } }, proposals: { orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 20, select: { id: true, status: true, expiresAt: true, createdAt: true, command: true, execution: { select: { id: true, result: true } } } } } });
       // Domain evidence and transcript contents are not history summaries.
       // Recheck action access before exposing links to an executed result.
       for (const conversation of conversations) {

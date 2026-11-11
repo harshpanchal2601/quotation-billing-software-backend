@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { listSortFields } from '../../core/validation/list-sort.js';
 import { positiveQuantitySchema } from '../../core/validation/quantity.js';
 import { commandKeySchema } from '../../core/idempotency/command-key.js';
 
@@ -15,7 +16,7 @@ export const bomCreateSchema = z.object({
 });
 export const workOrderCreateSchema = z.object({ bomId: id, warehouseId: id, quantity: positiveQuantitySchema, idempotencyKey: commandKeySchema }).strict();
 export const workOrderActionSchema = z.object({ expectedVersion: id, idempotencyKey: commandKeySchema, reason: z.string().trim().min(5).max(2000) }).strict();
-export const manufacturingListSchema = z.object({ page: z.coerce.number().int().positive().max(100000).default(1), limit: z.coerce.number().int().min(1).max(100).default(20), search: z.string().trim().max(191).default('') }).strict();
+export const manufacturingListSchema = z.object({ ...listSortFields(['id', 'code', 'name', 'revision', 'outputQuantity', 'status', 'quantity', 'createdAt']), page: z.coerce.number().int().positive().max(100000).default(1), limit: z.coerce.number().int().min(1).max(100).default(20), search: z.string().trim().max(191).default('') }).strict();
 export const manufacturingIdSchema = z.coerce.number().int().positive();
 const snapshotItem = z.object({ itemId: id, unitId: id, name: z.string(), unit: z.string(), quantity: positiveQuantitySchema }).strict();
 export const workOrderSnapshotSchema = z.object({ bomCode: z.string(), bomRevision: id, output: snapshotItem, components: z.array(snapshotItem.extend({ lineId: id })).min(1).max(100) }).strict();

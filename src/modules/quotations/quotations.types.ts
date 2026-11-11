@@ -121,7 +121,7 @@ export type QuotationListQuery = {
   validTo?: string;
   minTotal?: number;
   maxTotal?: number;
-  sortBy: 'quotationNumber' | 'quotationDate' | 'validUntil' | 'grandTotal' | 'createdAt' | 'updatedAt';
+  sortBy: 'id' | 'quotationNumber' | 'quotationDate' | 'validUntil' | 'grandTotal' | 'createdAt' | 'updatedAt';
   sortOrder: 'asc' | 'desc';
 };
 

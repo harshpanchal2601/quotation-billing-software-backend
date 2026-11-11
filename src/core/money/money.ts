@@ -13,7 +13,10 @@ export function decimal(value: DecimalInput): Prisma.Decimal {
   if (typeof value !== 'string' && !Prisma.Decimal.isDecimal(value)) throw new Error('Decimal amounts must be strings or Decimals');
   if (typeof value === 'string' && !/^-?\d+(?:\.\d+)?$/.test(value)) throw new Error('Invalid decimal amount');
   const result = new Decimal(value);
-  if (!result.isFinite() || result.abs().gte('1000000000000000000000000') || result.decimalPlaces() > (typeof value === 'string' ? 18 : 48)) throw new Error('Decimal amount is outside supported precision');
+  // Arithmetic precision counts significant digits. A small repeating fraction
+  // can legitimately have more decimal places than its 48 significant digits.
+  const exceedsPrecision = typeof value === 'string' ? result.decimalPlaces() > 18 : result.precision() > 48;
+  if (!result.isFinite() || result.abs().gte('1000000000000000000000000') || exceedsPrecision) throw new Error('Decimal amount is outside supported precision');
   return result;
 }
 

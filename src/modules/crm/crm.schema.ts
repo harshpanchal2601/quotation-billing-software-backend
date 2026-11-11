@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { dateOnlySchema } from '../../core/validation/date-only.js';
+import { listSortFields } from '../../core/validation/list-sort.js';
 import { companyCreateSchema, companyContactCreateSchema } from '../companies/contract.js';
 
 export const OPPORTUNITY_STAGES = { NEW: 10, QUALIFIED: 25, PROPOSAL: 50, NEGOTIATION: 75, WON: 100, LOST: 0 } as const;
@@ -9,11 +10,15 @@ const text = z.string().trim().min(1).max(191);
 const links = { companyId: id.nullable().default(null), leadId: id.nullable().default(null) };
 export const crmIdSchema = z.object({ id: z.coerce.number().int().positive() });
 export const crmListSchema = z.object({
+  ...listSortFields(['id', 'name', 'title', 'status', 'stage', 'email', 'phone', 'source', 'value', 'currency', 'probability', 'expectedClose', 'dueAt', 'reminderAt', 'createdAt']),
   page: z.coerce.number().int().min(1).max(100000).default(1), limit: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().trim().max(191).default(''), companyId: z.coerce.number().int().positive().optional(),
   leadId: z.coerce.number().int().positive().optional(), ownerId: z.coerce.number().int().positive().optional(),
   status: z.string().max(30).optional(), reminders: z.enum(['true', 'false']).optional(),
 });
+export const customerTimelineListSchema = crmListSchema.extend(listSortFields(['id', 'createdAt', 'subject', 'kind']));
+export type CustomerTimelineList = z.infer<typeof customerTimelineListSchema>;
+
 export const leadCreateSchema = z.object({ name: companyContactCreateSchema.shape.name, email: z.string().trim().toLowerCase().email().max(191).nullable().default(null), phone: z.union([companyContactCreateSchema.shape.phone, z.null()]).default(null).transform((value) => value ?? null), source: text.nullable().default(null), ownerId: id }).strict();
 export const leadUpdateSchema = leadCreateSchema.partial().extend({ expectedVersion: id, status: z.enum(['NEW', 'QUALIFIED', 'CLOSED']).optional() }).strict();
 export const leadConversionSchema = z.object({

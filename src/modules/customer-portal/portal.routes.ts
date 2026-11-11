@@ -9,7 +9,7 @@ import { getFirmId, requireFirmContext } from '../../core/tenancy/tenant-context
 import { requireAuthentication, requirePermission } from '../auth/auth.middleware.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { portalRepository } from './portal.repository.js';
-import { portalDecisionSchema, portalExchangeSchema, portalGrantSchema, portalInviteSchema, portalListSchema } from './portal.schema.js';
+import { portalAccessListSchema, portalCompanyOptionsSchema, portalContactOptionsSchema, portalDecisionSchema, portalDocumentListSchema, portalDocumentOptionsSchema, portalExchangeSchema, portalGrantSchema, portalInviteSchema } from './portal.schema.js';
 
 const COOKIE = 'bhuminex_portal_session';
 const cookieOptions = { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'lax' as const, path: '/api/v1/customer-portal' };
@@ -22,8 +22,10 @@ const csrf = (req: Request) => req.get('x-portal-csrf') ?? '';
 export const portalAccessRouter = Router();
 portalAccessRouter.use(requireAuthentication, requireFirmContext, requirePermission(PERMISSIONS.PORTAL_MANAGE));
 portalAccessRouter.post('/identity/:id/restore', asyncHandler(async (req, res) => { await portalRepository.restoreIdentity(getFirmId(req), actor(req), idSchema.parse(req.params).id, metadata(req)); return sendSuccess(res, 200, 'Portal identity restored; issue a new invitation and document grants', {}); }));
-portalAccessRouter.get('/', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Portal access retrieved', await portalRepository.staffList(getFirmId(req), actor(req), portalListSchema.parse(req.query)))));
-portalAccessRouter.get('/contacts', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Invitable contacts retrieved', { contacts: await portalRepository.contacts(getFirmId(req), actor(req), z.coerce.number().int().positive().parse(req.query.companyId)) })));
+portalAccessRouter.get('/', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Portal access retrieved', await portalRepository.staffList(getFirmId(req), actor(req), portalAccessListSchema.parse(req.query)))));
+portalAccessRouter.get('/companies', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Portal company choices retrieved', { companies: await portalRepository.companies(getFirmId(req), actor(req), portalCompanyOptionsSchema.parse(req.query)) })));
+portalAccessRouter.get('/contacts', asyncHandler(async (req, res) => { const query = portalContactOptionsSchema.parse(req.query); return sendSuccess(res, 200, 'Invitable contacts retrieved', { contacts: await portalRepository.contacts(getFirmId(req), actor(req), query.companyId, query.search) }); }));
+portalAccessRouter.get('/document-options', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Shareable document choices retrieved', { documents: await portalRepository.documentOptions(getFirmId(req), actor(req), portalDocumentOptionsSchema.parse(req.query)) })));
 portalAccessRouter.post('/invitations', asyncHandler(async (req, res) => { res.setHeader('Cache-Control', 'no-store'); return sendSuccess(res, 201, 'Invitation created for deliberate delivery to the named contact', await portalRepository.invite(getFirmId(req), actor(req), portalInviteSchema.parse(req.body), metadata(req))); }));
 portalAccessRouter.post('/grants', asyncHandler(async (req, res) => sendSuccess(res, 201, 'Document explicitly shared', await portalRepository.share(getFirmId(req), actor(req), portalGrantSchema.parse(req.body), metadata(req)))));
 for (const kind of ['identity', 'invitation', 'grant'] as const) portalAccessRouter.post(`/${kind}/:id/revoke`, asyncHandler(async (req, res) => { await portalRepository.revoke(getFirmId(req), actor(req), kind, idSchema.parse(req.params).id, metadata(req)); return sendSuccess(res, 200, 'Portal access revoked', {}); }));
@@ -39,7 +41,7 @@ customerPortalRouter.post('/exchange', trustedOrigin, rateLimit({ windowMs: 15 *
   return sendSuccess(res, 200, 'Portal session established', { csrfToken: result.csrfToken, expiresAt: result.expiresAt });
 }));
 customerPortalRouter.post('/session', trustedOrigin, asyncHandler(async (req, res) => sendSuccess(res, 200, 'Portal session resumed', await portalRepository.resume(token(req)))));
-customerPortalRouter.get('/documents', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Shared documents retrieved', await portalRepository.listDocuments(token(req), portalListSchema.parse(req.query).page))));
+customerPortalRouter.get('/documents', asyncHandler(async (req, res) => { const query = portalDocumentListSchema.parse(req.query); return sendSuccess(res, 200, 'Shared documents retrieved', await portalRepository.listDocuments(token(req), query.page, query)); }));
 customerPortalRouter.get('/documents/:id', asyncHandler(async (req, res) => sendSuccess(res, 200, 'Shared document retrieved', await portalRepository.document(token(req), idSchema.parse(req.params).id))));
 customerPortalRouter.post('/decisions', trustedOrigin, asyncHandler(async (req, res) => sendSuccess(res, 200, 'Quotation decision recorded', await portalRepository.decide(token(req), csrf(req), portalDecisionSchema.parse(req.body), metadata(req)))));
 customerPortalRouter.post('/logout', trustedOrigin, asyncHandler(async (req, res) => { await portalRepository.logout(token(req), csrf(req)); res.clearCookie(COOKIE, cookieOptions); return sendSuccess(res, 200, 'Portal session ended', {}); }));

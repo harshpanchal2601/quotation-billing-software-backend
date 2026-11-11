@@ -48,7 +48,10 @@ export class ReceivablesRepository {
       const invalid = await tx.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*) AS count FROM (${source}) p WHERE p.outstanding < 0 OR p.adjusted_total < 0`;
       if (Number(invalid[0]?.count ?? 0) > 0) throw new AppError('Receivables do not reconcile; review allocations and adjustments', 409);
       const predicate = Prisma.sql`p.outstanding > 0 ${query.overdueOnly === 'true' ? Prisma.sql`AND p.due_date < ${today}` : Prisma.empty}`;
-      const rows = includeRows ? await tx.$queryRaw<BalanceRow[]>`SELECT p.* FROM (${source}) p WHERE ${predicate} ORDER BY p.id DESC LIMIT ${query.limit} OFFSET ${(query.page - 1) * query.limit}` : [];
+      const sortFields = { id: Prisma.sql`p.id`, documentNumber: Prisma.sql`p.document_number`, companyName: Prisma.sql`p.company_name`, dueDate: Prisma.sql`p.due_date`, currency: Prisma.sql`p.currency`, outstanding: Prisma.sql`p.outstanding` };
+      const sortBy = query.sortBy ?? 'id';
+      const direction = query.sortOrder === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+      const rows = includeRows ? await tx.$queryRaw<BalanceRow[]>`SELECT p.* FROM (${source}) p WHERE ${predicate} ORDER BY ${sortFields[sortBy]} ${direction}, p.id ${direction} LIMIT ${query.limit} OFFSET ${(query.page - 1) * query.limit}` : [];
       const buckets = await tx.$queryRaw<AgeingRow[]>`SELECT p.currency,
         CASE WHEN p.due_date IS NULL OR p.due_date >= ${today} THEN 'CURRENT'
           WHEN DATEDIFF(${today}, p.due_date) <= 30 THEN 'DAYS_1_30'

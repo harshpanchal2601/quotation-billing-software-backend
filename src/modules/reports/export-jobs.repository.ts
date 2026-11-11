@@ -1,3 +1,4 @@
+import { listOrderBy, type ListSort } from '../../core/validation/list-sort.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { AuditAction, Prisma, type OutboxEvent, type PrismaClient } from '@prisma/client';
 import { z } from 'zod';
@@ -56,11 +57,11 @@ export class ExportJobsRepository {
       return job;
     });
   }
-  async list(firmId: number, actorId: number, page: number, limit: number) {
+  async list(firmId: number, actorId: number, page: number, limit: number, sort: ListSort = {}) {
     return this.db.$transaction(async (tx) => {
       await this.reports.assertExportAccess(tx, firmId, actorId);
       const where = { firmId, actorId, deletedAt: null };
-      const [jobs, total] = await Promise.all([tx.reportExportJob.findMany({ where, select: summary, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * limit, take: limit }), tx.reportExportJob.count({ where })]);
+      const [jobs, total] = await Promise.all([tx.reportExportJob.findMany({ where, select: summary, orderBy: listOrderBy(sort, ['id', 'createdAt', 'format', 'fileSize', 'completedAt'], 'createdAt'), skip: (page - 1) * limit, take: limit }), tx.reportExportJob.count({ where })]);
       return { jobs, workerEnabled: env.OUTBOX_WORKER_ENABLED, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
     });
   }

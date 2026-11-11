@@ -13,6 +13,7 @@ import { env } from '../../config/env.js';
 import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
 import { AppError } from '../../core/errors/AppError.js';
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import { initializeLegacySubscription, loadEntitlements } from '../entitlements/index.js';
 import type {
   PlatformFirmCreateInput,
@@ -79,7 +80,9 @@ export class PlatformRepository {
           },
           _count: { select: { users: { where: { deletedAt: null } } } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: query.sortBy === 'displayName'
+          ? [{ businessProfile: { displayName: query.sortOrder ?? 'desc' } }, { id: query.sortOrder ?? 'desc' }]
+          : listOrderBy(query, ['id', 'name', 'slug', 'status', 'createdAt'], 'createdAt'),
         skip: (query.page - 1) * query.limit,
         take: query.limit,
       }),

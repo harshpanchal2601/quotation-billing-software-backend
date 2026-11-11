@@ -18,9 +18,9 @@ export async function readProviderStatus(firmId: number, actorId: number) {
       mailAllowed = true;
     } catch (error) { if (!(error instanceof AppError) || error.statusCode !== 403) throw error; }
     return { firmId, providers: [
-      { provider: 'SMTP', capability: 'Quotation email', state: mailConfigured ? mailAllowed ? 'CONFIGURED_NOT_VERIFIED' : 'ACCESS_DENIED' : 'NOT_CONFIGURED', enabled: mailConfigured && mailAllowed, reason: 'Existing quotation email permissions and plan gates apply. Configuration does not prove delivery or consent.' },
-      { provider: 'RAZORPAY', capability: 'Customer payment gateway', state: 'NOT_IMPLEMENTED', enabled: false, reason: 'No gateway adapter or durable callback ingestion is registered. A mapped merchant account, agreement, credentials and sandbox evidence are required.' },
-      { provider: 'INDIA_IRP', capability: 'IRN and e-way integration', state: 'NOT_IMPLEMENTED', enabled: false, reason: 'No tax-submission adapter is registered. Jurisdiction applicability and official/provider contracts must be verified before implementation and activation.' },
+      { provider: 'SMTP', capability: 'Quotation email', state: mailConfigured ? mailAllowed ? 'CONFIGURED_NOT_VERIFIED' : 'ACCESS_DENIED' : 'NOT_CONFIGURED', enabled: mailConfigured && mailAllowed, reason: !mailConfigured ? 'Email delivery is not set up on this server. Ask your administrator to configure and verify it before sending quotations.' : mailAllowed ? 'Email setup has not been verified. Confirm delivery and recipient consent before sending quotations.' : 'Email delivery is turned off for your account or plan. Your administrator can review it after delivery setup is verified.' },
+      { provider: 'RAZORPAY', capability: 'Customer payment gateway', state: 'NOT_IMPLEMENTED', enabled: false, reason: 'Online payment collection is not available. Continue recording confirmed receipts manually until an approved payment connection is ready.' },
+      { provider: 'INDIA_IRP', capability: 'E-invoices and e-way bills', state: 'NOT_IMPLEMENTED', enabled: false, reason: 'Automatic e-invoice and e-way bill submission is not available. Arrange a verified tax service for documents that require these services.' },
     ] };
   });
 }

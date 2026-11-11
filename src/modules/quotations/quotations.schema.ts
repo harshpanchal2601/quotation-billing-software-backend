@@ -147,7 +147,7 @@ export const quotationListQuerySchema = z.object({
   minTotal: z.coerce.number().min(0).optional(),
   maxTotal: z.coerce.number().min(0).optional(),
   sortBy: z
-    .enum(['quotationNumber', 'quotationDate', 'validUntil', 'grandTotal', 'createdAt', 'updatedAt'])
+    .enum(['id', 'quotationNumber', 'quotationDate', 'validUntil', 'grandTotal', 'createdAt', 'updatedAt'])
     .default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });

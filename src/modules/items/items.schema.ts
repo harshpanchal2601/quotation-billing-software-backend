@@ -96,7 +96,7 @@ export const itemListQuerySchema = z
     minRate: z.coerce.number().min(0).optional(),
     maxRate: z.coerce.number().min(0).optional(),
     sortBy: z
-      .enum(['itemCode', 'name', 'defaultRate', 'gstRate', 'createdAt', 'updatedAt'])
+      .enum(['id', 'itemCode', 'name', 'defaultRate', 'gstRate', 'createdAt', 'updatedAt'])
       .default('createdAt'),
     sortOrder: z.enum(['asc', 'desc']).default('desc'),
   })

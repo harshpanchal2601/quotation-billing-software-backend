@@ -14,6 +14,14 @@ describe('explicit Decimal money', () => {
     expect(roundDecimal('-2.345', 2, 'HALF_UP')).toBe('-2.35');
     expect(roundDecimal('2.349', 2, 'DOWN')).toBe('2.34');
   });
+  it('rounds repeating arithmetic fractions without relaxing submitted amount limits', () => {
+    const share = decimal('0.02').div(3);
+    expect(share.decimalPlaces()).toBeGreaterThan(48);
+    expect(money(share, 'INR').amount).toBe('0.01');
+    expect(money(decimal('74.99').div(3), 'INR').amount).toBe('25.00');
+    expect(() => decimal('0.0000000000000000001')).toThrow('outside supported precision');
+    expect(() => decimal('1000000000000000000000000')).toThrow('outside supported precision');
+  });
   it('rejects floats, nonfinite inputs, unsupported currencies and implicit FX', () => {
     for (const value of [0.1, 'NaN', 'Infinity', '', '1e6']) expect(() => decimal(value as string)).toThrow();
     expect(() => money('1', 'XXX' as 'INR')).toThrow();

@@ -3,6 +3,7 @@ import { AuditAction } from '@prisma/client';
 
 import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
+import { listOrderBy } from '../../core/validation/list-sort.js';
 import { createPaginationMetadata } from './categories.types.js';
 import {
   serialiseCategory,
@@ -50,7 +51,7 @@ export class CategoriesRepository {
     const [categories, total] = await this.db.$transaction([
       this.db.itemCategory.findMany({
         where,
-        orderBy: { [query.sortBy]: query.sortOrder },
+        orderBy: listOrderBy(query, ['name', 'slug', 'createdAt', 'updatedAt'], 'name', 'asc'),
         skip: (query.page - 1) * query.limit,
         take: query.limit,
         include: categoryDetailInclude,

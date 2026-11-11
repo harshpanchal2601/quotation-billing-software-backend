@@ -2,6 +2,7 @@ import { CommunicationStatus, CommunicationType, Prisma, QuotationStatus } from 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildQuotationEmailContent, escapeHtml } from '../src/modules/quotations/email/quotation-email.template';
 import { validateSendQuotationEmailInput } from '../src/modules/quotations/communications/quotation-communications.repository';
+import { generatedDocumentHistorySchema, quotationCommunicationHistorySchema } from '../src/modules/quotations/email/quotation-email.schema.js';
 import { AppError } from '../src/core/errors/AppError.js';
 import { requestHash } from '../src/core/idempotency/request-hash.js';
 import { customerQuotationSnapshot } from '../src/modules/quotations/quotation-customer.js';
@@ -403,6 +404,9 @@ describe('quotation email communication lifecycle', () => {
 
     const result = await quotationCommunicationsRepository.getCommunicationHistory(1, 1, {});
 
+    expect(mocks.prisma.quotationCommunication.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { quotationId: 1 }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: 0, take: 20,
+    }));
     expect(result.communications).toEqual([
       expect.objectContaining({
         id: 100,
@@ -415,4 +419,24 @@ describe('quotation email communication lifecycle', () => {
       }),
     ]);
   });
+  it('sorts communication history before pagination with an ID tie-breaker', async () => {
+    mocks.prisma.quotationCommunication.count.mockResolvedValueOnce(43);
+    mocks.prisma.quotationCommunication.findMany.mockResolvedValueOnce([]);
+    const result = await quotationCommunicationsRepository.getCommunicationHistory(1, 1, {
+      page: 2, limit: 20, sortBy: 'subjectSnapshot', sortOrder: 'asc',
+    });
+    expect(mocks.prisma.quotationCommunication.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      orderBy: [{ subjectSnapshot: 'asc' }, { id: 'asc' }], skip: 20, take: 20,
+    }));
+    expect(result.pagination).toEqual({ page: 2, limit: 20, total: 43, totalPages: 3 });
+  });
+
+  it('rejects invalid history pagination and unsupported sorting fields', () => {
+    expect(generatedDocumentHistorySchema.safeParse({ page: '1.5' }).success).toBe(false);
+    expect(generatedDocumentHistorySchema.safeParse({ sortBy: 'filePath' }).success).toBe(false);
+    expect(quotationCommunicationHistorySchema.safeParse({ limit: '101' }).success).toBe(false);
+    expect(quotationCommunicationHistorySchema.safeParse({ sortOrder: 'sideways' }).success).toBe(false);
+    expect(quotationCommunicationHistorySchema.parse({ page: '2', sortBy: 'subjectSnapshot', sortOrder: 'asc' })).toEqual({ page: 2, limit: 20, sortBy: 'subjectSnapshot', sortOrder: 'asc' });
+  });
+
 });
