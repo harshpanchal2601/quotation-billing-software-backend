@@ -160,7 +160,7 @@ export class QuotationCommunicationsRepository {
 
     const items: GeneratedDocumentHistoryItemDto[] = await Promise.all(
       documents.map(async (doc) => {
-        const fullPath = path.resolve(storageConfig.root, doc.filePath.replace(/^\/?storage\//, ''));
+        const fullPath = quotationDocumentsRepository.resolveDocumentAbsolutePath(doc.filePath);
         let isAvailable = false;
         if (fullPath.startsWith(pdfStorageDir)) {
           isAvailable = await quotationDocumentsRepository.documentFileExists(doc.filePath);
@@ -268,15 +268,10 @@ export class QuotationCommunicationsRepository {
       throw new AppError('Invalid document path', 403);
     }
 
-    let pdfStat: import('node:fs').Stats;
-    try {
-      const fs = await import('node:fs/promises');
-      pdfStat = await fs.stat(pdfFullPath);
-    } catch {
-      throw new AppError('Selected quotation PDF file is missing from storage', 404);
-    }
+    const pdfSize = await storageService.storageFileSize(document.filePath.replace(/^\/?storage\//, ''));
+    if (pdfSize === 0) throw new AppError('Selected quotation PDF file is missing from storage', 404);
 
-    let totalSizeBytes = pdfStat.size;
+    let totalSizeBytes = pdfSize;
     const safePdfName = `Quotation-${quotation.quotationNumber.replace(/[/\\\\]/g, '-')}.pdf`;
     const documentSnapshot = {
       id: document.id,
@@ -314,26 +309,11 @@ export class QuotationCommunicationsRepository {
 
       for (const att of fetchedAttachments) {
         const attFullPath = resolveAttachmentAbsolutePath(att.filePath);
-        try {
-          const fs = await import('node:fs/promises');
-          const attStat = await fs.stat(attFullPath);
-          totalSizeBytes += attStat.size;
-          selectedAttachments.push({
-            id: att.id,
-            fullPath: attFullPath,
-            originalFilename: att.originalFilename,
-            mimeType: att.mimeType,
-            size: attStat.size,
-          });
-          selectedAttachmentSnapshots.push({
-            id: att.id,
-            originalFilename: att.originalFilename,
-            mimeType: att.mimeType,
-            fileSize: attStat.size,
-          });
-        } catch {
-          throw new AppError(`Attachment file "${att.originalFilename}" is missing from storage`, 404);
-        }
+        const size = await storageService.storageFileSize(att.filePath.replace(/^\/?storage\//, ''));
+        if (size === 0) throw new AppError(`Attachment file "${att.originalFilename}" is missing from storage`, 404);
+        totalSizeBytes += size;
+        selectedAttachments.push({ id: att.id, fullPath: attFullPath, originalFilename: att.originalFilename, mimeType: att.mimeType, size });
+        selectedAttachmentSnapshots.push({ id: att.id, originalFilename: att.originalFilename, mimeType: att.mimeType, fileSize: size });
       }
     }
 
@@ -353,12 +333,12 @@ export class QuotationCommunicationsRepository {
     });
 
     const emailAttachments = [
-      { filename: safePdfName, path: pdfFullPath, contentType: 'application/pdf' },
-      ...selectedAttachments.map((att) => ({
+      { filename: safePdfName, content: await storageService.readStorageFile(path.relative(storageConfig.root, pdfFullPath)), contentType: 'application/pdf' },
+      ...await Promise.all(selectedAttachments.map(async (att) => ({
         filename: sanitiseFilename(att.originalFilename),
-        path: att.fullPath,
+        content: await storageService.readStorageFile(path.relative(storageConfig.root, att.fullPath)),
         contentType: att.mimeType,
-      })),
+      }))),
     ];
 
     const attemptNumber = (await this.db.quotationCommunication.count({ where: { quotationId } })) + 1;

@@ -59,12 +59,10 @@ vi.mock('../src/modules/settings/index.js', () => ({
   resolveBrandingPath: vi.fn(),
 }));
 
-vi.mock('node:fs/promises', () => ({
-  default: {
-    stat: mocks.stat,
-  },
-  stat: mocks.stat,
-}));
+vi.mock('../src/integrations/storage/index.js', async (original) => {
+  const actual = await original<typeof import('../src/integrations/storage/index.js')>();
+  return { ...actual, storageService: { ...actual.storageService, storageFileSize: mocks.stat, readStorageFile: vi.fn().mockResolvedValue(Buffer.from('QA file bytes')) } };
+});
 
 import {
   quotationCommunicationsRepository,
@@ -183,7 +181,7 @@ describe('quotation email communication lifecycle', () => {
     mocks.prisma.quotation.updateMany.mockResolvedValue({ count: 1 });
     mocks.prisma.quotationStatusHistory.create.mockResolvedValue({ id: 1 });
     mocks.prisma.auditLog.create.mockResolvedValue({ id: 1 });
-    mocks.stat.mockResolvedValue({ size: 1024 });
+    mocks.stat.mockResolvedValue(1024);
     mocks.sendMail.mockResolvedValue({ messageId: 'smtp-message-123' });
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });

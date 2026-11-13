@@ -7,8 +7,8 @@ import { firmPublicAssetDirectory, storageConfig } from '../../../config/storage
 import { AppError } from '../../../core/errors/AppError.js';
 import {
   deleteStorageFile,
-  ensureStorageDirectory,
-  resolveStoragePath,
+  createManagedUploadStorage,
+  storedUploadRelativePath,
 } from '../../../integrations/storage/index.js';
 
 const allowedMimeExtensions = {
@@ -20,27 +20,15 @@ const allowedMimeExtensions = {
 export const ITEM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 export const uploadItemImage = multer({
-  storage: multer.diskStorage({
-    destination: async (req, _file, callback) => {
-      try {
-        if (req.firmId === undefined) {
-          callback(new AppError('Firm context is required', 500), '');
-          return;
-        }
-        const directory = firmPublicAssetDirectory(req.firmId, storageConfig.itemImageDirectory);
-        await ensureStorageDirectory(directory);
-        callback(null, resolveStoragePath(directory));
-      } catch (error) {
-        callback(error as Error, '');
-      }
+  storage: createManagedUploadStorage({
+    directory: (req) => {
+      if (req.firmId === undefined) throw new AppError('Firm context is required', 500);
+      return firmPublicAssetDirectory(req.firmId, storageConfig.itemImageDirectory, req.firmName);
     },
-    filename: (_req, file, callback) => {
+    filename: (_req, file) => {
       const extension = allowedMimeExtensions[file.mimetype as keyof typeof allowedMimeExtensions];
-      if (extension === undefined) {
-        callback(new AppError('Unsupported item image type', 415), '');
-        return;
-      }
-      callback(null, `item-${crypto.randomUUID()}${extension}`);
+      if (!extension) throw new AppError('Unsupported item image type', 415);
+      return `item-${crypto.randomUUID()}${extension}`;
     },
   }),
   limits: {
@@ -77,7 +65,8 @@ export function validateItemImageFile(file: Pick<Express.Multer.File, 'mimetype'
   return null;
 }
 
-export function toItemRelativePath(firmId: number, filename: string): string {
+export function toItemRelativePath(firmId: number, filename: string, storedPath?: string): string {
+  if (storedPath !== undefined) return storedUploadRelativePath(firmId, storageConfig.firmAssetDirectory, filename, storedPath, storageConfig.itemImageDirectory);
   return `${firmPublicAssetDirectory(firmId, storageConfig.itemImageDirectory)}/${path.basename(filename)}`;
 }
 

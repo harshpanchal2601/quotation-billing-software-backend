@@ -70,7 +70,7 @@ export const requireFirmContext: RequestHandler = async (req, _res, next) => {
         status: FirmStatus.ACTIVE,
         deletedAt: null,
       },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
     if (firm === null) {
@@ -87,6 +87,7 @@ export const requireFirmContext: RequestHandler = async (req, _res, next) => {
     }
 
     req.firmId = firm.id;
+    req.firmName = firm.name;
     next();
   } catch (error) {
     next(error);

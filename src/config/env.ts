@@ -14,6 +14,12 @@ const envSchema = z.object({
     catch { return; } // The URL schema already rejects this without echoing input.
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) context.addIssue({ code: z.ZodIssueCode.custom, message: 'FRONTEND_URL must be a browser origin' });
   }).transform((value) => new URL(value).origin),
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  STORAGE_LOCAL_ROOT: z.string().trim().min(1).default('storage'),
+  STORAGE_S3_BUCKET: z.string().trim().default(''),
+  STORAGE_S3_REGION: z.string().trim().default(''),
+  STORAGE_S3_PREFIX: z.string().trim().default(''),
+  STORAGE_S3_EXPECTED_BUCKET_OWNER: z.string().trim().regex(/^(?:[0-9]{12})?$/).default(''),
   DATABASE_URL: z.string().trim().min(1, 'DATABASE_URL is required'),
   JWT_ACCESS_SECRET: z.string().trim().min(1, 'JWT_ACCESS_SECRET is required'),
   JWT_REFRESH_SECRET: z.string().trim().min(1, 'JWT_REFRESH_SECRET is required'),
@@ -52,6 +58,11 @@ const envSchema = z.object({
   WEBHOOK_ENCRYPTION_PREVIOUS_KEYS: z.string().default('').transform((value) => value.split(',').map((key) => key.trim()).filter(Boolean)).refine((keys) => keys.length <= 5 && keys.every((key) => encryptionKeySchema.safeParse(key).success)),
   WEBHOOK_ALLOWED_HOSTS: z.string().default('').transform((value) => value.split(',').map((host) => host.trim().toLowerCase()).filter(Boolean)).refine((hosts) => hosts.every((host) => /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(host))),
 }).superRefine((value, context) => {
+  if (value.STORAGE_DRIVER === 's3') {
+    if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(value.STORAGE_S3_BUCKET) || value.STORAGE_S3_BUCKET.includes('..') || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(value.STORAGE_S3_BUCKET)) context.addIssue({ code: z.ZodIssueCode.custom, path: ['STORAGE_S3_BUCKET'], message: 'A valid S3 bucket is required' });
+    if (!/^[a-z]{2}(?:-[a-z]+)+-[0-9]+$/.test(value.STORAGE_S3_REGION)) context.addIssue({ code: z.ZodIssueCode.custom, path: ['STORAGE_S3_REGION'], message: 'An explicit AWS region is required' });
+  }
+  if (value.STORAGE_S3_PREFIX && !/^(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\/?$/.test(value.STORAGE_S3_PREFIX)) context.addIssue({ code: z.ZodIssueCode.custom, path: ['STORAGE_S3_PREFIX'], message: 'Use a relative object prefix without dot segments' });
   if (value.WORKER_STALE_AFTER_MS <= value.OUTBOX_POLL_INTERVAL_MS) context.addIssue({ code: z.ZodIssueCode.custom, path: ['WORKER_STALE_AFTER_MS'], message: 'Worker freshness must exceed its poll interval' });
   if (value.NODE_ENV !== 'production') return;
   if (!value.FRONTEND_URL.startsWith('https://')) context.addIssue({ code: z.ZodIssueCode.custom, path: ['FRONTEND_URL'], message: 'Production browser origin requires HTTPS' });

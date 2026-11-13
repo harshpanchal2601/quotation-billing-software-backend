@@ -1,6 +1,33 @@
 # Storage Rules
 
-## Current Runtime Storage
+## Qorwell storage contract
+
+The shared integration in `src/integrations/storage` selects local disk or private
+S3 using `STORAGE_DRIVER`. Modules own authorization, naming, file validation and
+retention decisions; the integration owns provider I/O and bounded upload spooling.
+All managed consumers use the same provider. S3 failures never fall back to disk.
+
+New paths contain a numeric firm ID and a safe name snapshot, for example
+`quotation-documents/5-qa-end-to-end-20261113/<uuid>.pdf` and
+`firm-assets/5-qa-end-to-end-20261113/logos/logo-<uuid>.png`. The shared helpers in
+`src/config/storage.config.ts` generate and validate these paths. Background report
+exports and billing PDFs read the firm's name from their authorized database flow.
+Uploads persist their actual saved path rather than rebuilding it after upload.
+
+The database path stays authoritative after a firm rename. Historical numeric
+folders remain readable, and the name never replaces tenant authorization. Public
+display assets retain backend `/storage/...` URLs; PDFs, attachments and exports
+retain their authorized API routes. S3 objects are not public.
+
+Provider switching requires a verified copy and a coordinated restart. It does not
+move existing files automatically or rewrite database paths. See
+[the Qorwell storage runbook](../../implementation/qorwell-storage-integration.txt)
+for the deployed AWS infrastructure, environment settings, copy/recovery commands,
+cost assumptions, verification and live-application deployment limits.
+
+The BE-05/BE-08 notes below are historical records of the earlier local migration.
+
+## Earlier Local Runtime Storage
 
 - Root: `storage/`
 - Public assets: `storage/items`, `storage/logos`, `storage/signatures`, `storage/stamps`

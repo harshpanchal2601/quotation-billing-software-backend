@@ -1,0 +1,296 @@
+QORWELL — SELECTABLE LOCAL / AWS S3 FILE STORAGE
+13 November 2026
+
+Delivery scope
+The backend uses one shared storage service for local disk or private Amazon S3.
+Quotations, billing PDFs, attachments, item images, branding, PDF branding reads,
+email attachment bytes, report export artifacts and storage quota measurements
+all use this service. Database records store provider-independent relative paths.
+There are no frontend AWS credentials, public document buckets or presigned URLs.
+
+AWS resources actually created and verified
+Account: 429435740649 (Panchal Harsh)
+Region: eu-north-1 (Stockholm, same region as the existing EC2 instance)
+CloudFormation stack: qorwell-erp-storage-dev
+Bucket: qorwell-erp-files-429435740649-eu-north-1
+Template: infrastructure/storage.json
+EC2: i-09f22018c66a9def8 / 16.170.163.155
+Instance role: qorwell-erp-storage-dev-StorageRole-z9lgun5UQUod
+Instance profile: qorwell-erp-storage-dev-StorageInstanceProfile-osDc81cPZAr2
+The instance profile is associated with the running EC2 instance. IMDSv2 remains
+required. The instance obtains temporary role credentials; no AWS access keys
+were copied to .env, the repository or the server.
+
+The bucket has all public access blocked, ACLs disabled, HTTPS-only access,
+AES256 SSE-S3 encryption and versioning enabled. The runtime role can list/read/
+write/delete current objects only under development/. It cannot read the local
+application prefix, list the bucket without a prefix or permanently delete old
+object versions. Bucket and data are retained if the stack is deleted/replaced.
+The only lifecycle rule aborts incomplete multipart uploads after seven days.
+Current business documents and historical versions have no automatic expiration.
+The unused, empty resources with the previous brand were removed; no business
+file was deleted during that cleanup.
+
+How files flow
+
+  Browser: upload / generate PDF / preview / download
+                    |
+                    v
+  Feature API: authentication + firm/record permissions + file validation
+                    |
+          +---------+-----------------+
+          |                           |
+          v                           v
+  Database metadata            Shared storage service
+  firm ID, relative path,              |
+  version, size and hash        STORAGE_DRIVER at startup
+                                  /              \
+                             local                s3
+                               |                   |
+                       STORAGE_LOCAL_ROOT     private Qorwell bucket
+                                               environment prefix
+
+Protected files are read through their authorized API routes. Public display
+assets keep the existing /storage/... application URLs; the backend proxies the
+S3 bytes for the approved image directories. The bucket itself remains private.
+Multipart uploads use a short-lived, bounded operating-system temporary spool;
+that spool is removed after success/failure. Successful S3 uploads do not keep a
+permanent local copy. Temporary processing is different from persistent storage.
+Storage outages return a safe error; S3 mode never silently writes to disk.
+
+Readable firm folders
+New writes include the stable numeric firm ID and a readable name snapshot:
+
+  local-development/
+    billing-documents/5-qa-e2e/<uuid>.pdf
+    quotation-documents/5-qa-e2e/<uuid>.pdf
+    quotation-attachments/5-qa-e2e/<uuid>.txt
+    firm-assets/5-qa-e2e/items/item-<uuid>.png
+    firm-assets/5-qa-e2e/logos/logo-<uuid>.png
+    firm-assets/5-qa-e2e/signatures/signature-<uuid>.png
+    firm-assets/5-qa-e2e/stamps/stamp-<uuid>.png
+    report-exports/5-qa-e2e/<job-uuid>/<file-uuid>.csv
+
+The paths above illustrate a firm named QA E2E. The verified firm #5 is named
+QA End-to-End 20261113; its actual new folder is 5-qa-end-to-end-20261113.
+
+The actual name comes from Firm.name, not the display label of a different
+company record. Names are normalized to safe folder text, capped at 40 Unicode
+characters and combined with the firm ID. Indian-language letters are supported.
+Firms with the same name remain separate because their IDs differ. A name with
+no usable letters or numbers uses <id>-firm. Filenames remain UUID-based.
+
+The saved path is authoritative. If a firm is renamed, existing files retain
+their original name snapshot and continue to open; later files use the new name.
+Uploads persist the exact path selected before receiving the file, so a rename
+during upload cannot redirect the metadata to a different file. Validation checks
+the firm ID, file area, asset type and filename; folder names grant no permissions.
+Historical numeric folders are still supported. Existing files were not renamed
+or moved by this naming change, and no database schema migration is required.
+
+Environment configuration
+Local mode (existing behavior):
+  STORAGE_DRIVER=local
+  STORAGE_LOCAL_ROOT=storage
+
+S3 mode, this computer's database (currently active on port 3004):
+  STORAGE_DRIVER=s3
+  STORAGE_LOCAL_ROOT=storage
+  STORAGE_S3_BUCKET=qorwell-erp-files-429435740649-eu-north-1
+  STORAGE_S3_REGION=eu-north-1
+  STORAGE_S3_PREFIX=local-development
+  STORAGE_S3_EXPECTED_BUCKET_OWNER=429435740649
+
+EC2 application configuration when deploying this code using the existing process:
+  STORAGE_DRIVER=s3
+  STORAGE_S3_BUCKET=qorwell-erp-files-429435740649-eu-north-1
+  STORAGE_S3_REGION=eu-north-1
+  STORAGE_S3_PREFIX=development
+  STORAGE_S3_EXPECTED_BUCKET_OWNER=429435740649
+
+Keep different application databases in different prefixes even if firm IDs match.
+Restart the backend after changing provider settings. The region is explicit;
+the workstation's existing AWS default profile has an invalid default region,
+which was not changed globally. Locally use an existing AWS profile/SSO; on EC2
+use the attached role. Do not add root credentials or permanent AWS keys to .env.
+
+Copying files and switching providers safely
+scripts/storage-migrate.ts defaults to dry-run, is copy-only and never changes DB
+paths or deletes a source. It verifies size and SHA256, skips identical targets
+and refuses conflicting targets. It rejects symbolic links and skips dotfiles.
+A private storage-migration-manifest.json records the inventory/results and is
+ignored by the backend repository. Preserve an applied manifest before rerunning.
+
+For local -> S3, configure the intended bucket/prefix/root first, pause writers
+and workers during the final copy and switch, then run from the backend:
+  npm run storage:migrate -- --dry-run
+  npm run storage:migrate -- --apply
+Verify the manifest, select STORAGE_DRIVER=s3 and restart the backend. Verify old
+and new records before allowing writes. Keep the original source until recovery
+and retention requirements have been agreed; do not delete it as part of copying.
+
+For S3 -> local, use a NEW empty STORAGE_LOCAL_ROOT, pause writers/workers and run:
+  npm run storage:migrate -- --to-local --dry-run
+  npm run storage:migrate -- --to-local --apply
+Verify the manifest, select STORAGE_DRIVER=local with that exact new root, restart
+and verify records before allowing writes. Do not switch back to an old disk copy:
+S3-only uploads would be missing and files deleted in S3 might reappear. The script
+refuses a local destination containing stale or differing files. Database paths
+remain the same in either mode. Synchronization is explicit, not automatic dual
+writing or fallback. S3 version recovery requires a separate authorized operator;
+the application role intentionally cannot purge historical versions.
+
+Verification already completed for the provider integration
+- Browser: invoice #8 PDF version 2 generated/previewed; quotation #6 attachment
+  uploaded and previewed; item #4 image saved; firm #5 logo saved and retained on
+  refresh; quotation PDF generated/previewed with that S3 logo; queued CSV export
+  completed and browser download matched the exact S3 object bytes.
+- Forward copy: 33 original local files / 14,086,983 bytes copied to S3 with size
+  and SHA256 verified; original local sources preserved.
+- Recovery rehearsal: all 39 then-current S3 files / 14,332,807 bytes copied to a
+  fresh local directory and verified byte-for-byte. This was a snapshot before
+  subsequent firm-folder QA files, not an ongoing mirror.
+- A temporary full backend on port 3005 with STORAGE_DRIVER=local served the
+  recovered invoice, quotation PDF, attachment and logo with exact matching bytes.
+  Its worker was disabled; it was stopped after verification. Port 3004 stayed S3.
+- 19 runtime checks passed: S3-only persistence, hashes/encryption/version IDs,
+  image URLs, real browser export bytes, PDF ranges, invalid type/extension/size
+  rejection without records/live objects, unauthenticated 401, insufficient file
+  permission 403, foreign-firm 404 and anonymous direct-S3 403.
+- Nine actual EC2 instance-role checks passed using IMDSv2: encrypted PUT, exact
+  GET, HEAD and scoped listing allowed; local prefix, unscoped listing and version
+  purging denied; disposable QA current object removed using a versioned delete.
+- Firm-folder changes: typecheck and lint passed; 97 affected tests across nine
+  files passed, including safe Unicode names, equal-name firm separation, rename
+  compatibility, wrong-firm rejection and exact uploaded-path persistence.
+- Named-folder browser verification: new quotation PDF versions 2/3, invoice #8
+  PDF version 3, attachment #5, item #4 image, firm #5 logo and queued CSV export
+  329942f1-6061-4e1b-98f5-14467b389174 all saved to their named S3 directories.
+  The invoice preview rendered successfully; the latest quotation preview showed
+  its named-folder S3 logo and INR 300.00 total. The browser CSV download matched
+  the stored artifact byte-for-byte.
+- 16 additional named-folder runtime checks passed: six named S3-only objects
+  with AES256/version metadata and matching local-provider bytes; exact image
+  URLs; renderer branding; new and historical protected downloads; old/new export
+  ownership; unauthenticated 401, read-only 403, foreign-firm 404 and anonymous S3
+  403. A real API rename of synthetic firm #5 preserved its existing downloads
+  and branding. The original name was restored in the same check workflow.
+
+Evidence (private local QA artifacts, not deployment inputs)
+  /tmp/qorwell-s3-qa/runtime-evidence.json
+  /tmp/qorwell-s3-qa/local-mode-evidence.json
+  /tmp/qorwell-s3-qa/ec2-role-evidence.json
+  /tmp/qorwell-s3-qa/firm-folder-evidence.json
+  /tmp/qorwell-s3-qa/recovery/storage-migration-manifest.json
+  /tmp/qorwell-firm-folders-typecheck.log
+  /tmp/qorwell-firm-folders-lint.log
+  /tmp/qorwell-firm-folders-tests.log
+
+Cost choices
+S3 Standard is appropriate for the current small, actively read documents. Same-
+region placement avoids cross-region storage traffic. There are no new NAT
+Gateways, load balancers, KMS customer keys, CDN or Lambda resources for storage.
+SSE-S3 avoids separate KMS key/request charges. Public image responses have cache
+headers; protected documents remain private/no-store. PDFs stream where their API
+supports it, and existing small bounded renderer/export buffers remain bounded.
+
+Official Stockholm price-index snapshot published 9 November 2026:
+  Standard first tier: USD 0.023 per GB-month
+  PUT/COPY/POST/LIST: USD 0.005 per 1,000 requests
+  GET/other: USD 0.0004 per 1,000 requests
+Example 10 GB + 10,000 PUT-type + 100,000 GET-type requests is about USD 0.32/month,
+excluding transfer, taxes, retained old versions and other AWS services. This is
+an estimate, not a bill or a usage guarantee. Versioning consumes extra storage
+for old bytes; deletion markers hide a current file without removing history.
+No archive transitions were added: small-file transition fees/minimum durations
+can outweigh savings and retrieval latency is undesirable for active ERP files.
+Agree a retention policy before expiring old versions or deleting original files.
+Sources:
+  https://aws.amazon.com/s3/pricing/
+  https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/eu-north-1/index.json
+  https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html
+  https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html
+
+Template source-control safety
+infrastructure/storage.json is a CloudFormation infrastructure definition, not a
+credential file or runtime .env. It contains no AWS keys, tokens, passwords or
+private user files. Bucket names and account IDs are parameters/AWS-generated
+references; committing the current template does not grant access or execute AWS
+changes. It is appropriate to version the template for infrastructure review and
+reproducibility. Applying a stack update is a separate explicit cloud operation.
+Keep real .env files, keys, private access records and migration manifests out of
+source control. Do not place secrets into this template in future edits.
+
+Files changed and purpose
+  infrastructure/storage.json — reproducible private bucket, retention, encryption,
+    lifecycle, HTTPS policy and prefix-limited EC2 role/profile.
+  .env.example — documents provider, root, bucket, region, prefix and expected owner.
+  .env (private/untracked) — activates the verified S3 local-development namespace.
+  .gitignore — excludes the private migration manifest from this backend repo.
+  package.json — official AWS S3 SDK dependency and storage:migrate command.
+  package-lock.json — locked standalone backend SDK dependency graph.
+  ../package-lock.json — synchronized workspace SDK dependency graph.
+  ../.gitignore — excludes the workspace migration manifest path.
+  tsconfig.json — includes the migration script in typechecking/compilation.
+  scripts/storage-migrate.ts — verified dry-run/copy/recovery tooling.
+  src/config/env.ts — validates provider settings and bucket/region/prefix/owner.
+  src/config/storage.config.ts — shared provider settings and safe named-firm paths;
+    accepts historical paths while enforcing the numeric tenant ID boundary.
+  src/core/tenancy/tenant-context.ts — reads the authorized firm's name with its ID.
+  src/types/express.d.ts — typed firm-name snapshot for upload/PDF requests.
+  src/integrations/storage/storage.service.ts — local/S3 implementation, streaming,
+    size/existence/deletion, safe errors, image proxy and range/cache behavior.
+  src/integrations/storage/upload-storage.ts — common bounded temporary upload
+    spool and exact saved-path validation/persistence for named firm folders.
+  src/integrations/storage/index.ts — exports the common storage APIs.
+  src/integrations/mail/mail.types.ts — accepts storage-fetched attachment buffers.
+  src/modules/items/images/item-image.policy.ts — managed uploads/named folders.
+  src/modules/items/items.repository.ts — saves and cleans up the actual upload key.
+  src/modules/settings/branding/branding.policy.ts — shared uploads/named folders.
+  src/modules/settings/branding/branding.repository.ts — saves actual asset keys.
+  src/modules/quotations/attachments/quotation-attachment.policy.ts — shared managed
+    uploads, named folders and backward-compatible saved attachment paths.
+  src/modules/quotations/attachments/quotation-attachments.repository.ts — saves
+    actual upload keys and returns validated provider-independent access paths.
+  src/modules/quotations/attachments/quotation-attachments.routes.ts — provider-aware
+    download/preview/cleanup with existing authorization and safe upload errors.
+  src/modules/quotations/documents/quotation-documents.routes.ts — named PDF writes
+    and authorized provider-aware preview/download.
+  src/modules/quotations/documents/quotation-documents.repository.ts — safe PDF
+    paths and provider-aware branding reads, including old/new firm folders.
+  src/modules/quotations/communications/quotation-communications.repository.ts —
+    provider-aware attachment size checks/read buffers for the existing mail flow.
+  src/modules/invoices/documents/invoice-documents.repository.ts — named billing
+    PDF paths and old/new path validation with existing ownership/hash checks.
+  src/modules/reports/export-jobs.repository.ts — named worker-generated export
+    keys and tenant/job/filename validation for generation/download/removal.
+  tests/storage.test.ts — storage, upload, path, rename and isolation checks.
+  tests/env.test.ts — provider configuration validation.
+  tests/quotation-communications.repository.test.ts — mocks the shared provider
+    boundary rather than assuming files are on disk.
+  docs/implementation/qorwell-storage-integration.txt — this operational record.
+  docs/architecture/backend/BACKEND-STORAGE-RULES.md — current provider/named-folder
+    contract and runbook pointer; earlier local-only milestones kept as history.
+
+Deployment status and limits
+AWS storage and the EC2 role are configured; the local application is actively S3.
+The EC2 application itself still runs its August release and older database schema.
+No live application deployment, schema migration or seed was performed for storage.
+The existing deployment scripts are left to the user's established process.
+The verified source must reach the server before its application can select S3;
+the server's local files must be copied to its development/ prefix before switching.
+Nginx must send /storage/ requests to the backend, as it does for /api/ requests;
+the inspected current server config routes only /api/ to the backend. This runtime
+route is an application-serving prerequisite, separate from changing CI scripts.
+The live IP currently serves HTTP with development environment settings. Production
+HTTPS requirements in the current application were preserved, not bypassed.
+
+No new database field or schema migration was needed for storage or firm names.
+No Git, Docker, deployment or live-database mutation commands were executed.
+The approved SDK install, backend typecheck/lint/affected tests, private synthetic
+runtime checks and copy-only storage migration/recovery commands were executed.
+No claim is made that the external email provider or a GitHub deployment run was
+exercised; storage-fetched mail attachments were verified by affected unit checks.
+Node 20 remains supported by the installed SDK version; its notice says SDK
+versions published after the first week of January 2027 require Node 22+. EC2 is
+already Node 22.22.1. Review the local Node runtime before future SDK updates.

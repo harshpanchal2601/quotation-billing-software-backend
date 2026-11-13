@@ -18,13 +18,14 @@ import { reportCsv } from './reports.csv.js';
 import { reportPdf, reportXlsx } from './reports.formats.js';
 import { ReportsRepository } from './reports.repository.js';
 import { reportQuerySchema } from './reports.schema.js';
+import { firmProtectedDirectory, isFirmStoragePath } from '../../config/storage.config.js';
 
 const eventPayload = z.object({ jobId: z.string().uuid() }).strict();
 const preparedSchema = z.object({ path: z.string(), hash: z.string().regex(/^[a-f0-9]{64}$/), size: z.number().int().min(0).max(10_000_000), report: reportSnapshotSchema }).strict();
 const summary = { id: true, format: true, filters: true, fileHash: true, fileSize: true, createdAt: true, completedAt: true, event: { select: { status: true, attempts: true, maxAttempts: true } } } as const;
 function artifactPath(firmId: number, jobId: string, format: z.infer<typeof exportFormatSchema>, path: string | null): string {
-  const prefix = `report-exports/${firmId}/${jobId}/`;
-  if (!path?.startsWith(prefix) || !new RegExp(`^[a-f0-9-]{36}\\.${format}$`).test(path.slice(prefix.length))) throw new AppError('Export artifact path is invalid', 409);
+  const parts = path?.split('/');
+  if (!path || !isFirmStoragePath(path, 'report-exports', firmId) || parts?.length !== 4 || parts[2] !== jobId || !new RegExp(`^[a-f0-9-]{36}\\.${format}$`).test(parts[3]!)) throw new AppError('Export artifact path is invalid', 409);
   return path;
 }
 
@@ -76,15 +77,16 @@ export class ExportJobsRepository {
       retry: 'TRANSACTIONAL',
       authorize: async (tx, event) => { await this.eventJob(tx, event); },
       prepare: async (event) => {
-        const { job, report } = await this.db.$transaction(async (tx) => {
+        const { job, report, firmName } = await this.db.$transaction(async (tx) => {
           const job = await this.eventJob(tx, event);
           const report = await this.reports.overviewInTransaction(tx, event.firmId, event.actorId, reportQuerySchema.parse(job.filters));
-          return { job, report: reportSnapshotSchema.parse(report) };
+          const firm = await tx.firm.findUniqueOrThrow({ where: { id: event.firmId }, select: { name: true } });
+          return { job, report: reportSnapshotSchema.parse(report), firmName: firm.name };
         }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 30_000 });
         const format = exportFormatSchema.parse(job.format);
         const content = format === 'csv' ? Buffer.from(reportCsv(report), 'utf8') : format === 'xlsx' ? reportXlsx(report) : await reportPdf(report);
         if (content.length > 10_000_000) throw new AppError('Report artifact exceeds 10 MB', 400);
-        const path = `report-exports/${event.firmId}/${job.id}/${randomUUID()}.${format}`;
+        const path = `${firmProtectedDirectory('report-exports', event.firmId, firmName)}/${job.id}/${randomUUID()}.${format}`;
         try { await storageService.writeStorageFile(path, content); }
         catch (error) { await storageService.deleteStorageFile(path).catch(() => {}); throw error; }
         return { value: { path, hash: createHash('sha256').update(content).digest('hex'), size: content.length, report }, cleanup: async (committed) => {

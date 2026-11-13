@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "rootDir": ".",
@@ -11,10 +13,19 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": true
   },
-  "include": ["src", "prisma/seed.ts"],
-  "exclude": ["dist", "node_modules"]
+  "include": [
+    "src",
+    "prisma/seed.ts",
+    "scripts/storage-migrate.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
 }

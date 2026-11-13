@@ -4,7 +4,7 @@ import multer from 'multer';
 
 import { firmProtectedDirectory, storageConfig } from '../../../config/storage.config.js';
 import { AppError } from '../../../core/errors/AppError.js';
-import { storageService } from '../../../integrations/storage/index.js';
+import { createManagedUploadStorage, storedUploadRelativePath, storageService } from '../../../integrations/storage/index.js';
 
 export const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 export const MAX_ATTACHMENTS_PER_QUOTATION = 20;
@@ -68,26 +68,12 @@ export function validateAttachmentFile(file: Express.Multer.File): AppError | nu
 }
 
 export const uploadQuotationAttachment = multer({
-  storage: multer.diskStorage({
-    destination: async (req, _file, callback) => {
-      try {
-        if (req.firmId === undefined) {
-          callback(new AppError('Firm context is required', 500), '');
-          return;
-        }
-        const directory = firmProtectedDirectory(storageConfig.quotationAttachmentDirectory, req.firmId);
-        await storageService.ensureStorageDirectory(directory);
-        callback(null, getAttachmentStorageDirectory(req.firmId));
-      } catch (error) {
-        callback(error as Error, '');
-      }
+  storage: createManagedUploadStorage({
+    directory: (req) => {
+      if (req.firmId === undefined) throw new AppError('Firm context is required', 500);
+      return firmProtectedDirectory(storageConfig.quotationAttachmentDirectory, req.firmId, req.firmName);
     },
-    filename: (_req, file, callback) => {
-      const mimeType = file.mimetype;
-      const extension = ALLOWED_MIME_EXTENSIONS[mimeType] || path.extname(file.originalname).toLowerCase();
-      const storedFilename = `${crypto.randomUUID()}${extension}`;
-      callback(null, storedFilename);
-    },
+    filename: (_req, file) => `${crypto.randomUUID()}${ALLOWED_MIME_EXTENSIONS[file.mimetype] || path.extname(file.originalname).toLowerCase()}`,
   }),
   limits: {
     fileSize: MAX_FILE_SIZE_BYTES,
@@ -103,7 +89,8 @@ export const uploadQuotationAttachment = multer({
   },
 });
 
-export function resolveAttachmentRelativePath(firmId: number, storedFilename: string) {
+export function resolveAttachmentRelativePath(firmId: number, storedFilename: string, storedPath?: string) {
+  if (storedPath !== undefined) return `storage/${storedUploadRelativePath(firmId, storageConfig.quotationAttachmentDirectory, storedFilename, storedPath)}`;
   return `storage/${firmProtectedDirectory(storageConfig.quotationAttachmentDirectory, firmId)}/${storedFilename}`;
 }
 

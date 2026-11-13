@@ -309,11 +309,11 @@ export class ItemsRepository {
     });
 
     if (existing === null) {
-      await removeStoredItemImage(toItemRelativePath(firmId, file.filename));
+      await removeStoredItemImage(toItemRelativePath(firmId, file.filename, file.path));
       throw new AppError('Item not found', 404);
     }
 
-    const newRelativePath = toItemRelativePath(firmId, file.filename);
+    const newRelativePath = toItemRelativePath(firmId, file.filename, file.path);
     let oldRelativePath: string | null = null;
     let removePrevious = false;
 

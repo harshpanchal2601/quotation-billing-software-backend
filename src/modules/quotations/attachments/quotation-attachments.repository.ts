@@ -71,7 +71,7 @@ export class QuotationAttachmentsRepository {
   ): Promise<QuotationAttachmentDto> {
     const quotation = await this.assertQuotationExists(firmId, quotationId);
 
-    const relativePath = resolveAttachmentRelativePath(firmId, file.filename);
+    const relativePath = resolveAttachmentRelativePath(firmId, file.filename, file.path);
     const attachment = await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
       await assertTransactionFeature(tx, firmId, 'quotations.attachments');
       const activeCount = await tx.quotationAttachment.count({ where: { quotationId, deletedAt: null } });
@@ -138,6 +138,7 @@ export class QuotationAttachmentsRepository {
 
     return {
       fullPath,
+      filePath: attachment.filePath.replace(/^\/?storage\//, ''),
       mimeType: attachment.mimeType,
       originalFilename: attachment.originalFilename,
     };

@@ -21,7 +21,7 @@ export class BrandingRepository {
   async replaceAsset(firmId: number, assetType: BrandingAssetType, file: Express.Multer.File, metadata: RequestMetadata) {
     const profile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile(firmId);
     const config = brandingAssetConfig[assetType];
-    const relativePath = toBrandingRelativePath(firmId, assetType, file.filename);
+    const relativePath = toBrandingRelativePath(firmId, assetType, file.filename, file.path);
     let previousPath: string | null = null;
     let removePrevious = false;
 

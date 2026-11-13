@@ -4,7 +4,7 @@ import { listOrderBy } from '../../../core/validation/list-sort.js';
 import { AuditAction, DocumentType, type PrismaClient } from '@prisma/client';
 
 import { prisma } from '../../../core/database/prisma.js';
-import { firmPublicAssetDirectory, storageConfig } from '../../../config/storage.config.js';
+import { isFirmPublicAssetPath, storageConfig } from '../../../config/storage.config.js';
 import { createAuditLog, type RequestMetadata } from '../../../core/audit/audit-log.service.js';
 import {
   brandingAssetConfig,
@@ -32,12 +32,9 @@ export async function getBrandingFileDataUrl(
     const normalizedPath = relativePath.replace(/^\/?storage\//, '').replace(/\\/g, '/');
     const expectedDirectory = brandingAssetConfig[assetType].directory;
     const fullPath = resolveBrandingPath(normalizedPath);
-    const allowedDirectories = [
-      firmPublicAssetDirectory(firmId, expectedDirectory),
-      expectedDirectory,
-    ];
+    const allowedDirectories = [expectedDirectory];
 
-    const isAllowedPath = allowedDirectories.some((directory) => {
+    const isAllowedPath = isFirmPublicAssetPath(normalizedPath, firmId, expectedDirectory) || allowedDirectories.some((directory) => {
       const absoluteDirectory = resolveBrandingPath(directory);
       const relativeToDirectory = path.relative(absoluteDirectory, fullPath);
       return (
@@ -61,7 +58,7 @@ export async function getBrandingFileDataUrl(
     return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
   } catch (error) {
     const code = error instanceof Error && 'code' in error ? error.code : undefined;
-    if (code !== 'ENOENT') {
+    if (code !== 'ENOENT' && !(error instanceof AppError && error.statusCode === 404)) {
       console.warn(`Configured ${assetType} branding asset could not be loaded for PDF generation.`);
     }
     return null;
@@ -366,7 +363,11 @@ export class QuotationDocumentsRepository {
 
   resolveDocumentAbsolutePath(relativeFilePath: string) {
     const normalised = relativeFilePath.replace(/^\/?storage\//, '');
-    return storageService.resolveStoragePath(normalised);
+    const absolutePath = storageService.resolveStoragePath(normalised);
+    const root = storageService.resolveStoragePath(storageConfig.quotationDocumentDirectory);
+    const child = path.relative(root, absolutePath);
+    if (!child || child.startsWith('..') || path.isAbsolute(child)) throw new AppError('Invalid document path', 403);
+    return absolutePath;
   }
 
   async documentFileExists(relativeFilePath: string) {

@@ -1,5 +1,4 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs';
 import { Router, type Request, type Response } from 'express';
 
 import { firmProtectedDirectory, storageConfig } from '../../../config/storage.config.js';
@@ -63,7 +62,7 @@ quotationDocumentsRouter.post(
 
     const fileUuid = crypto.randomUUID();
     const filename = `${fileUuid}.pdf`;
-    const relativeFilePath = `${firmProtectedDirectory(storageConfig.quotationDocumentDirectory, firmId)}/${filename}`;
+    const relativeFilePath = `${firmProtectedDirectory(storageConfig.quotationDocumentDirectory, firmId, req.firmName)}/${filename}`;
 
     const rendered = await renderAndStorePdf(html, relativeFilePath);
 
@@ -139,10 +138,10 @@ async function streamPdfDocument(req: Request, res: Response, disposition: 'inli
     throw new AppError('Generated document not found for this quotation', 404);
   }
 
-  const absolutePath = quotationDocumentsRepository.resolveDocumentAbsolutePath(doc.filePath);
+  quotationDocumentsRepository.resolveDocumentAbsolutePath(doc.filePath);
   const exists = await quotationDocumentsRepository.documentFileExists(doc.filePath);
   if (!exists) {
-    throw new AppError('PDF file not found on storage disk', 404);
+    throw new AppError('PDF file not found in storage', 404);
   }
 
   const safeQuotationNum = doc.quotation.quotationNumber.replace(/[^a-zA-Z0-9_-]/g, '-');
@@ -151,8 +150,7 @@ async function streamPdfDocument(req: Request, res: Response, disposition: 'inli
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `${disposition}; filename="${downloadFilename}"`);
 
-  const fileStream = fs.createReadStream(absolutePath);
-  fileStream.pipe(res);
+  await storageService.sendStorageFile(doc.filePath.replace(/^\/?storage\//, ''), res);
 }
 
 quotationDocumentsRouter.get('/:id/pdf/:documentId/preview', requirePermission(PERMISSIONS.QUOTATIONS_DOCUMENTS), asyncHandler(async (req, res) => {

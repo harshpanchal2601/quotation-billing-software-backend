@@ -8,6 +8,7 @@ import { storageService } from '../../../integrations/storage/index.js';
 import { assertTransactionFeature, prepareStorageUsage, recordUsage, withFirmEntitlementTransaction } from '../../entitlements/index.js';
 import { billingAccess, InvoicesRepository, type DocumentScope } from '../invoices.repository.js';
 import { renderInvoiceHtml } from './invoice-document.template.js';
+import { firmProtectedDirectory, isFirmStoragePath } from '../../../config/storage.config.js';
 
 export class InvoiceDocumentsRepository {
   constructor(private readonly db: PrismaClient, private readonly invoices = new InvoicesRepository(db)) {}
@@ -16,15 +17,16 @@ export class InvoiceDocumentsRepository {
       await this.invoices.authorize(tx, firmId, actorId, scope, 'documents');
       const row = await this.invoices.find(tx, firmId, id, scope);
       if (row.status !== 'ISSUED' || row.issueSnapshot === null) throw new AppError('Issue the document before generating its historical PDF', 409);
-      return row;
+      const firm = await tx.firm.findUniqueOrThrow({ where: { id: firmId }, select: { name: true } });
+      return { row, firmName: firm.name };
     });
-    const filePath = `billing-documents/${firmId}/${randomUUID()}.pdf`;
-    const rendered = await renderAndStorePdf(renderInvoiceHtml(original.issueSnapshot), filePath);
+    const filePath = `${firmProtectedDirectory('billing-documents', firmId, original.firmName)}/${randomUUID()}.pdf`;
+    const rendered = await renderAndStorePdf(renderInvoiceHtml(original.row.issueSnapshot), filePath);
     try {
       return await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
         await this.invoices.authorize(tx, firmId, actorId, scope, 'documents');
         const current = await this.invoices.find(tx, firmId, id, scope);
-        if (current.status !== 'ISSUED' || current.version !== original.version) throw new AppError('Document changed while its PDF was rendering; retry', 409);
+        if (current.status !== 'ISSUED' || current.version !== original.row.version) throw new AppError('Document changed while its PDF was rendering; retry', 409);
         await prepareStorageUsage(tx, firmId);
         await recordUsage(tx, firmId, 'documents', 1n, `billing-pdf:${filePath}`, billingAccess[scope].feature);
         await recordUsage(tx, firmId, 'storageBytes', BigInt(rendered.fileSize), `billing-pdf:${filePath}`);
@@ -47,7 +49,7 @@ export class InvoiceDocumentsRepository {
     await assertTransactionFeature(this.db, firmId, billingAccess[scope].feature);
     const record = await this.invoices.find(this.db, firmId, id, scope);
     const document = await this.db.invoiceDocument.findFirst({ where: { id: documentId, firmId, invoiceId: id } });
-    if (!document || !document.filePath.startsWith(`billing-documents/${firmId}/`) || !await storageService.fileExists(document.filePath)) throw new AppError('Billing PDF not found', 404);
+    if (!document || !isFirmStoragePath(document.filePath, 'billing-documents', firmId) || !await storageService.fileExists(document.filePath)) throw new AppError('Billing PDF not found', 404);
     const buffer = await storageService.readStorageFile(document.filePath);
     if (createHash('sha256').update(buffer).digest('hex') !== document.fileHash) throw new AppError('Stored PDF integrity check failed', 409);
     return { buffer, filename: `${record.kind}-${record.documentNumber?.replace(/[^A-Z0-9-]/g, '-')}.pdf` };

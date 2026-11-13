@@ -20,6 +20,7 @@ backups/
 *.log
 
 storage/**
+/storage-migration-manifest.json
 !storage/
 !storage/**/
 !storage/**/.gitkeep

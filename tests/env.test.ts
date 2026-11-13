@@ -12,6 +12,12 @@ const validEnvironment = {
 };
 
 describe('parseEnv', () => {
+  it('keeps local storage as the default and requires a complete valid S3 selection', () => {
+    expect(parseEnv(validEnvironment).STORAGE_DRIVER).toBe('local');
+    const s3 = { ...validEnvironment, STORAGE_DRIVER: 's3', STORAGE_S3_BUCKET: 'qorwell-files', STORAGE_S3_REGION: 'eu-north-1', STORAGE_S3_PREFIX: 'development', STORAGE_S3_EXPECTED_BUCKET_OWNER: '429435740649' };
+    expect(parseEnv(s3).STORAGE_DRIVER).toBe('s3');
+    for (const patch of [{ STORAGE_DRIVER: 'unknown' }, { STORAGE_S3_BUCKET: '' }, { STORAGE_S3_BUCKET: '127.0.0.1' }, { STORAGE_S3_REGION: 'yes' }, { STORAGE_S3_PREFIX: '../private' }, { STORAGE_S3_EXPECTED_BUCKET_OWNER: 'wrong' }]) expect(() => parseEnv({ ...s3, ...patch })).toThrow('STORAGE_');
+  });
   it('validates and coerces backend environment variables', () => {
     const env = parseEnv(validEnvironment);
 

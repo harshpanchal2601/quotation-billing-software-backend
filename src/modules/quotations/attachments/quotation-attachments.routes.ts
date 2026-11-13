@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
 
+import { storageService } from '../../../integrations/storage/index.js';
 import { AppError } from '../../../core/errors/AppError.js';
 import { asyncHandler } from '../../../core/http/asyncHandler.js';
 import { getFirmId } from '../../../core/tenancy/tenant-context.js';
@@ -53,6 +54,7 @@ quotationAttachmentsRouter.post(
   (req: Request, res: Response) => {
     return uploadQuotationAttachment.single('file')(req, res, async (multerError) => {
       if (multerError) {
+        if (multerError instanceof AppError) return res.status(multerError.statusCode).json({ success: false, message: multerError.message });
         if (multerError instanceof multer.MulterError) {
           if (multerError.code === 'LIMIT_FILE_SIZE') {
             return res.status(413).json({
@@ -65,7 +67,7 @@ quotationAttachmentsRouter.post(
             message: 'The attachment could not be uploaded. Please choose a supported file and try again.',
           });
         }
-        return res.status(500).json({ success: false, message: multerError.message });
+        return res.status(500).json({ success: false, message: 'The attachment could not be uploaded. Please try again.' });
       }
 
       try {
@@ -93,8 +95,7 @@ quotationAttachmentsRouter.post(
         });
       } catch (error) {
         if (req.file?.path) {
-          const fs = await import('node:fs/promises');
-          await fs.unlink(req.file.path).catch(() => {});
+          await storageService.deleteStorageFile(req.file.path).catch(() => {});
         }
         if (error instanceof AppError) {
           return res.status(error.statusCode).json({ success: false, message: error.message });
@@ -114,7 +115,7 @@ quotationAttachmentsRouter.get(
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = parseId(req.params.quotationId, 'quotation ID');
     const attachmentId = parseId(req.params.attachmentId, 'attachment ID');
-    const { fullPath, mimeType, originalFilename } = await quotationAttachmentsRepository.getAttachmentForAccess(
+    const { filePath, mimeType, originalFilename } = await quotationAttachmentsRepository.getAttachmentForAccess(
       getFirmId(req),
       quotationId,
       attachmentId,
@@ -124,11 +125,7 @@ quotationAttachmentsRouter.get(
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.sendFile(fullPath, (err) => {
-      if (err && !res.headersSent) {
-        throw new AppError('Failed to stream attachment preview', 500);
-      }
-    });
+    await storageService.sendStorageFile(filePath, res);
   }),
 );
 
@@ -138,7 +135,7 @@ quotationAttachmentsRouter.get(
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = parseId(req.params.quotationId, 'quotation ID');
     const attachmentId = parseId(req.params.attachmentId, 'attachment ID');
-    const { fullPath, mimeType, originalFilename } = await quotationAttachmentsRepository.getAttachmentForAccess(
+    const { filePath, mimeType, originalFilename } = await quotationAttachmentsRepository.getAttachmentForAccess(
       getFirmId(req),
       quotationId,
       attachmentId,
@@ -148,11 +145,7 @@ quotationAttachmentsRouter.get(
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.download(fullPath, safeFilename, (err) => {
-      if (err && !res.headersSent) {
-        throw new AppError('Failed to download attachment', 500);
-      }
-    });
+    await storageService.sendStorageFile(filePath, res);
   }),
 );
 
