@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { calculateInvoiceLines, type InvoiceFinancialPolicy } from '../src/modules/invoices/invoice-calculations.js';
 import { assertCreditReductionEligibility, domesticGstMode, financialYear, formatBillingNumber, indiaToday, isValidGstin } from '../src/modules/invoices/india-gst.js';
 import { validateCustomFieldValues } from '../src/modules/invoices/invoice-fields.js';
-import { customFieldDefinitionsSchema, invoiceDraftSchema, type InvoiceLineInput } from '../src/modules/invoices/invoices.schema.js';
+import { customFieldDefinitionsSchema, customValuesUpdateSchema, fieldHistoryQuerySchema, invoiceDraftSchema, type InvoiceLineInput } from '../src/modules/invoices/invoices.schema.js';
 import { expandAssignablePermissions, PERMISSIONS } from '../src/modules/auth/permissions.js';
 import { evaluateFeature, type EntitlementContext } from '../src/modules/entitlements/entitlement-evaluator.js';
 
@@ -16,6 +16,19 @@ const fields = customFieldDefinitionsSchema.parse([
   { key: 'cf_decimal', label: 'Reading', type: 'NUMBER', required: false, showOnPdf: true, width: 'HALF' },
 ]);
 describe('billing Decimal and Indian state policy', () => {
+  it('validates reviewed settings versions while preserving existing draft-value updates', () => {
+    expect(customValuesUpdateSchema.parse({ expectedVersion: 2, values: {}, refresh: true, expectedSettingsVersion: 0 }).expectedSettingsVersion).toBe(0);
+    expect(customValuesUpdateSchema.parse({ expectedVersion: 2, values: {} })).toEqual({ expectedVersion: 2, values: {}, refresh: false });
+    expect(customValuesUpdateSchema.safeParse({ expectedVersion: 2, values: {}, expectedSettingsVersion: 3 }).success).toBe(false);
+    expect(customValuesUpdateSchema.safeParse({ expectedVersion: 2, values: {}, refresh: true, expectedSettingsVersion: -1 }).success).toBe(false);
+    expect(customValuesUpdateSchema.safeParse({ expectedVersion: 2, values: {}, refresh: true, expectedSettingsVersion: 3, firmId: 9 }).success).toBe(false);
+  });
+  it('accepts only supported server-side field-history ordering', () => {
+    expect(fieldHistoryQuerySchema.parse({})).toEqual({ page: 1, sortBy: 'version', sortOrder: 'desc' });
+    expect(fieldHistoryQuerySchema.parse({ page: '2', sortBy: 'createdAt', sortOrder: 'asc' })).toEqual({ page: 2, sortBy: 'createdAt', sortOrder: 'asc' });
+    expect(fieldHistoryQuerySchema.safeParse({ sortBy: 'values' }).success).toBe(false);
+    expect(fieldHistoryQuerySchema.safeParse({ sortOrder: 'arbitrary' }).success).toBe(false);
+  });
   it('keeps exact service totals and reconciles split tax down to the paisa', () => {
     expect(calculateInvoiceLines([line], policy)).toMatchObject({ subtotal: '100.10', taxAmount: '18.02', grandTotal: '118.12', lines: [{ cgstAmount: '9.01', sgstAmount: '9.01' }] });
     expect(calculateInvoiceLines([{ ...line, unitRate: '0.05', taxRate: '5' }], policy).grandTotal).toBe('0.05');

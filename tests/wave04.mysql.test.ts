@@ -44,7 +44,7 @@ suite('Wave 04 authenticated billing and financial transactions', () => {
     const { FEATURE_KEYS } = await import('../src/modules/entitlements/feature-registry.js');
     const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
     const plan = await db.plan.create({ data: { name: 'Billing fixture', slug: `wave04-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.filter((key) => !key.startsWith('quotations.')).map((featureKey) => ({ featureKey })) }, quotas: { create: ['users', 'documents', 'storageBytes', 'aiCredits'].map((resource) => ({ resource, limit: null })) } } } }, include: { versions: true } }); planId = plan.id;
-    await db.planVersion.update({ where: { id: plan.versions[0]!.id }, data: { publishedAt: new Date() } });
+    await fixture.publishPlanVersion(plan.versions[0]!.id);
     for (const tenant of [a, b]) {
       await db.firmSubscription.create({ data: { firmId: tenant.firm.id, planVersionId: plan.versions[0]!.id, status: 'ACTIVE', authorId: tenant.admin.id, reason: 'Disposable billing fixture', effectiveFrom: new Date(Date.now() - 1000) } });
       await db.businessProfile.update({ where: { id: tenant.profile.id }, data: { gstin: '27AAPFU0939F1ZV', state: 'Maharashtra' } });
@@ -96,6 +96,44 @@ suite('Wave 04 authenticated billing and financial transactions', () => {
     const created = await create(a, { lines: [{ ...draft().lines[0]!, itemId: a.item.id, supplyType: 'GOODS', hsnCode: '847130', itemName: undefined }] });
     expect(created.lines[0]!.itemName).toBe(a.item.name);
     expect((await request('POST', '/invoices', draft(a, { lines: [{ ...draft().lines[0]!, itemId: a.item.id, quantity: '1.5' }] }))).status).toBe(400);
+  });
+  it('preserves catalog goods and service classifications in both billing selectors', async () => {
+    for (const kind of ['GOODS', 'SERVICE'] as const) {
+      await db.item.update({ where: { id: a.item.id }, data: { kind } });
+      for (const route of ['/invoices', '/proformas']) {
+        const options = await data<{ items: Array<{ id: number; supplyType: string }> }>(await request('GET', `${route}/options/items?search=${encodeURIComponent(a.item.name)}`));
+        expect(options.items.find((item) => item.id === a.item.id)?.supplyType).toBe(kind);
+      }
+    }
+    await db.item.update({ where: { id: a.item.id }, data: { kind: 'GOODS' } });
+  });
+  it.each(['/invoices', '/proformas', '/billing-adjustments'])('cancels unissued %s drafts with tenant, permission, version and replay safeguards', async (route) => {
+    let created: Document;
+    if (route === '/billing-adjustments') {
+      const source = await issue(await create());
+      created = (await data<{ document: Document }>(await request('POST', route, { sourceInvoiceId: source.id, kind: 'CREDIT_NOTE', reason: 'Unissued QA adjustment', idempotencyKey: randomUUID(), gstReductionEligible: true, annualReturnFiledAt: null, recipientItcReversalConfirmed: true, lines: [{ sourceLineNumber: 1, quantity: '1', unitRate: '10' }], customFieldValues: { cf_order: 'CANCEL-QA' } }), 201)).document;
+    } else created = await create(a, {}, route);
+    const input = { expectedVersion: created.version, reason: 'Discard the unissued QA draft.' };
+    expect((await request('POST', `${route}/${created.id}/cancel-draft`, input, b.admin.id)).status).toBe(404);
+    expect((await request('POST', `${route}/${created.id}/cancel-draft`, input, a.reader.id)).status).toBe(403);
+    expect((await request('POST', `${route}/${created.id}/cancel-draft`, { ...input, reason: 'no' })).status).toBe(400);
+    expect((await request('POST', `${route}/${created.id}/cancel-draft`, { ...input, expectedVersion: created.version + 1 })).status).toBe(409);
+    expect(await db.invoice.findUniqueOrThrow({ where: { id: created.id } })).toMatchObject({ status: 'DRAFT', version: created.version, issuedAt: null });
+    expect(await db.invoiceStatusHistory.count({ where: { invoiceId: created.id } })).toBe(1);
+    const cancelled = (await data<{ document: Document }>(await request('POST', `${route}/${created.id}/cancel-draft`, input))).document;
+    expect(cancelled).toMatchObject({ status: 'VOID', version: created.version + 1, documentNumber: null });
+    const replay = (await data<{ document: Document }>(await request('POST', `${route}/${created.id}/cancel-draft`, input))).document;
+    expect(replay.version).toBe(cancelled.version);
+    expect(await db.invoiceStatusHistory.count({ where: { invoiceId: created.id, fromStatus: 'DRAFT', toStatus: 'VOID' } })).toBe(1);
+    expect((await request('POST', `${route}/${created.id}/cancel-draft`, { ...input, reason: 'A different cancellation reason' })).status).toBe(409);
+    expect((await request('POST', `${route}/${created.id}/issue`, { expectedVersion: cancelled.version, confirmedTotal: cancelled.grandTotal })).status).toBe(409);
+    const otherScope = route === '/invoices' ? '/proformas' : '/invoices';
+    expect((await request('POST', `${otherScope}/${created.id}/cancel-draft`, input)).status).toBe(404);
+  });
+  it('requires the separate issued-document cancellation flow after issuance', async () => {
+    const issued = await issue(await create());
+    expect((await request('POST', `/invoices/${issued.id}/cancel-draft`, { expectedVersion: issued.version, reason: 'An issued document is not a draft' })).status).toBe(409);
+    expect(await db.invoice.findUniqueOrThrow({ where: { id: issued.id } })).toMatchObject({ status: 'ISSUED', version: issued.version });
   });
   it('keeps draft creation idempotent under parallel submissions and rejects a changed payload', async () => {
     const input = draft(); const results = await Promise.all(Array.from({ length: 5 }, () => request('POST', '/invoices', input).then((response) => data<{ document: Document }>(response, 201))));

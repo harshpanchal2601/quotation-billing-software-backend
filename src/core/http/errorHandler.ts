@@ -28,6 +28,14 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   }
 
   if (error instanceof AppError) {
+    if (error.statusCode === 401 || error.statusCode === 403) {
+      res.vary('Accept');
+      res.setHeader('Cache-Control', 'no-store');
+      if (req.method === 'GET' && req.get('Accept')?.toLowerCase().includes('text/html') && req.accepts(['html', 'json']) === 'html') {
+        const page = error.statusCode === 401 ? '/login' : '/access-denied';
+        return res.redirect(303, new URL(page, env.FRONTEND_URL).toString());
+      }
+    }
     return sendError(res, error.statusCode, error.message, error.details);
   }
 

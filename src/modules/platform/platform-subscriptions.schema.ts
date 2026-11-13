@@ -14,7 +14,7 @@ const money = z.string().regex(/^(0|[1-9]\d{0,15})(\.\d{1,2})?$/);
 const currency = z.string().regex(/^[A-Z]{3}$/);
 const identifier = z.string().trim().min(8).max(191);
 export const platformPageSchema = z.object({ page: z.coerce.number().int().positive().default(1), limit: z.coerce.number().int().min(1).max(100).default(50) }).strict();
-export const platformAuditQuerySchema = platformPageSchema.extend({ firmId: z.coerce.number().int().positive().optional() });
+export const platformAuditQuerySchema = platformPageSchema.extend({ firmId: z.coerce.number().int().positive().optional(), sortBy: z.enum(['id', 'createdAt', 'kind', 'authorId']).default('id'), sortOrder: z.enum(['asc', 'desc']).default('desc') });
 export const platformUsageQuerySchema = z.object({ firmId: z.coerce.number().int().positive() }).strict();
 export const platformFirmSubscriptionQuerySchema = z.object({
   subscriptions: z.coerce.number().int().positive().default(1),

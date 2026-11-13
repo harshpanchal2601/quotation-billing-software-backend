@@ -42,8 +42,9 @@ suite('Wave 09 authenticated two-firm assistant and transactional commands', () 
     vi.doMock('../src/integrations/documents/index.js', () => ({ renderAndStorePdf: vi.fn().mockRejectedValue(new Error('External rendering disabled')) }));
     a = await fixture.createTenant('assistant-A'); b = await fixture.createTenant('assistant-B');
     const { FEATURE_KEYS } = await import('../src/modules/entitlements/feature-registry.js'); const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
-    const plan = await db.plan.create({ data: { name: 'Wave09 fixture', slug: `wave09-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, publishedAt: new Date(), policy: LEGACY_POLICY,
-      features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) }, quotas: { create: ['users', 'documents', 'storageBytes', 'aiCredits'].map((resource) => ({ resource, limit: resource === 'aiCredits' ? 100n : null })) } } } }, include: { versions: true } }); planId = plan.id;
+    const plan = await db.plan.create({ data: { name: 'Wave09 fixture', slug: `wave09-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, policy: LEGACY_POLICY,
+      features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) }, quotas: { create: ['users', 'documents', 'storageBytes', 'aiCredits'].map((resource) => ({ resource, limit: resource === 'aiCredits' ? 100n : null })) } } } }, include: { versions: true } });
+    await fixture.publishPlanVersion(plan.versions[0]!.id); planId = plan.id;
     for (const tenant of [a, b]) await db.firmSubscription.create({ data: { firmId: tenant.firm.id, planVersionId: plan.versions[0]!.id, status: 'ACTIVE', authorId: tenant.admin.id, reason: 'Disposable assistant fixture', effectiveFrom: new Date(Date.now() - 1000) } });
     const { generateAccessToken } = await import('../src/modules/auth/security/auth.tokens.js'); const { ACCESS_TOKEN_COOKIE_NAME } = await import('../src/modules/auth/auth.constants.js');
     for (const actor of [a.admin, a.reader, b.admin]) {

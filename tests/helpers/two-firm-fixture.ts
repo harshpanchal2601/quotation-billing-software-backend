@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { AccountType, AddressType, PrismaClient } from '@prisma/client';
 import { expect } from 'vitest';
 
-export function assertDisposableTenantDatabase(value: string, wave: '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' | '10' = '01') {
+export function assertDisposableTenantDatabase(value: string, wave: '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' | '10' | '11' = '01') {
   const url = new URL(value);
   if (url.protocol !== 'mysql:' ||
       !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
@@ -19,6 +19,12 @@ export class TwoFirmFixture {
   readonly firmIds: number[] = [];
   readonly platformUserIds: number[] = [];
   constructor(readonly db: PrismaClient, private readonly options: { platformLedger?: boolean } = {}) {}
+
+  // Insert features and quotas while the revision is a draft. MySQL enforces
+  // published snapshots, including their child rows, as immutable.
+  async publishPlanVersion(versionId: number) {
+    return this.db.planVersion.update({ where: { id: versionId, publishedAt: null }, data: { publishedAt: new Date() } });
+  }
 
   async createActor(firmId: number | null, accountType: AccountType, firmRoleId?: number) {
     const unique = randomUUID();

@@ -89,6 +89,14 @@ export const invoiceListSchema = z.object({
 export const idSchema = z.object({ id: z.coerce.number().int().positive(), documentId: z.coerce.number().int().positive().optional() });
 export const optionQuerySchema = z.object({ search: z.string().trim().max(191).default(''), limit: z.coerce.number().int().min(1).max(100).default(30) });
 export const customerOptionQuerySchema = optionQuerySchema.extend({ selectedId: z.coerce.number().int().positive().optional() });
+export const customValuesUpdateSchema = z.object({
+  expectedVersion: z.number().int().positive(), values: customFieldValuesSchema,
+  refresh: z.boolean().default(false), expectedSettingsVersion: z.number().int().nonnegative().optional(),
+}).strict().refine((input) => input.expectedSettingsVersion === undefined || input.refresh, { path: ['expectedSettingsVersion'], message: 'A settings version applies only when reviewing the latest fields' });
+export const fieldHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  sortBy: z.enum(['version', 'createdAt']).default('version'), sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
 export type CustomFieldDefinition = z.infer<typeof customFieldDefinitionSchema>;
 export const orderInvoiceSchema = z.object({
   salesOrderId: z.number().int().positive(), idempotencyKey: z.string().regex(/^[a-zA-Z0-9_-]{8,100}$/),

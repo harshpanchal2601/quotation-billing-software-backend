@@ -281,10 +281,10 @@ export class PlatformSubscriptionsRepository {
     });
   }
 
-  async events(firmId: number | undefined, page: number, limit: number) {
+  async events(firmId: number | undefined, page: number, limit: number, sort: { sortBy: 'id' | 'createdAt' | 'kind' | 'authorId'; sortOrder: 'asc' | 'desc' } = { sortBy: 'id', sortOrder: 'desc' }) {
     const where = firmId === undefined ? {} : { firmId };
     const [events, total] = await Promise.all([
-      this.db.subscriptionEvent.findMany({ where, orderBy: { id: 'desc' }, skip: (page - 1) * limit, take: limit }),
+      this.db.subscriptionEvent.findMany({ where, orderBy: sort.sortBy === 'id' ? { id: sort.sortOrder } : [{ [sort.sortBy]: sort.sortOrder }, { id: sort.sortOrder }], skip: (page - 1) * limit, take: limit }),
       this.db.subscriptionEvent.count({ where }),
     ]);
     return { events, total };

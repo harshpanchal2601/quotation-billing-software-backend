@@ -205,7 +205,13 @@ export class PurchasingRepository {
       if (replay) { if (replay.requestHash !== hash) throw new AppError('Supplier bill idempotency conflict', 409); return replay; }
       const vendor = await supplier(tx, firmId, input.supplierId);
       if (await tx.expense.findFirst({ where: { firmId, supplierId: vendor.id, reference: input.supplierReference, status: 'POSTED' } })) throw new AppError('Supplier reference is already recorded as an expense', 409);
-      const sources = await tx.purchaseOrder.findMany({ where: { firmId, lines: { some: { OR: [{ id: { in: input.lines.flatMap((line) => line.purchaseOrderLineId ? [line.purchaseOrderLineId] : []) } }, { receiptLines: { some: { id: { in: input.lines.flatMap((line) => line.goodsReceiptLineId ? [line.goodsReceiptLineId] : []) } } } }] } } } });
+      // Resolve ownership before nested inserts can hit composite foreign keys.
+      // Quantity, price and approval checks still run for creation and posting.
+      const orderLineIds = [...new Set(input.lines.flatMap((line) => line.purchaseOrderLineId ? [line.purchaseOrderLineId] : []))];
+      const receiptLineIds = [...new Set(input.lines.flatMap((line) => line.goodsReceiptLineId ? [line.goodsReceiptLineId] : []))];
+      if (orderLineIds.length && await tx.purchaseOrderLine.count({ where: { id: { in: orderLineIds }, firmId, order: { firmId, supplierId: vendor.id } } }) !== orderLineIds.length) throw new AppError('Matched purchase line unavailable', 404);
+      if (receiptLineIds.length && await tx.goodsReceiptLine.count({ where: { id: { in: receiptLineIds }, firmId, receipt: { firmId, order: { firmId, supplierId: vendor.id } } } }) !== receiptLineIds.length) throw new AppError('Matched receipt unavailable', 404);
+      const sources = await tx.purchaseOrder.findMany({ where: { firmId, lines: { some: { OR: [{ id: { in: orderLineIds } }, { receiptLines: { some: { id: { in: receiptLineIds } } } }] } } } });
       const approvedPolicy = sources.length ? purchasePolicyFromSnapshot(sources[0]!.financialSnapshot) : await resolveBusinessPolicy(tx, firmId);
       if (sources.some((source) => requestHash(purchasePolicyFromSnapshot(source.financialSnapshot).policy) !== requestHash(approvedPolicy.policy))) throw new AppError('Matched purchases use different financial policies; create separate supplier bills', 409);
       const financial = calculatePurchase(input.lines, approvedPolicy, input.taxMode);

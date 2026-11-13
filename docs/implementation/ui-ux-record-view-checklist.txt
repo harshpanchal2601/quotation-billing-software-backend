@@ -1,3 +1,30 @@
+13 November 2026 — additional actual desktop views checked
+Approval inbox/pending/performed, independent request detail and decision form,
+customer receipt create/save/close/toast, receipt refund/cancellation history,
+quotation-derived invoice with paid/adjusted balance, foreign-firm not-found,
+issued PDF and protected restored-PDF access now have actual Chromium/DB evidence.
+Final4scenario acceptance PASS; see latest ui-ux-browser-review.txt for exact
+records, screenshots, artifacts and limits. Earlier named view checks remain
+historical evidence; this does not certify every conditional view or mobile.
+
+
+13 November 2026 — named desktop priorities completed
+Billing field-review/history and index spacing: completed source and real
+save/discard/return/toast/history ordering; independent13Nov reload and409 failure
+retention check. Credit-note2 is Draftv4/INR10, reference retained; not issued.
+CRM timeline: completed real activity create, guard, save/close/toast, independent
+reopen and subject order in both directions. Wider shared dialog verified.
+Platform audit/preview: completed shared detail, chronological order before
+paging,21–27of27 and published QA revision2 read-only preview with truthful
+feedback. Global exclusions stayed disabled; no plan/access mutation.
+Items:13Nov compact rows and complete names verified; no vertical character wrap.
+Approval inbox/notifications: empty/present states inspected; independent
+request/decision/expiry/execution remains OPEN and belongs to the role matrix.
+The old pending statements below are historical for these named rows. They do
+not mean whole-module variants or production release gates have been accepted.
+See ui-ux-browser-review.txt and ui-ux-remediation-delivery-report.txt.
+
+
 Latest shared layout and cross-scope check — 11 November 2026
 1 Old quotation1 rechecked: exactAccepted/revision0/INR50, shared customer/details/
   addresses/notes/actions and team-only warning retained after common changes.

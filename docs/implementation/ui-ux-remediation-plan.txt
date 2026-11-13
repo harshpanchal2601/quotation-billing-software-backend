@@ -1,3 +1,156 @@
+13 November 2026 — final remaining desktop tasks COMPLETED
+1. COMPLETED: independent invoice request/review/explicit issue and real local
+   workflow/in-app notification delivery in fresh QA firm5.
+2. COMPLETED: receipt reversal with earlier refund retained, reopened balance and
+   replacement receipt; unused PO/expense cancellation; billed-receipt denial;
+   cancellation reasons and explicit action wording in shared purchasing views.
+3. COMPLETED: actual desktop rechecks, final reconciliation and evidence closeout.
+   Both invoices Paid/due0; credit0; stock400/reserved0/eight movements unchanged.
+   Final FE build/lint and106 focused checks PASS; read-only DB crosscheck10/10.
+
+Remaining tasks in this agreed local desktop closeout: NONE.
+VIDEO DEFERRED by owner; do not start it until requested later. Mobile and
+unverified external-provider activation remain owner-excluded. Production rollout
+and independent accounting/legal/security/operations acceptance are separate.
+Detailed changed files, positive/negative browser cases, current record IDs,
+validation logs and limits are at the top of the delivery report/browser journal.
+This entry supersedes older pending statements for these three tasks below.
+
+
+13 November 2026 — role/password and unauthorized-page tasks COMPLETED
+All six owner password changes and saved credentials verified. Actual browser
+sign-ins completed for Admin, Sales, Purchasing, Warehouse, Accounts and Read Only.
+Allowed role writes saved through UI;17 actual unauthorized API cases passed.
+Read Only business views exposed no write controls. Shared Access denied page,
+workspace recovery, direct browser API routing and sign-out verified in browser.
+Fixed stale post-login reset return path without weakening the reset requirement.
+Frontend build/lint and routing/UI9 passed; backend type/lint/HTTP8 passed.
+These named tasks are complete. Earlier password-handoff requests are superseded.
+
+Remaining fresh-product work: independent approval/automation execution, remaining
+reversal/undo variants, final acceptance consolidation, then English explainer
+video. Mobile and unverified external integrations remain owner-excluded.
+Detailed files, records, behavior, validation and limits are in the newest browser
+journal/delivery report. No whole-product completion is claimed from role checks.
+
+
+13 November 2026 — expanded fresh QA milestone and owner handoff
+COMPLETED in actual desktop UI: supplier bill/expense, named CRM lead/opportunity/
+task, date validation, reports/direct+queued exports/accounting, service catalogue
+selection, proforma conversion/recurring generation+pause, debit/credit settlement,
+all three unissued draft cancellation scopes, imports/undo, physical stock return,
+portal invite/view-only share/sign-out/replay denial/revocation, quotation revision,
+supporting attachment save-close/download and quotation/invoice/report PDF layouts.
+Fixed catalogue supply classification and attachment success-close/repeat-submit
+root causes; draft cancellation uses existing permissions/history/transactions.
+Current checks: FE build/lint, billing36+attachment6; BE type/lint/billing26;
+real isolated MySQL04+06 suites31/31, both owned schemas removed/absence verified.
+No full-product acceptance is claimed from those selected checks.
+
+HANDOFF READY: six Incognito sign-in tabs filled with current credentials in order
+Admin, Sales, Purchasing, Warehouse, Accounts, Read Only. Owner requested this
+handoff and will enter new passwords/save root QA-Access.md. Complete one account
+at a time; shared-window cookies mean they must not be treated as six concurrent
+independent signed-in sessions. No password reset was bypassed.
+
+NEXT: actual six-account login and role allow/deny/direct-access matrix; firm-admin
+Assistant/Automation and independent approval/reversal variants; final acceptance
+record followed by the English explainer video. Detailed record IDs, chronology,
+source files, limitations and private archive are at the top of the browser
+journal/delivery report. Mobile/external providers remain excluded.
+
+
+13 November 2026 — fresh full-product end-to-end QA requested
+Status: IN PROGRESS; previous193selected passes are historical prerequisites,
+not completion of this fresh final QA. Video production follows QA.
+1. Platform admin registers one clearly synthetic firm and assigns the existing
+   full local-feature plan. Record reusable QA access privately outside source.
+2. Firm admin first-login/password reset; create Sales, Purchasing, Accounts,
+   Warehouse and Read-only roles/users with separate permissions. Verify login,
+   reset lifecycle, allowed actions and direct unauthorized route/API denials.
+3. Master data and settings: company/customer/supplier/contact/address, units,
+   categories, goods/service items, warehouses, profile/billing/document fields.
+4. Connected journeys: CRM -> quotation/revision/acceptance -> sales order ->
+   purchase order/approval/partial receipt -> inventory/reservation/fulfillment ->
+   invoice/independent approval -> receipt/allocation/credit/refund/reversal.
+5. Manufacturing, recurring billing, portal, imports/undo, reports/accounting/PDF,
+   local assistant and automation, tenant/role/quota/status boundaries. Keep
+   unverified outbound providers disabled and business data synthetic.
+6. Per-scenario evidence: actual UI inputs/result/record identity, expected vs
+   observed behavior, positive/negative/retry/stale-state and absence of denied
+   side effects. Failures get a traced root-cause fix and focused revalidation.
+7. Final selected engineering checks, consolidated evidence/remaining blockers;
+   then explainer script/storyboard/video based only on verified functionality.
+Desktop remains current scope. Do not mark all-product QA passed from test files
+or earlier runs. Do not include credentials, private records or test failures in
+public video footage. No real message/payment/tax submission is authorized.
+
+
+13 November 2026 — local acceptance completion notice
+COMPLETED local1: all11MySQL suites160/160, valid immutable-plan fixtures and
+foreign supplier-bill ownership denial before writes; application ledger20/20.
+COMPLETED local2: actual independent approval, one issuance/idempotent retry,
+foreign firm denial and quotation-to-invoice-to-payments/credit/refund/reversal
+journey, with record creation and save/close/toast/result inspection in Chromium.
+COMPLETED local3: large-data baseline, current-schema DB/files recovery, real
+process health/failure/shutdown and removal of owned disposable databases.
+Details/results/source paths are in the latest remediation delivery report.
+
+Desktop closeout A/B/C remains complete. This advances the named local cases
+inside groups6/7; those broad groups remain OPEN for exhaustive route/variant
+coverage, original legacy-data upgrade, independent accounting/legal/security,
+production service/recovery/retention targets, alert ownership, packaging and
+rollout acceptance. These are not a claim that more cosmetic work is required.
+No unrecorded allERP or production acceptance is granted. Mobile/external-provider
+activation remain owner-deferred/excluded. Older blanket unrun claims below are
+historical where superseded by this dated evidence.
+
+
+13 November 2026 — focused desktop closeout completed
+This entry supersedes the older 4-completed/3-open tracker for the named desktop
+priorities. It does not supersede the evidence limits of the release matrix.
+
+COMPLETED A: Latest-field review, history and document table spacing.
+- Stable review snapshot, shared save/cancel/discard handling, no-op protection,
+  single submission, explicit removed-field confirmation and persistent feedback.
+- Backend checks reviewed settings and effective field keys within the existing
+  firm transaction; failed conditional updates cannot append false history.
+- Shared numbered history table with server-side ordering and explicit lookahead
+  pagination, including correct short-page and exact-50-entry final-page counts. Document breadcrumbs now identify invoices, proformas and notes.
+- Actual QA note2: Draft version4, reference saved, INR10 total unchanged.
+  Browser failure injection returned409, retained edits and left version4 intact.
+
+COMPLETED B: CRM timeline and platform audit/preview priorities.
+- Wider lead timeline, readable change values, no empty-to-empty history noise.
+  Actual note creation, dirty guard, save/close/toast and independent reload;
+  three CRM tabs and timeline subject ordering checked in the browser.
+- Platform audit uses the common detail dialog/table, server-side ordering and
+  row numbers21–27 on the actual second page. Read-only revision preview has
+  separate feedback and does not report a save or enable published-plan writes.
+- Approval inbox/notification presentation inspected with the firm administrator;
+  no approval requests existed. Independent approval/execution is NOT passed.
+- Items rechecked13Nov: compact readable rows, no one-letter name wrapping.
+
+COMPLETED C: Focused engineering checks and evidence handoff.
+56 frontend checks passed in two non-overlapping selections (51 +5);
+41 backend checks passed. Frontend TypeScript/Vite build, frontend/backend lint
+and backend typecheck passed. Full-suite results from older batches remain
+historical; this is not a claim that the full current ERP suite was rerun.
+No new production file, dependency, API client or migration was introduced.
+
+Current work groups:5 completed /2 open, with group5 limited to the named desktop
+closeout above. The two remaining groups are RELEASE ACCEPTANCE, not an estimate
+for further cosmetic changes:
+6 OPEN: Complete composed journeys and tenant/role/plan/quota matrix, including
+  independent approval/expiry/execution and disposable-database integration.
+  Reviewer8 still has its first-login gate; no password gate was bypassed.
+7 OPEN: Local-release accounting/document/legal acceptance and operational
+  security/load/backup-restore/recovery/monitoring/rollout evidence and owners.
+Mobile and external-provider activation remain excluded by the owner's scope.
+No full ERP/Wave10/Wave11 production acceptance or deployment is claimed.
+See the newest delivery report and browser journal for exact files and logs.
+
+
 Current completion notice — 11 November 2026
 Tracker:4 completed work groups /3 open work groups. Latest completed subtasks:
 settings lifecycle, compact bank actions, provider wording, shared colour inputs

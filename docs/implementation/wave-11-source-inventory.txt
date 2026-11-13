@@ -1,3 +1,12 @@
+13 November 2026 — executed candidate fingerprint
+No Git command or clean-tree claim. SHA-256 over sorted relative paths/file bytes:
+backend src/tests/schema/migrations410files:8065294c15bdf86602324f4f96444f54067003d65326e1872c2e155fa41d4877
+frontend src402files:0314125205947f9043dd9a96fbb47e6d60e3e16df4eafa7007457413ed81d852
+Source fingerprint JSON and current runtime evidence are in the private closeout
+archive. The declarations/line references below remain the original10Nov static
+inventory, not regenerated runtime coverage or an exhaustive endpoint certificate.
+
+
 Wave 11 source inventory
 Captured: 10 November 2026
 Launch geography: India (user confirmed).

@@ -69,7 +69,8 @@ suite('Wave 10 authenticated reports on disposable MySQL', () => {
     a = await fixture.createTenant('report-A'); b = await fixture.createTenant('report-B');
     const { FEATURE_KEYS } = await import('../src/modules/entitlements/feature-registry.js');
     const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
-    const plan = await db.plan.create({ data: { name: 'Wave10 fixture', slug: `wave10-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, publishedAt: new Date(), policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) }, quotas: { create: ['users', 'documents', 'storageBytes', 'aiCredits'].map((resource) => ({ resource, limit: resource === 'documents' ? 0n : null })) } } } }, include: { versions: true } });
+    const plan = await db.plan.create({ data: { name: 'Wave10 fixture', slug: `wave10-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) }, quotas: { create: ['users', 'documents', 'storageBytes', 'aiCredits'].map((resource) => ({ resource, limit: resource === 'documents' ? 0n : null })) } } } }, include: { versions: true } });
+    await fixture.publishPlanVersion(plan.versions[0]!.id);
     planId = plan.id; planVersionId = plan.versions[0]!.id;
     for (const tenant of [a, b]) await db.firmSubscription.create({ data: { firmId: tenant.firm.id, planVersionId, status: 'ACTIVE', authorId: tenant.admin.id, reason: 'Disposable report fixture', effectiveFrom: new Date(Date.now() - 1000) } });
     await sign(a.reader); await sign(b.admin);
@@ -308,7 +309,8 @@ suite('Wave 10 authenticated reports on disposable MySQL', () => {
     expect((await request('GET', path)).status).toBe(200);
     const { FEATURE_KEYS } = await import('../src/modules/entitlements/feature-registry.js');
     const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
-    const denied = await db.planVersion.create({ data: { planId, revision: policyRevision++, createdById: a.admin.id, publishedAt: new Date(), policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.filter((key) => key !== feature).map((featureKey) => ({ featureKey })) } } });
+    const denied = await db.planVersion.create({ data: { planId, revision: policyRevision++, createdById: a.admin.id, policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.filter((key) => key !== feature).map((featureKey) => ({ featureKey })) } } });
+    await fixture.publishPlanVersion(denied.id);
     const subscription = await db.firmSubscription.findFirstOrThrow({ where: { firmId: a.firm.id } });
     await db.firmSubscription.update({ where: { id: subscription.id }, data: { planVersionId: denied.id } });
     const grant = await db.firmFeatureOverride.create({ data: { firmId: a.firm.id, target: `feature:${feature}`, effect: 'ALLOW', authorId: a.admin.id, reason: 'Disposable Wave10 expiry matrix', startsAt: new Date(Date.now() - 10000), expiresAt: new Date(Date.now() - 1000) } });
@@ -376,9 +378,10 @@ suite('Wave 10 authenticated reports on disposable MySQL', () => {
   it('honors missing-plan access, expired grants and immediate revocation', async () => {
     const { FEATURE_KEYS } = await import('../src/modules/entitlements/feature-registry.js');
     const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
-    const version = await db.planVersion.create({ data: { planId, revision: 2, createdById: a.admin.id, publishedAt: new Date(), policy: LEGACY_POLICY,
+    const version = await db.planVersion.create({ data: { planId, revision: 2, createdById: a.admin.id, policy: LEGACY_POLICY,
       features: { create: FEATURE_KEYS.filter((key) => key !== 'reports' && key !== 'reports.exports').map((featureKey) => ({ featureKey })) },
     } });
+    await fixture.publishPlanVersion(version.id);
     const subscription = await db.firmSubscription.findFirstOrThrow({ where: { firmId: a.firm.id } });
     await db.firmSubscription.update({ where: { id: subscription.id }, data: { planVersionId: version.id } });
     const grant = await db.firmFeatureOverride.create({ data: { firmId: a.firm.id, target: 'feature:reports', effect: 'ALLOW', startsAt: new Date(Date.now() - 10000), expiresAt: new Date(Date.now() - 1000), authorId: a.admin.id, reason: 'Disposable expired report grant' } });

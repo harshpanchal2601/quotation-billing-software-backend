@@ -92,7 +92,7 @@ export class InvoicesRepository {
     if (type === 'customers') return this.db.company.findMany({ where: { firmId, deletedAt: null, isActive: true, ...(selectedId !== undefined ? { id: selectedId } : { name: { contains: search } }) }, select: { id: true, name: true, gstin: true }, orderBy: [{ name: 'asc' }, { id: 'asc' }], take: selectedId !== undefined ? 1 : limit });
     await assertTransactionFeature(this.db, firmId, 'items');
     const items = await this.db.item.findMany({ where: { firmId, deletedAt: null, isActive: true, name: { contains: search }, measurementUnit: { firmId, deletedAt: null, isActive: true } }, include: { measurementUnit: true }, orderBy: [{ name: 'asc' }, { id: 'asc' }], take: limit });
-    return items.map((item) => ({ id: item.id, name: item.name, itemCode: item.itemCode, unitRate: item.defaultRate.toFixed(2), taxRate: item.gstRate.toFixed(2), hsnCode: item.hsnCode, measurementUnit: item.measurementUnit.symbol }));
+    return items.map((item) => ({ id: item.id, name: item.name, itemCode: item.itemCode, supplyType: item.kind, unitRate: item.defaultRate.toFixed(2), taxRate: item.gstRate.toFixed(2), hsnCode: item.hsnCode, measurementUnit: item.measurementUnit.symbol }));
   }
   async customerAddresses(firmId: number, companyId: number) {
     await assertTransactionFeature(this.db, firmId, 'billing.invoices');
@@ -143,12 +143,13 @@ export class InvoicesRepository {
     await tx.invoiceStatusHistory.create({ data: { firmId, invoiceId: id, version, changedById: actorId, fromStatus, toStatus } });
     await recordInvoiceFieldHistory(tx, firmId, actorId, id, version);
   }
-  async fieldHistory(firmId: number, actorId: number, id: number, scope: DocumentScope, page: number) {
+  async fieldHistory(firmId: number, actorId: number, id: number, scope: DocumentScope, page: number, sort: { sortBy: 'version' | 'createdAt'; sortOrder: 'asc' | 'desc' } = { sortBy: 'version', sortOrder: 'desc' }) {
     return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
       await this.authorize(tx, firmId, actorId, scope, 'view');
       await assertTransactionFeature(tx, firmId, 'automation');
       await this.find(tx, firmId, id, scope);
-      return tx.customFieldValueVersion.findMany({ where: { firmId, entity: 'INVOICE', entityId: id }, orderBy: { version: 'desc' }, take: 50, skip: (page - 1) * 50 });
+      const records = await tx.customFieldValueVersion.findMany({ where: { firmId, entity: 'INVOICE', entityId: id }, orderBy: [{ [sort.sortBy]: sort.sortOrder }, { id: sort.sortOrder }], take: 51, skip: (page - 1) * 50 });
+      return { history: records.slice(0, 50), pagination: { page, limit: 50, hasMore: records.length > 50 } };
     });
   }
   async preview(firmId: number, actorId: number, input: InvoiceDraftInput, scope: DocumentScope) {
@@ -291,14 +292,20 @@ export class InvoicesRepository {
     if (old.kind === 'INVOICE' || old.kind === 'CREDIT_NOTE') await emitAutomationEvent(tx, firmId, actorId, `billing:${id}:${record.version}`, { trigger: old.kind === 'INVOICE' ? 'invoice.issued' : 'credit-note.issued', entity: 'INVOICE', entityId: id, documentNumber, status: record.status, currency: record.currency, total: record.grandTotal.toString(), discountPercent: discountPercentage(record.subtotal, record.discountAmount) });
     return serialiseInvoice(record);
   }
-  async updateCustomValues(firmId: number, actorId: number, id: number, scope: DocumentScope, expectedVersion: number, input: Record<string, string | boolean | null>, refresh: boolean, metadata: RequestMetadata) {
+  async updateCustomValues(firmId: number, actorId: number, id: number, scope: DocumentScope, expectedVersion: number, input: Record<string, string | boolean | null>, refresh: boolean, metadata: RequestMetadata, expectedSettingsVersion?: number) {
     return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
       await this.authorize(tx, firmId, actorId, scope, 'edit');
       const old = await this.find(tx, firmId, id, scope);
       if (old.status !== 'DRAFT' || old.version !== expectedVersion) throw new AppError('Only the current draft custom values can be edited', 409);
-      const fields = refresh ? (await readInvoiceSettings(tx, firmId, true)).config.customFields : customFieldDefinitionsSchema.parse(old.customFieldSchema);
+      const settings = refresh ? await readInvoiceSettings(tx, firmId, true) : null;
+      if (settings && expectedSettingsVersion !== undefined && settings.version !== expectedSettingsVersion) throw new AppError('Additional field settings changed. Return to the document and review the latest fields before applying.', 409);
+      const fields = settings ? settings.config.customFields : customFieldDefinitionsSchema.parse(old.customFieldSchema);
+      // Entitlement changes can alter the effective fields without changing the
+      // saved settings version. Reviewed submissions contain every visible key.
+      if (settings && expectedSettingsVersion !== undefined && (Object.keys(input).length !== fields.length || fields.some((field) => !Object.prototype.hasOwnProperty.call(input, field.key)))) throw new AppError('The available additional fields changed. Return to the document and review them again before applying.', 409);
       const values = validateCustomFieldValues(fields, input, false);
-      await tx.invoice.updateMany({ where: { id, firmId, status: 'DRAFT', version: expectedVersion }, data: { customFieldSchema: fields, customFieldValues: values, version: { increment: 1 }, updatedById: actorId } });
+      const updated = await tx.invoice.updateMany({ where: { id, firmId, status: 'DRAFT', version: expectedVersion }, data: { customFieldSchema: fields, customFieldValues: values, version: { increment: 1 }, updatedById: actorId } });
+      if (updated.count !== 1) throw new AppError('This draft changed. Return to the document before saving again.', 409);
       await this.history(tx, firmId, id, old.version + 1, actorId, 'DRAFT', 'DRAFT');
       const row = await this.find(tx, firmId, id, scope);
       await this.audit(tx, firmId, actorId, row, AuditAction.UPDATE, metadata, old);
@@ -310,15 +317,19 @@ export class InvoicesRepository {
     return typeof source?.extraCharges === 'string' ? source.extraCharges : '0';
   }
   async cancelOrderDraft(firmId: number, actorId: number, id: number, expectedVersion: number, reason: string, metadata: RequestMetadata) {
+    return this.cancelDraft(firmId, actorId, id, expectedVersion, reason, 'INVOICE', metadata, true);
+  }
+  async cancelDraft(firmId: number, actorId: number, id: number, expectedVersion: number, reason: string, scope: DocumentScope, metadata: RequestMetadata, requireOrder = false) {
     return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
-      await this.authorize(tx, firmId, actorId, 'INVOICE', 'void');
-      const old = await this.find(tx, firmId, id, 'INVOICE');
-      if (!old.sourceSalesOrderId) throw new AppError('This action requires an order-derived draft', 409);
+      await this.authorize(tx, firmId, actorId, scope, 'void');
+      const old = await this.find(tx, firmId, id, scope);
+      if (requireOrder && !old.sourceSalesOrderId) throw new AppError('This action requires an order-derived draft', 409);
       if (old.status === 'VOID' && old.issuedAt === null && old.version === expectedVersion + 1 && old.voidReason === reason) return serialiseInvoice(old);
-      if (old.status !== 'DRAFT' || old.version !== expectedVersion) throw new AppError('Only the current order invoice draft can be cancelled', 409);
-      await tx.invoice.update({ where: { id }, data: { status: 'VOID', version: { increment: 1 }, voidedAt: new Date(), voidReason: reason, updatedById: actorId } });
+      if (old.status !== 'DRAFT' || old.version !== expectedVersion) throw new AppError('Only the current unissued draft can be cancelled', 409);
+      const updated = await tx.invoice.updateMany({ where: { id, firmId, status: 'DRAFT', version: expectedVersion }, data: { status: 'VOID', version: { increment: 1 }, voidedAt: new Date(), voidReason: reason, updatedById: actorId } });
+      if (updated.count !== 1) throw new AppError('This draft changed. Refresh the document before cancelling it.', 409);
       await this.history(tx, firmId, id, old.version + 1, actorId, 'DRAFT', 'VOID');
-      const row = await this.find(tx, firmId, id, 'INVOICE');
+      const row = await this.find(tx, firmId, id, scope);
       await this.audit(tx, firmId, actorId, row, AuditAction.STATUS_CHANGE, metadata, old);
       return serialiseInvoice(row);
     });

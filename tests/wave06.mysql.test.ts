@@ -52,7 +52,8 @@ suite('Wave 06 authenticated two-firm sales and portal flows', () => {
     fixture = new TwoFirmFixture(db); a = await fixture.createTenant('sales-A'); b = await fixture.createTenant('sales-B');
     for (const tenant of [a, b]) await db.companyContact.update({ where: { id: tenant.contact.id }, data: { email: `portal-${tenant.firm.id}@example.invalid` } });
     const { FEATURE_KEYS } = await import('../src/modules/entitlements/feature-registry.js'); const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
-    const plan = await db.plan.create({ data: { name: 'Wave06 fixture', slug: `wave06-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, publishedAt: new Date(), policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) }, quotas: { create: ['users','documents','storageBytes','aiCredits'].map((resource) => ({ resource, limit: null })) } } } }, include: { versions: true } }); planId = plan.id; planVersionId = plan.versions[0]!.id;
+    const plan = await db.plan.create({ data: { name: 'Wave06 fixture', slug: `wave06-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) }, quotas: { create: ['users','documents','storageBytes','aiCredits'].map((resource) => ({ resource, limit: null })) } } } }, include: { versions: true } });
+    await fixture.publishPlanVersion(plan.versions[0]!.id); planId = plan.id; planVersionId = plan.versions[0]!.id;
     for (const tenant of [a, b]) await db.firmSubscription.create({ data: { firmId: tenant.firm.id, planVersionId, status: 'ACTIVE', authorId: tenant.admin.id, reason: 'Disposable sales fixture', effectiveFrom: new Date(Date.now() - 1000) } });
     const { generateAccessToken } = await import('../src/modules/auth/security/auth.tokens.js'); const { ACCESS_TOKEN_COOKIE_NAME } = await import('../src/modules/auth/auth.constants.js');
     for (const actor of [a.admin, a.reader, b.admin]) { const session = await db.authSession.create({ data: { userId: actor.id, refreshTokenHash: 'unused', expiresAt: new Date(Date.now() + 3600000) } }); cookies.set(actor.id, `${ACCESS_TOKEN_COOKIE_NAME}=${generateAccessToken({ userId: actor.id, role: actor.role, sessionId: session.id })}`); }
@@ -124,7 +125,7 @@ suite('Wave 06 authenticated two-firm sales and portal flows', () => {
     const full = (await data<{ document: Invoice }>(await request('POST', '/invoices/from-sales-order', invoiceInput(row, '10')), 201)).document;
     expect(full.grandTotal).toBe('100.00');
     const issued = (await data<{ document: Invoice }>(await request('POST', `/invoices/${full.id}/issue`, { expectedVersion: full.version, confirmedTotal: full.grandTotal }))).document;
-    const quota = await db.firmFeatureOverride.create({ data: { firmId: a.firm.id, target: 'quota:documents', effect: 'LIMIT', limit: 0n, authorId: a.admin.id, reason: 'Disposable order PDF quota' } });
+    const quota = await db.firmFeatureOverride.create({ data: { firmId: a.firm.id, target: 'quota:documents', effect: 'LIMIT', limit: 0n, startsAt: new Date(Date.now() - 1000), authorId: a.admin.id, reason: 'Disposable order PDF quota' } });
     try { expect((await request('POST', `/invoices/${issued.id}/pdf`, {})).status).toBe(409); expect(await db.invoiceDocument.count({ where: { invoiceId: issued.id } })).toBe(0); } finally { await db.firmFeatureOverride.delete({ where: { id: quota.id } }); }
     await data(await request('POST', `/invoices/${issued.id}/void`, { expectedVersion: issued.version, reason: 'Cancelled unreported same-day sale', notReportedAndSupplyCancelled: true }));
     expect((await getOrder(row.id)).lines[0]!.available).toBe('10.000');
@@ -191,7 +192,8 @@ suite('Wave 06 authenticated two-firm sales and portal flows', () => {
     await db.firmRole.update({ where: { id: a.role.id }, data: { permissions: ['crm.view', 'crm.manage'] } });
     try { const list = await data<{ records: unknown[] }>(await request('GET', '/leads', undefined, a.reader.id)); expect(list.records).toHaveLength(0); } finally { await db.firmRole.update({ where: { id: a.role.id }, data: { permissions: ['quotations.view'] } }); }
     const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
-    const excluded = await db.planVersion.create({ data: { planId, revision: 2, createdById: a.admin.id, publishedAt: new Date(), policy: LEGACY_POLICY, features: { create: [{ featureKey: 'firm.core' }, { featureKey: 'companies' }] } } });
+    const excluded = await db.planVersion.create({ data: { planId, revision: 2, createdById: a.admin.id, policy: LEGACY_POLICY, features: { create: [{ featureKey: 'firm.core' }, { featureKey: 'companies' }] } } });
+    await fixture.publishPlanVersion(excluded.id);
     const sub = await db.firmSubscription.findFirstOrThrow({ where: { firmId: a.firm.id } }); await db.firmSubscription.update({ where: { id: sub.id }, data: { planVersionId: excluded.id } });
     try {
       for (const key of ['crm', 'sales.orders', 'customer.portal']) await db.firmFeatureOverride.create({ data: { firmId: a.firm.id, target: `feature:${key}`, effect: 'ALLOW', authorId: a.admin.id, reason: 'Expired fixture', startsAt: new Date(Date.now() - 20000), expiresAt: new Date(Date.now() - 10000) } });

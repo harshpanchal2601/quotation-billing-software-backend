@@ -43,6 +43,6 @@ platformSubscriptionsRouter.delete('/firms/:id/overrides/:overrideId', respond((
 platformSubscriptionsRouter.get('/usage', respond((req) => repository.effectiveAccess(platformUsageQuerySchema.parse(req.query).firmId, ALL_PERMISSIONS)));
 platformSubscriptionsRouter.get('/firms/:id/usage/events', respond((req) => { const query = platformPageSchema.parse(req.query); return repository.usageEvents(firmId(req), query.page, query.limit); }));
 platformSubscriptionsRouter.post('/firms/:id/usage/reconcile', respond((req) => repository.reconcile(firmId(req), reasonSchema.parse(req.body).reason, actor(req))));
-platformSubscriptionsRouter.get('/audit', respond((req) => { const query = platformAuditQuerySchema.parse(req.query); return repository.events(query.firmId, query.page, query.limit); }));
+platformSubscriptionsRouter.get('/audit', respond((req) => { const query = platformAuditQuerySchema.parse(req.query); return repository.events(query.firmId, query.page, query.limit, query); }));
 platformSubscriptionsRouter.post('/firms/:id/charges', respond((req) => repository.createCharge(firmId(req), platformChargeSchema.parse(req.body), actor(req)), 201));
 platformSubscriptionsRouter.post('/firms/:id/charges/:chargeId/payments', respond((req) => { const ids = platformChargeIdSchema.parse(req.params); return repository.recordPayment(ids.id, ids.chargeId, platformPaymentSchema.parse(req.body), actor(req)); }, 201));

@@ -1,3 +1,875 @@
+13 November 2026 — remaining local desktop QA tasks COMPLETED
+Owner direction: complete remaining work; VIDEO DEFERRED until a later decision.
+This is the current status for the named fresh-firm desktop closeout tasks.
+
+COMPLETED 1 — independent approval and local automation execution
+- Firm5 administrator9 published an unconditional INVOICE_ISSUE approval policy,
+  version1,48-hour expiry. Validate and preview completed without side effects.
+- Administrator9 opted into in-app notifications (UTC+05:30, no quiet hours) and
+  published qa-e2e-invoice-notification version1; recipient is existing admin9.
+  Preview showed notify -> stop. No email or other provider was enabled.
+- Accounts13 created service invoice18, customer4, quantity1/rate50/totalINR50,
+  reference QA-E2E-INDEPENDENT-APPROVAL. Saved back to numbered invoice list/toast.
+- Issue created request e7986e94-c383-4106-8f60-ed84c70c7317. Repeated request
+  clicks kept one pending request, draft version1 and no assigned document number.
+  Accounts had no self-approval control. Admin9 reviewed exact version/total and
+  recorded a reason. Approval alone left invoice18 Draft/version1.
+- Accounts13 explicitly retried Issue: invoice18 became INV/2627/000002, Issued/v2.
+  Request displays Performed (stored APPROVED plus consumedAt). No automatic issue.
+- Run4dbf8b60-8e39-4777-9d6e-57940535fd29 completed, source billing:18:2,
+  actor13; notify queued, stop completed. Workflow and notification jobs each
+  completed on their first attempt; audit showed Delivered to existing recipient9.
+  Admin9's inbox displayed QA invoice issued: INV/2627/000002 / INVOICE is ISSUED.
+- Rechecked corrected handoff on existing recurring-source draft11 as admin9:
+  confirmation closed, blue informational notice/toast gave next-step guidance,
+  draft/version1 stayed unchanged. Self-approval controls absent. Request
+  0d53eb5b-0bc0-4aea-9f8a-a95d15953a1c cancelled with reason; no issuance occurred.
+  The paused recurring schedule remains paused. QA policy/workflow remain enabled
+  only in this synthetic firm; no approval protection was disabled during cleanup.
+
+COMPLETED 2 — remaining cancellation/reversal and reconciliation checks
+- Receipt5 before cancellation:150 received,20 already refunded,130 net,
+ 100 allocated,30 credit. Keep receipt left values unchanged; empty/unconfirmed
+  cancellation remained disabled. Explicit warning stated130 would be cancelled,
+  allocations removed and earlier refund retained. Reason and acknowledgement
+  entered, then separate consequence confirmation submitted.
+- After save/close/toast: receipt5 Cancelled; reversal130, net/applied/credit0.
+  Original100 allocation displayed Undone; earlier refund20/reference retained.
+  Actor13/reason/date displayed. No repeat refund/cancellation controls remained.
+- Invoice8 reopened Partially paid: adjusted300, allocated200, due100.
+- Accounts13 recorded replacement receipt6, reference
+  QA-E2E-REPLACEMENT-AND-APPROVED-150, amount150, explicit allocations100 to
+  invoice8 and50 to invoice18. Saved back to receipts list/toast; credit0.
+- Reloaded invoice8 Paid/adjusted300/applied300/due0 and invoice18 Paid/50/50/0.
+  Receivables and final administrator dashboard: no outstanding invoices, credit0.
+- Expense3 QA-ROLE-ACCOUNTS-1: empty reason blocked by native validation;
+  reason/consequence confirmation saved Cancelled, list/toast, no repeat action.
+  Original expense2 amount25 remains confirmed.
+- Draft PO4/PO-000002 cancelled with reason/consequence confirmation; persisted
+  Cancelled on independent reload. Original received PO3 remains unchanged.
+- Goods receipt2 cancellation denied: Returned or billed receipt cannot be
+  cancelled; correct the linked documents first. Entered reason retained and
+  failure visible. Keep receipt -> discard closed safely and cleared owned error.
+  Both matched receipts remain received; stock unchanged: Main4 components/value
+ 200, Secondary2/value100, Main1 assembly/value100; reserved0,8 ledger movements.
+- Purchasing actions now say Record goods receipt, Record supplier return and
+  Cancel receipt/Keep receipt instead of generic Save. Actual supplier-return and
+  cancellation dialogs checked after change; no supplier return posted here.
+- Saved cancellation reasons now appear in the existing common purchasing detail
+  for orders, receipts, bills and expenses. Actual cancelled PO4 and expense3
+  reloaded and displayed their original saved reasons. No reason was invented.
+
+COMPLETED 3 — fixes, focused validation and evidence closeout
+Root cause: the approval bridge created a review but propagated an ordinary409,
+so forms reported a failed operation and invoice issuance confirmation stayed open.
+A separate read-only detail gap omitted API-provided cancellation reasons.
+Files changed in this final batch:
+- frontend/src/features/automation/components/ApprovalRequestBridge.tsx: marks
+  APPROVAL_REQUESTED only after review creation succeeds; financial effect still
+  rejects/pauses, no success response or automatic retry is fabricated.
+- frontend/src/shared/api/apiClient.ts: normalizes that state as approvalRequested;
+  an uncreated review, other conflicts and transport errors remain ordinary errors.
+- frontend/src/shared/forms/CommandForm.tsx: informational pending-review feedback;
+  preserves original inputs and command identity for explicit post-review retry.
+- frontend/src/features/invoices/pages/InvoiceDetailsPage.tsx: closes issuance
+  confirmation after creating approval; blue notice/toast, draft unchanged.
+  Real issuance failures still retain confirmation for safe retry.
+- frontend/src/features/quotations/pages/QuotationDetailsPage.tsx and
+  frontend/src/features/quotations/pages/QuotationsPage.tsx: status approval closes
+  status dialog with info feedback; existing success/error behavior retained.
+- frontend/src/features/quotations/email/components/QuotationEmailDialog.tsx:
+  pending approval is information, with original recipients/content retained for
+  required explicit retry. No email send was exercised or enabled in this scope.
+- frontend/src/features/purchasing/PurchasingPage.tsx: explicit action wording and
+  common cancellation reason/date section using existing DetailSection/DetailFields.
+- frontend/src/features/purchasing/purchasing.api.ts: types existing nullable
+  cancellationReason/voidReason response fields; no backend contract changed.
+- Existing automation.transport.test.tsx, invoices.test.tsx, CommandForm.test.tsx
+  and purchasing.test.tsx: review-created versus creation-failed state, no false
+  issuance, retained command identity, real-error retry and four read-only reason
+  consumers. Billing access assertion aligned with the delivered access-denied
+  route, replacing its outdated silent-landing expectation.
+- Existing plan/browser journal/delivery report and Wave10/11 status/matrix files:
+  current completion and owner exclusions; chronological earlier evidence retained.
+
+Approved validation, after final source edits, all exit0:
+- Frontend build (includes TypeScript compilation): PASS. Existing large-chunk
+  advisory remains; it is not a build failure or a measured runtime regression.
+- Frontend lint: PASS.
+- Nine focused files106/106: automation transport, billing, shared command/API,
+  quotation management/documents, purchasing, route access and auth landing.
+- Read-only firm5 database crosscheck10/10: both issued invoices paid, credit0,
+  reversal130 with refund20 retained, stock400/reserved0/eight movements, distinct
+  requester13/approver9 and consumed approval, cancelled unused request, succeeded
+  workflow, unused PO/expense cancellation, and both billed receipts unchanged.
+  Stored terminal values were checked against actual contracts: workflow SUCCEEDED;
+  consumed approval APPROVED+consumedAt. UI labels Completed/Performed are deliberate.
+- Earlier backend HTTP8/type/lint and isolated Wave04+06 MySQL31/31 remain valid;
+  no backend source changed in this batch, so those commands were not repeated.
+  This batch supplements earlier160/160 isolated MySQL/load/recovery evidence;
+  counts from different historical batches are not added into a false total.
+
+Evidence: /Users/harshpanchal/Documents/Bhuminex-QA-Artifacts/2026-11-13-firm5
+final-qa-state.json plus hashed artifact index and copied final engineering logs.
+Reusable credentials remain in private, ignored root QA-Access.md; no credentials
+are in source reports/evidence. Browser left signed in as QA admin9 on Dashboard.
+
+Architecture/validation: approval remains a review prerequisite, never a financial
+success. Existing HTTP envelope, tenant context, permissions, transactions,
+immutable history, explicit retry, shared forms and shared detail layout preserved.
+No duplicate production helper/file, diagnostic logs, auth bypass or automatic
+financial retry introduced. No known failing case remains in the named scope.
+No backend build, install, format, Git, Docker, application migration, deployment
+or external-provider activation executed in this batch. Previously authorized
+frontend checks and synthetic browser bookkeeping were executed as listed.
+
+Current remaining implementation/QA list for this agreed local desktop closeout:
+NONE. This closes these three named tasks and supersedes earlier pending entries
+for them. Mobile and external-provider activation remain owner-excluded. Video
+is owner-deferred and was not started. Production deployment, legacy-data upgrade,
+independent accounting/legal/security sign-off and operational SLO/DR/retention/
+rollout ownership remain separate release decisions, not completed by local QA.
+This is acceptance of the recorded desktop scenarios, not exhaustive certification
+of every endpoint/variant or a claim that a production rollout was authorized.
+
+
+13 November 2026 — six-account access QA and proper unauthorized page
+COMPLETED: all six fresh firm5 accounts signed in with owner-changed passwords.
+COMPLETED: shared unauthorized screen and browser/API error presentation.
+This supersedes earlier password-handoff blockers; it does not mark every ERP
+variant or the English explainer video complete.
+
+Browser evidence — actual named accounts, desktop Incognito:
+- Administrator9: dashboard, local Business Assistant, Assistant settings and
+  Automation settings accessible. Outstanding-invoices lookup returned no unpaid
+  invoices and customer credit30, consistent with invoice8 being paid.
+  Platform-only Firms remained unavailable.
+- Sales10: created QA Role Sales Prospect, assigned to self, saved/closed/list/
+  Lead saved feedback. Quotations and SO-000001 accessible. Invoice, purchasing
+  and user-administration routes blocked. Direct API invoice/user GETs denied.
+- Purchasing11: created PO-000002 / order4,1component at50, Draft/INR50.
+  No approval action in its detail. Direct invoice/user API GETs denied.
+- Warehouse12: saved main-warehouse/component reorder threshold5; on-hand4,
+  low-stock alert displayed. No movement or value change. Invoice/user GETs
+  denied. Existing stock stays400, reserved0,8 ledger movements.
+- Accounts13: invoice8 accessible, permitted PDF/note actions; purchase workspace
+  exposes supplier bills/expenses, no purchase-order tab. Saved standalone
+  QA-ROLE-ACCOUNTS-1, Confirmed/INR1, dialog closed/list/toast. Inventory and user
+  API GETs denied. Existing freight25 plus this synthetic1 now total26.
+- Read Only14: CRM, quotation5, invoice8, purchasing, inventory, manufacturing and
+  reports opened; checked business create/edit/issue actions absent. CRM has no
+  assigned leads for this actor. New quotation, new invoice, invoice11 edit,
+  users, firm-admin automation settings and platform firms blocked.
+- Login throttling returned429 during sequential account QA. Its advertised
+  105-second cooldown was respected; no limit, permission or password flag was
+  changed to bypass it. Warehouse login succeeded after expiry.
+- Read Only ended signed out through the new page; direct unauthenticated
+  backend auth/me navigation showed the normal sign-in page, not raw JSON.
+
+Real application API denials —17/17 expected outcomes:
+Normal authenticated logins for each of the five limited users; independent
+short-lived QA sessions logged out afterwards. Empty invalid mutation payloads
+were used so an unexpected authorization failure could not create business data.
+- Sales: invoice create and user create403.
+- Purchasing: approve order4 and create invoice403.
+- Warehouse: invoice create and user create403.
+- Accounts: stock adjustment, user create and invoice8 cancellation403;
+  foreign invoice1 returned404.
+- Read Only: quotation/invoice/stock-adjustment/PO/expense creates403,
+  user administration GET403 and foreign invoice1 returned404.
+No denied business write succeeded. Afterwards:10 billing documents,2 quotation
+revisions,2 purchase orders,2 expenses,8 stock movements/value400/reserved0.
+These are named cases; this is not an exhaustive claim for every permission.
+
+Root causes and files changed:
+- frontend/src/features/auth/model/auth-routing.ts: getPostLoginPath always
+  enforces a required reset, otherwise excludes stale login/change-password
+  return paths and uses the existing permission-aware landing priorities.
+- frontend/src/features/auth/pages/LoginPage.tsx: uses that shared resolver.
+  A completed-reset administrator had initially landed on an old change-password
+  return path; corrected navigation no longer asks unnecessarily for another reset.
+- frontend/src/features/auth/model/auth-routing.test.ts: required-reset,
+  completed-reset, valid deep-link and platform landing regressions.
+- frontend/src/app/router/guards/AccessRoute.tsx: account-type and permission
+  denials now reach the same access-denied page as subscription denials.
+  Missing firm selection still opens firm selection. Authorization unchanged.
+- frontend/src/app/router/pages/AccessDeniedPage.tsx: centred branded card,
+  lock icon, plain-language reason, administrator guidance, Back to workspace
+  and Sign out actions. Users with no assigned module have no looping workspace
+  button. Sign-out prevents repeated submission while pending.
+- backend/src/core/http/errorHandler.ts: explicit HTML GET401/403 navigation
+  uses303 to the configured FRONTEND_URL login/access-denied page. No hardcoded
+  frontend port, untrusted Host/return URL or sensitive query is copied.
+  API clients keep JSON401/403 and mutation responses unchanged. Access failures
+  use no-store and Vary: Accept. No access check is weakened or skipped.
+- backend/tests/wave11.http.test.ts: browser HTML/mixed-case Accept routing,
+  trusted origin, query exclusion, non-cacheability, normal JSON and mutation
+  compatibility. Existing error redaction checks retained.
+- frontend/src/app/router/access.test.tsx: one consolidated regression suite for
+  role/account/subscription denials, successful recovery, no-module loop
+  prevention, allowed content and unchanged platform firm selection.
+  No new production file or parallel API/UI implementation introduced.
+- Private root QA-Access.md: six final-password entries synchronized with the
+  confirmed owner-provided credential; all six match stored hashes, require-
+  change false. Status/role-assignment notes updated. No secret in this report.
+- Existing browser journal, delivery report and remediation plan updated.
+
+Actual unauthorized UI revalidation:
+Read Only navigated to new invoice, invoice11 edit, user administration,
+automation settings and platform firms: all showed the same Access denied
+screen, with matching breadcrumb, readable guidance and aligned actions.
+Screenshot inspected at desktop size. Back to workspace returned to Dashboard.
+A direct browser request to backend administration/users opened this same page
+instead of displaying JSON. Sign out and unauthenticated backend navigation
+both opened Welcome back/sign-in. No blank page observed in these cases.
+
+Validation / limits:
+Frontend lint and TypeScript/Vite build passed; routing/UI9/9 tests passed.
+Backend typecheck/lint passed; safe HTTP8/8 tests passed. After the final
+case-insensitive header adjustment, backend typecheck/lint/HTTP checks reran
+successfully. Actual browser checks and real API denial results above are the
+acceptance evidence, not just the regression files.
+Only previously authorized checks executed; no install, migrations, Git,
+Docker, backend build or deployment in this batch. No temporary diagnostic log,
+dependency, schema change or bypass was introduced. Existing APIs and allowed
+routes remain compatible. Browser redirects require the configured frontend
+to be available, as does the rest of the ERP UI.
+
+Evidence: private firm5 archive now also contains role-api-denials.json,
+role-auth-state.json, selected access/auth check logs and updated report copies.
+Remaining wider fresh-product work: independent approval/automation execution
+and remaining reversal/undo variants, final acceptance consolidation, then the
+English explainer video. Password handoff and the named six-account role checks
+are complete; no further password change is needed. Mobile/external providers
+remain owner-excluded.
+
+
+13 November 2026 — fresh firm #5 expanded QA and save-flow fixes
+Status: named desktop scenarios below COMPLETED in native Chrome. Fresh
+whole-product acceptance and the English explainer video remain IN PROGRESS.
+Six Incognito sign-in tabs are prepared for the owner's password-change handoff:
+Admin, Sales, Purchasing, Warehouse, Accounts, Read Only. Current credentials
+are filled in; new credentials must be entered by the owner and saved in the
+private root QA-Access.md. No password or first-login flag was bypassed.
+Read-only evidence still showed all six first-login gates before this handoff.
+
+COMPLETED — additional connected business scenarios
+- Supplier bill #2, QA-E2E-SUPPLIER-BILL-500: matched both receipts (4 + 6
+  components at50), saved Draft500, confirmed with reason/confirmation.
+  Standalone freight expense QA-E2E-EXPENSE-25 saved Confirmed25, separate
+  from the goods bill and stock valuation.
+- CRM lead #4 created and converted to existing customer #4 without a duplicate.
+  Opportunity #2 links lead4/quotation5/customer4, owner Sales user10, Proposal,
+  probability50 and INR300. Related records were selected by business names.
+  Task #2 links opportunity2, due14Nov14:00 IST, reminder13Nov13:00 IST.
+  Reminder after due date was rejected with values retained. Valid task saved,
+  appeared in due reminders, then Done disappeared from that filter. Unfiltered
+  list and lead timeline retained the completed task and review note.
+- Reports dated15Oct–13Nov: quote300/accepted1, invoice sales300, credit30,
+  proposal pipeline300, stock350, PO commitments500, bills500, expenses25.
+  Invalid reversed date range was blocked before applying it. Saved a private
+  view. Direct CSV (18 rows, firm5 only), direct two-page PDF, queued PDF job
+  2088613c-bb9c-44c1-b71b-1e58b4cf5224 completed/downloaded.
+  Account mapping version1 was reviewed/published; journal CSV balances
+  QA-AR debit300 / QA-SALES credit300 for billing:8:2:ISSUE.
+  These exports are snapshots BEFORE the later note, return and revision checks.
+- Tenant negative checks as platform admin selected in older firm3: invoice8
+  returned Billing document not found; sourceRevisionId5 sales-order form
+  returned Quotation not found with Create disabled. Returned to firm5 before
+  writes. This is selected-firm isolation, not the pending limited-role matrix.
+- Proforma #9 issued PF/2627/000001 for service item6/JOB/HSN9987, INR50.
+  Converted to invoice draft #10. A recurring schedule from this derived draft
+  was rejected with a manual-template explanation.
+  Manual service invoice draft #11 created for50; monthly schedule approved.
+  Normal configured worker created draft #12 for13Nov, due13Dec; next period
+ 13Dec. Schedule then paused after this one generation and UI confirmed Paused.
+- Debit #13 issued DN/2627/000001 for10: invoice8 adjusted310, paid300/due10.
+  Credit draft #14 for50 was kept once, then cancelled with reason/version2.
+  Credit500 against the source line was rejected with values retained.
+  Credit #15 was accidentally entered at0 during QA, issued at0 and correctly
+  had no financial effect. This is synthetic test data, not a settlement bug.
+  Re-entered quantity1/rate10 were checked before save and issuance: credit #16
+  issued CN/2627/000002 for10. Invoice8 then showed Paid, total300/applied300/
+  due0 after navigation and an independent reload.
+- Unissued invoice #10, credit #14 and proforma #17 cancelled through the shared
+  detail page. Reasons/history retained, version2/Cancelled, no issued number.
+  Empty reason disabled cancellation; Keep draft retained the note draft.
+  The shared notice renders user punctuation without adding a second full stop.
+  Issued invoice8 retained its issued actions and original INR300 snapshot.
+- Import batch #4: two customer rows previewed; valid row Approved, INVALIDGST
+  row Rejected before any customer write. Commit created only customer #6.
+  Safe undo deactivated that unchanged record; row history shows Import undone,
+  rejected row remains Rejected and repeat import action is disabled.
+- Financial notes did not move stock: before a physical return, Main3components/
+  value150, Secondary2/value100, Main1assembly/value100 and exactly7 movements.
+  Customer return4 against dispatch16(quantity3) rejected with values retained.
+  Corrected return1 saved as stock operation #4, movement #17, original16,
+  value+50. Main components4/value200; total current stock400 across3 positions,
+  reservations0 and exactly8 movements. No money transfer took place.
+- Fresh portal invitation #2 for QA E2E Customer Contact explicitly approved,
+  created single-use/24-hour; invoice grant #3 explicitly approved view-only.
+  Customer portal listed exactly one shared invoice8 and rendered its supplier/
+  customer/items/INR300 totals with no editing/issuing controls.
+  Signed out; consumed link in a fresh tab denied Portal access unavailable or
+  expired with new-invitation guidance. Admin history shows invitation Used.
+  Removed the disposable invoice share; history retains Access removed.
+  No email sent. No portal token is included in the evidence archive.
+- Quotation revision #6/revision1 created from accepted #5/revision0, updated
+  internal review note, saved/returned to table/toast as Draft. Original #5
+  independently reopened still Accepted/INR300; invoice8 still references rev0.
+  Downloaded quotation5 and invoice8 PDFv1; one page each, visually rendered
+  with native PDFKit. Both queued-report pages also rendered and inspected:
+  readable columns/parties/totals, no clipping or overlaps observed.
+- Quotation supporting attachment bug reproduced: upload succeeded but dialog
+  stayed open, permitting the same file to be uploaded again. Fixed the actual
+  success/close flow and synchronous duplicate-submission guard. Browser retry
+  uploaded one156-byte synthetic TXT, closed to refreshed attachment table;
+  reopening showed empty chooser/Upload disabled. Download bytes equal source.
+  Three clearly synthetic copies remain: two pre-fix reproductions and one
+  post-fix verification. No credential file was uploaded.
+
+FILES CHANGED — existing implementation paths, no new production file
+- backend/src/modules/invoices/invoices.repository.ts: item options preserve
+  item.kind as supplyType; generic scoped/versioned unissued-draft cancellation
+  retains transaction, authorization, audit/history and legacy order delegation.
+- backend/src/modules/invoices/invoices.routes.ts: shared strict reason/version
+  input and scope-permission cancel-draft endpoints; legacy order route retained.
+- backend/tests/wave04.mysql.test.ts: actual API goods/service selector contract,
+  all three cancellation scopes, foreign404/reader403/stale409, reason400,
+  wrong-scope404, replay/no duplicate history and issued-document rejection.
+- frontend/src/features/invoices/model/invoices.types.ts: typed supplyType.
+- frontend/src/features/invoices/components/InvoiceDraftForm.tsx: selected
+  catalog service/goods type copied into both invoice and proforma editors.
+- frontend/src/features/invoices/api/invoices.api.ts: existing API client for
+  generic draft cancellation; legacy order cancellation API retained.
+- frontend/src/features/invoices/pages/InvoiceDetailsPage.tsx: consistent
+  scoped cancel-draft/Keep draft/reason dialog, refresh and cancellation notice.
+- frontend/src/features/invoices/pages/InvoicesPage.tsx: guided note creation
+  from issued invoice, only with required view/manage permissions.
+- frontend/src/features/invoices/invoices.test.tsx: shared editor classification
+  regressions for invoices and proformas.
+- frontend/src/features/crm/CrmRecordForm.tsx: named scoped related-record
+  selectors using existing APIs/debounce/query cache; readable stage/status text.
+- frontend/src/features/quotations/attachments/components/
+  QuotationAttachmentUploadDialog.tsx: completed upload resets/closes directly;
+  user close remains blocked in flight; synchronous lock rejects repeat submit.
+- frontend/src/features/quotations/quotation-attachments.test.tsx: real async
+  success-close/reset and double-click/in-flight Escape regression.
+Earlier SalesOrdersPage/CommandForm/UsersPage changes and evidence are below.
+
+VALIDATION
+- Current frontend lint and TypeScript/Vite build passed. Billing36 and attachment
+  6 checks passed. The attachment test initially used an unsupported TypeScript
+  test-query option; corrected it and reran build/tests successfully.
+- Backend typecheck/lint and billing26 unit checks passed.
+- Existing migrations applied ONLY to two freshly named owned disposable local
+  wave04/wave06 databases. Both real MySQL suites31/31 passed, including legacy
+  order-invoice draft release/replay. Both disposable schemas removed and their
+  absence verified. The application database schema was not migrated.
+- Browser outcomes above are independent evidence; tests alone did not determine
+  UI acceptance. Shared consumers remain on existing APIs/permissions/query keys.
+  No duplicated API client, schema migration, production helper file, auth bypass
+  or diagnostic logging introduced. Existing issued-document behavior preserved.
+- No install, Git, Docker, backend build or deployment command executed.
+  Only previously approved frontend/backend checks and isolated migration/test
+  commands ran. Earlier check counts are historical, not a full-suite rerun.
+
+EVIDENCE / REMAINING
+Private archive: /Users/harshpanchal/Documents/Bhuminex-QA-Artifacts/
+2026-11-13-firm5 — report CSV/PDFs, quotation/invoice PDFs, all inspected page PNGs,
+byte-identical attachment source/download, selected engineering logs, isolated
+migration/test/cleanup manifest, SHA256 artifact manifest and read-only business
+record snapshot. Private credentials remain separately in root QA-Access.md.
+Do not publish this synthetic QA archive or credentials as video footage.
+Remaining: complete owner password handoff, actual login/allowed/denied/direct
+access matrix for six accounts, firm-admin-only Assistant/Automation and
+independent approval/reversal variants, then consolidate final acceptance and
+create the English explainer video. Further unexercised variants must not be
+labelled passed. Mobile and unverified external providers stay owner-excluded.
+
+
+13 November 2026 — fresh firm#5 connected business journey (browser verified)
+Scope: native Chrome, desktop, working FE5173/BE3004; platform administrator
+selected QA End-to-End 20261113 only. These named scenarios are COMPLETED;
+fresh whole-product QA, role authorization acceptance and English video are NOT
+complete. All records are synthetic. No email, tax submission or money transfer.
+
+Master records created in actual UI: QA E2E Piece/QAPCS (whole quantities only),
+QA E2E Components category, Engineering Customer/contact/billing+shipping,
+Components Supplier/contact/billing+shipping, Steel Component (tracked goods,
+rate100), Assembly (tracked goods, rate250), Installation Service (JOB/rate50),
+QA-MAIN and QA-SECOND warehouses. Service details expose no stock-tracking
+action. Default units remain. Duplicate unit rejected without a new row;
+INVALIDGST rejected with inline validation and Create disabled. Valid saves
+returned to lists/closed dialogs with success feedback.
+
+Purchasing and stock:
+- PO#3 / PO-000001: supplier-only choices excluded the customer. 10 components
+  at50, no tax, INR500; receipt date14Nov2026 saved correctly; approved with reason.
+- Receive11 rejected "Receipt exceeds outstanding purchase quantity"; values kept.
+- Goods receipts#2/#3, references QA-E2E-GR-PART-1/PART-2, quantities4 and6.
+  Order moved Approved -> Partially received -> Received. Stock4/value200 then
+  10/value500, average50, confirmed on Inventory after each save.
+- BOM QA-E2E-ASSEMBLY revision1: output1 assembly, component quantity2.
+  Work order#2 completed; components8/value400, assembly1/value100.
+- Stock operation#2 transferred2 Main -> Secondary, balanced -100/+100.
+  Three goods reserved for SO stayed held through production and transfer.
+
+Sales and invoicing:
+- Quotation#5 / QAE2E/2026-27/000001, revision0: customer/contact/addresses
+  auto-selected,3QAPCS at100, zero GST, preview/saved totalINR300. Draft save
+  returned to numbered table with success. Draft -> Sent -> Accepted recorded
+  in history. Sent was status-only; no quotation email sent.
+- Sales order#4 / SO-000001 converted exact accepted revision; duplicate
+  conversion rejected without another order. Reservation#2 held3components.
+  Invoice action disabled before completion with explanation.
+- Complete4 rejected "Completion exceeds ordered quantity", fields retained.
+  Valid fulfillment#3 / QA-E2E-DELIVERY-1 dispatched3 at cost150; orderCompleted,
+  reservationConsumed/remaining0; available-to-invoice3.
+- Fresh billing config initially blocked invoice creation with a clear missing-
+  setup message. Saved settingsversion1: syntheticUnregistered, Gujarat24,
+  e-invoiceNo, synthetic no-transfer payment instruction. Other firms untouched.
+- Invoice4units rejected "Invoice exceeds unreserved completed quantity".
+  Valid3 created invoice#8/draftVersion1, INR300, sourceSO-000001/revision0.
+  Issuance confirmation assigned INV/2627/000001, Version2/Issued. Supplier and
+  agreed values captured. PDFversion1 generated,135568bytes; full one-page
+  browser PDF render inspected at fit-to-page: aligned parties, readable line/
+  source/totals/terms/signatory/footer, INR300, no clipping/overlap observed.
+- Receipt#4 / QA-E2E-RECEIPT-PART-1 amount200: allocation250 rejected
+  "Allocations exceed the unapplied receipt amount"; valid allocation200 saved,
+  invoicePartiallyPaid/due100. Receipt#5 / QA-E2E-RECEIPT-FINAL-PLUS-CREDIT
+  amount150 allocated100, leaving50credit; invoicePaid/applied300/due0.
+- Refund60 rejected "Refund exceeds available unapplied funds"; valid20
+  recorded as QA-E2E-REFUND-20. Receipt#5 net130, applied100, credit30; refund
+  history retains reason/date. No actual refund transfer occurred.
+- Final inventory: Main3components/value150, Secondary2/value100, Main1assembly/
+  value100; reservations0; total350. Seven ledger rows exactly: receipt+200/+300,
+  production-100/+100, transfer-100/+100, delivery-150. Actual Movement sorting
+  Descending16..10 then Ascending10..16, row numbers1..7.
+
+Two newly observed usability fixes:
+1. SalesOrdersPage.tsx exposed editable internal revisionID on Create. It now
+   routes to the existing accepted-quotation list/search and shows quotation
+   number/customer/revision in the conversion confirmation. Existing source URL,
+   API, permission checks and exact revision semantics retained; invalid/missing/
+   nonaccepted source cannot submit. Browser entry/list/filter/summary and
+   duplicate rejection verified after change; unchanged Cancel closes cleanly.
+2. A CommandForm error outlived its dismissed form and blocked queued success
+   notices on unrelated pages. CommandForm.tsx now dismisses only its own error
+   on close/unmount. Real duplicate-order failure -> Cancel removed error;
+   subsequent stock transfer displayed "Changes saved." Regression added to
+   existing CommandForm.test.tsx, no new shared file/parallel helper.
+Current source includes earlier UsersPage guard cleanup. FE lint/build PASS;
+existing main-chunk warning remains. Form checks8/8 PASS after correcting the
+new test fixture to model the actual409 API envelope (initial generic Error
+fixture correctly normalized to the generic safe user message). Evidence logs:
+ /tmp/bhuminex-e2e-flow-lint.log
+ /tmp/bhuminex-e2e-flow-build.log
+ /tmp/bhuminex-e2e-flow-forms.log
+
+Private canonical credentials, per user request:
+ /Users/harshpanchal/Documents/Bhuminex/QA-Access.md (0600, root ignore entry).
+No passwords printed, synced to Chrome or committed. Read-only check today
+still finds users9..14 mustChangePassword=true/passwordChangedAt=null. Do not
+claim firm-admin/role business-flow acceptance from platform admin or definitions.
+No credential change/gate bypass performed. First-login entry/submission remains
+a user handoff under Computer Use policy. Independent platform QA continues.
+Remaining fresh coverage includes supplier bills/expenses, CRM, recurring and
+other document variants, reversal/cancellation, reports/accounting/import/portal,
+firm-admin assistant/automation and actual role/tenant negatives; video follows.
+No Git, install, migration, Docker, deployment or backend build in this batch.
+
+
+13 November 2026 — fresh whole-product QA, setup progress (NOT COMPLETE)
+Owner requested fresh end-to-end QA before an English explainer video.
+Actual native Chrome platform-admin session created synthetic firm#5:
+QA End-to-End 20261113 / qa-e2e-20261113, display QA E2E; administrator#9.
+Registration save closed its form, showed success and new numbered table row.
+Initial Legacy-compatible revision4/userlimit4 assignment refused a finite-storage
+plan while usage was unknown. Reconcile managed usage set fresh storage0; approved
+published QA plan revision2 assigned successfully (#9), userlimit10. Existing
+four global provider exclusions stayed disabled. This denial/recovery was actual
+UI behavior, not a mocked response. No other firm's assignment changed.
+
+Created five unassigned role definitions through UI, then explicitly approved
+five user creations with corresponding limited roles. Confirmed six accounts in
+firm#5: admin9; Sales10; Purchasing11; Warehouse12; Accounts13; ReadOnly14.
+No firm-user role has user/role administration. Purchasing lacks PO approval;
+Warehouse lacks finance/purchase approval; Sales lacks invoice issue/payments;
+ReadOnly has view permissions only. Actual allowed/denied role business flows
+are PENDING first-login completion, not passed from definitions alone.
+Reusable temporary credentials are in the existing private0600 file
+/Users/harshpanchal/Documents/Bhuminex-QA-Access.md, outside both repositories.
+No credentials were saved to Chrome/Google password sync. No actual password
+reset was performed by the agent. Despite user handoff confirmations, refreshed
+Incognito and a read-only DB check still showed admin9 mustChangePassword=true,
+passwordChangedAt=null; all five new users also require first-login reset.
+This gate is not bypassed. Platform-admin independent setup continues meanwhile.
+
+Actual user-form defect and correction
+Create-user Cancel closed immediately without explaining unsaved state, and
+reopening retained the old name. The earlier narration that the name was lost
+was corrected after reopening. UsersPage.tsx now uses existing FormExitGuard for
+create/edit/reset, clears explicitly discarded drafts, disables fields during
+writes, reuses close cleanup on success and resets old success feedback before
+opening another editor. No API/auth/RBAC behavior or new shared file introduced.
+Browser create guard: Cancel -> Discard dialog -> Keep editing retains probe;
+Cancel -> Discard -> reopen shows empty name. Browser edit guard: temporary name
+change -> Keep editing retains it -> Discard leaves saved user name unchanged.
+Actual five successful creates closed their forms and showed table rows. Reset
+credential entry/submission remains user handoff; reset-dirty integration is not
+claimed browser-passed. Build+lint and4existing shared guard checks passed before
+final equivalent success-cleanup reuse; final source checks still to be repeated.
+Logs:/tmp/bhuminex-e2e-user-forms-build.log,-lint.log,-guard.log.
+No Git, install, migration, Docker or deployment executed in this fresh QA batch.
+Current whole-product QA and video remain IN PROGRESS, not accepted or delivered.
+
+
+13 November 2026 — local integration, browser, scale and recovery closeout
+Completion notice: the three named local engineering acceptance items are now
+COMPLETED: (1) real database integration/composed approval and finance journey,
+(2) large-data reporting measurement, (3) isolated database/files recovery and
+process health/shutdown. This is not blanket acceptance of every endpoint or a
+production deployment. Earlier desktop closeout A/B/C remains completed.
+
+Root cause and architecture
+POST /supplier-bills calls PurchasingRepository.createBill. It previously wrote
+nested matched source IDs before validateBillMatches could scope the receipt.
+A foreign firm's receipt failed the composite FK and became an unhandled500.
+The existing serialized firm transaction now resolves every distinct purchase/
+receipt line against this firm AND selected supplier before policy resolution
+and insertion. Existing cost/tax/quantity/approval validation still runs both at
+creation and posting. A second firm cannot probe/attach the source. Both direct
+purchase-line and receipt-line denials return404 and leave bill/line/audit counts
+unchanged. The same validated ID sets feed financial source lookup; no parallel
+authorization, new exception bypass or changed financial calculation was added.
+
+Fixture failures did not justify weakening MySQL immutable plan guards. Tests
+now construct draft plan revisions/features/quotas, then publish through the
+existing shared fixture. Excluded-feature cases publish a separate revision and
+switch the test subscription. Business-policy fixture response unwrapping and
+required override start dates now match the actual contracts.
+
+Changed production/test files (backend-relative; no frontend source changed)
+- src/modules/purchasing/purchasing.repository.ts: ownership checks before nested
+  bill writes; reuse deduplicated source IDs; preserve transactions and matching.
+- tests/helpers/two-firm-fixture.ts: shared draft-to-published lifecycle and
+  strictly named localhost Wave11 disposable-DB guard, without DB fallback.
+- tests/wave04.mysql.test.ts: reuse the shared plan publication lifecycle.
+- tests/wave05.mysql.test.ts: publication order, configuration response envelope
+  and required quota-override startsAt.
+- tests/wave06.mysql.test.ts: publication order and required PDF-quota startsAt.
+- tests/wave07.mysql.test.ts: immutable excluded-feature revisions, publication
+  order and denied foreign bill references without writes/audit effects.
+- tests/wave08.mysql.test.ts: publish only after feature/quota draft is complete.
+- tests/wave09.mysql.test.ts: same publication lifecycle for assistant fixtures.
+- tests/wave10.mysql.test.ts: same lifecycle for base and denied-plan fixtures.
+- tests/wave10.performance.mysql.test.ts: explicit baseline vs budget-gated mode,
+  reject absent/invalid gated budget before data creation, and explicit external
+  schema-teardown option for the dedicated performance DB. Default fixture
+  cleanup remains available; the invoking runner owns external cleanup.
+- tests/wave11.browser.mysql.test.ts (one substantial opt-in suite): real Chromium
+  contexts and logins, real isolated API/DB, approval/finance/PDF/tenant checks,
+  quiescent DB/storage snapshot, exact restore and guarded cleanup. Only database
+  injection and a temporary storage root replace environment boundaries; business
+  responses, PDF rendering, authentication and financial writes are not mocked.
+  All browser API calls are routed away from working BE3004. Other outbound
+  browser hosts are blocked. SMTP/worker dispatch are disabled for the fixture.
+  Synthetic fixture accounts are removed; existing QA passwords/gates untouched.
+
+Documentation changed
+- ui-ux-remediation-plan.txt: dated completion of named local acceptance and
+  explicit remaining release gates instead of a blanket unrun status.
+- ui-ux-remediation-delivery-report.txt (this file): root cause, paths, commands,
+  actual results, failures and limitations.
+- ui-ux-browser-review.txt: actual browser actions/screenshots and record results.
+- ui-ux-record-view-checklist.txt: additional approval/finance/PDF view evidence.
+- wave-10-delivery-report.txt and wave-10-verification-matrix.txt: current actual
+  Wave10 DB/performance evidence alongside historical source reports.
+- wave-11-delivery-report.txt and wave-11-entry-status.txt: current executed local
+  acceptance, authorization changes and release boundary.
+- wave-11-verification-matrix.txt: supersede unrun claims for the named cases;
+  retain exhaustive route/variant and owner acceptance gates.
+- wave-11-operations-runbook.txt: actual recovery/probe/signal evidence and the
+  MySQL trigger-safe dump/import procedure; remaining production DR boundaries.
+- wave-11-source-inventory.txt: current source fingerprints; older declarations
+  remain a dated inventory, not a runtime coverage certificate.
+No package/lock/env/schema/migration file, production API shape, dependency,
+shared UI abstraction or user credential was added/changed in this batch.
+
+Validation and actual commands (all explicitly authorized)
+1. Resolved Prisma CLI: migrate deploy --schema <backend>/prisma/schema.prisma,
+   with DATABASE_URL set ONLY to each fresh local disposable schema;20 migrations
+   applied on13 unique schemas. This is fresh install, not a legacy-data upgrade.
+2. npm test -- tests/quotations.mysql.test.ts tests/tenant-isolation.mysql.test.ts
+   tests/platform-entitlements.mysql.test.ts tests/wave03.mysql.test.ts
+   tests/wave04.mysql.test.ts tests/wave05.mysql.test.ts tests/wave06.mysql.test.ts
+   tests/wave07.mysql.test.ts tests/wave08.mysql.test.ts tests/wave09.mysql.test.ts
+   tests/wave10.mysql.test.ts --maxWorkers=1 --minWorkers=1
+   Latest:11files/160checks PASS,47.52s. No skipped DB suite in this selection.
+3. npm test -- tests/wave11.browser.mysql.test.ts --maxWorkers=1 --minWorkers=1
+   WAVE11_BROWSER_ENABLED=1 and separate disposable source/restore URLs:
+   latest4checks PASS,29.31s. Requester/reviewer/foreign actor actual UI plus same
+   record finance/PDF/recovery; not merely a mocked component test.
+4. npm test -- tests/wave10.performance.mysql.test.ts --maxWorkers=1 --minWorkers=1
+   WAVE10_PERF_ENABLED=1,WAVE10_PERF_MODE=baseline,
+   WAVE10_PERF_SCHEMA_TEARDOWN=external,dedicated local schema:
+   PASS1/1,214.17s total including fixture population.200k invoices/2m movements
+   in total;40 paired tenant reads; p95=2515.395333ms. No service budget supplied,
+   latencyAccepted=null; reconciliation assertions stayed mandatory. Concurrent
+   local QA was active, so this is not an isolated hardware/production benchmark.
+5. npm test -- tests/wave11.http.test.ts tests/wave11.operations.test.ts
+   tests/wave08.approvals.test.ts --maxWorkers=1 --minWorkers=1:20 PASS.
+   npm test -- tests/wave07.test.ts tests/purchasing-list.test.ts
+   --maxWorkers=1 --minWorkers=1:8 PASS. These28 are scoped unit/HTTP checks,
+   distinct from real-DB/browser proof; do not describe mocks as remote sandboxes.
+6. npm run typecheck and npm run lint: PASS on final backend source/test changes.
+   No frontend source changed in this batch; earlier56 focused FE checks/build/
+   lint are historical, not a newly rerun full frontend suite. Older combined
+   invoice-test timing failures are not relabeled as a full-suite pass.
+7. Native mysqldump/mysql against the disposable source and fresh restore schema,
+   credentials in a temporary0600 option file removed in finally. Source writes
+   stopped before DB/storage snapshot. All104tables/478rows exact hash/count
+   match;23 trigger names/timing/events/tables/body match, allowing only an optional
+   final SQL terminator. An attempted restored approval-decision change failed
+   through the real immutable trigger. Final settlement15.00/15.00/0.00 survived.
+   Historical PDF SHA-256 matched; download through the real restored repository
+   succeeded for its firm and returned404 for the other firm. Restore target was
+   dropped. Measured export166.19ms/import875.29ms/verified total1304.02ms;
+   dataset is small and synthetic, not production recovery-time acceptance.
+8. Separate real Node/tsx server processes on dynamic local ports and disposable
+   Wave00 DB: worker-enabled startup/healthy probes; unavailable DB live200 with
+   ready/database503; malformed JSON400 without private body/log echo; SIGTERM
+   exits0,15ms and8ms. Working3004 live/ready/database/worker all200, read only.
+9. Read-only application migration ledger:20source/20applied, all source SHA-256
+   checksums equal, unfinished0/rolledBack0. No application migration ran.
+
+Failure history and resolution
+- Initial integration71pass/6fixture setup failures: published child-row mutation.
+  Correct draft publication lifecycle, then155pass/5fail: stale config/override/
+  revision fixtures plus real cross-firm bill500. All repaired; final160pass.
+- First large-data assertion passed with p95~1699.73ms but row cleanup exceeded
+  180s. That complete run FAILED and is not cited as a performance pass. Dedicated
+  schema external teardown avoids millions of row deletes; final complete run
+  passed with p95~2515.40ms. Owned schema was actually dropped, not left behind.
+- First browser harness incorrectly expected409 on idempotent invoice retry;
+  actual domain deliberately returns existing200 without a new transition.
+  Acceptance now checks identical number/version and exactly one issue history.
+- Native MySQL9.7.1 dump failed to import single-statement trigger delimiters.
+  Recovery now exports exact SHOW CREATE trigger definitions separately, dumps
+  tables with --skip-triggers, then imports triggers using a collision-free
+  delimiter shorter than16characters. Prisma's prepared protocol cannot create
+  triggers; the native client is used. Client normalization of an optional final
+  semicolon is allowed; trigger behavior/ownership targets remain verified.
+- Dialog captures originally caught fade transitions; final screenshots wait for
+  all dialog ancestor opacity to reach1 before capture. No UI opacity override.
+- All final selected checks pass. These fixes introduce no diagnostic production
+  logging or deferred TODO. Real QA reviewer8's first-login gate remains intact.
+
+Evidence and retained artifacts
+Private archive:/Users/harshpanchal/Documents/Bhuminex-QA-Artifacts/2026-11-13-closeout-4661f7c4
+Latest browser artifact subdirectory:wave11-browser-wVtHEO
+Logs:integration.log,browser-restore.log,performance.log,backend-operations-approval.log,
+backend-purchasing.log,backend-typecheck.log,backend-lint.log,process-evidence.json,
+application-migration-ledger.json,manifest.json and per-schema migration logs.
+Each browser artifact directory has synthetic evidence.json/screenshots/PDF and
+recovery files; only the latest directory represents the final4scenario pass.
+The temporary drivers/scripts are preserved with the private archive; source
+suite is versioned in tests. Raw synthetic snapshots/auth hashes stay outside
+both source repositories under private filesystem permissions.
+Candidate fingerprints (not a Git/clean-tree claim):
+backend410 source/test/schema/migration files:8065294c15bdf86602324f4f96444f54067003d65326e1872c2e155fa41d4877
+frontend402 source files:0314125205947f9043dd9a96fbb47e6d60e3e16df4eafa7007457413ed81d852
+
+The earlier saved-credential check of the existing QA reviewer authenticated and
+redirected to its real required-password-change page. Normal login/session/audit
+metadata may have been recorded; no password, role or first-login gate changed.
+The final acceptance suite used separate disposable actors.
+
+Risks, assumptions and remaining work
+The named local desktop/engineering closeout is complete and reproducible.
+Exhaustive all-route/all-variant tenant/plan/role/quota coverage remains incomplete;
+existing160checks and four composed cases do not prove every possible endpoint.
+Original legacy-snapshot upgrade/partial-DDL/forward-fix recovery was not run:
+no original snapshot or deployment environment was provided. The new restore
+rehearsal covers a current-schema synthetic snapshot and real local protected PDF.
+Broader document/accounting/legal/compliance acceptance, independent security/
+license/secret review, production SLO/RPO/RTO/retention, monitoring/paging owners,
+release packaging and deployment sign-off remain release gates. A local baseline
+and idle-process shutdown are not full journey load or busy-process recovery.
+Unverified SMTP/API/webhooks/connected AI remain disabled for the local launch;
+no tax submission, remote payment or message was sent. Mobile remains deferred.
+No production release/wholeERP9of10 certification or final business acceptance.
+
+Commands not executed
+No install, format, seed, Git, Docker, backend build, deployment, application DB
+migration/reset or existing user-password change. Restricted checks/migrations
+listed above ran only under the user's explicit approvals; no unapproved
+restricted command was executed. Disposable schema create/drop and synthetic
+record writes were authorized and isolated from the application database.
+
+
+13 November 2026 — focused desktop closeout delivery
+Scope: finish the concrete remaining desktop field-review/history, CRM timeline,
+platform audit/preview and row-number priorities. Whole-platform release gates
+remain separate. Earlier dated entries are historical where superseded here.
+
+Completed implementation and architectural flow
+The review route originally remounted on every settings/document version change,
+resetting local edits. It submitted without an exit guard, settings-version check
+or success notification. It now pins the reviewed snapshots, keeps the editor on
+background errors, uses existing FormExitGuard/FormActions/useSaveAndReturn and
+requires a new review after a stale document/settings response. The submitted
+settings version and complete visible field-key set are checked inside the
+existing serialized firm transaction. This also catches an entitlement change
+that alters effective fields without incrementing the saved settings version.
+The existing legacy update signature remains supported. The guarded update must
+affect exactly one current draft before immutable history/audit can be appended.
+
+Both billing field history and platform audit now use existing shared record
+layouts, numbered tables, feedback and pagination. Sort inputs are allowlisted;
+ordering with a stable tie-breaker is applied before database pagination. No
+misleading sort of only the fetched page is offered for these histories.
+A short history page now reports1–4of4 rather than1–50ofmorethan50. A51st-row
+lookahead returns explicit hasMore metadata, so exactly50entries are a final
+page. The history array remains in the same public response field; pagination
+metadata is additive. The cache key distinguishes this paged response shape.
+Common index
+cells reserve64px so row numbers remain separate from source line numbers.
+CRM timeline uses a1200px desktop dialog, meaningful history labels and local
+formatted dates, retaining exact notes and omitting changes between missing
+values. Platform plan preview is a separate read request: it has pending/error
+feedback, does not invalidate every cache as a write, and never reports a save.
+
+Files changed — production frontend (paths relative to repository root)
+- frontend/src/features/invoices/pages/InvoiceFieldsReviewPage.tsx: stable review
+  snapshots; stale/no-op guards; removal confirmation; guarded save/return/toast.
+- frontend/src/features/invoices/api/invoices.api.ts: optional captured settings
+  version on the existing common API-client custom-values request.
+- frontend/src/features/automation/components/InvoiceFieldHistory.tsx: firm/record
+  scoped history state, abortable sorted reads, common table/details/pagination.
+- frontend/src/shared/ui/tables/DataTableShell.tsx: common index width, padding,
+  centered alignment and tabular numeric glyphs; sorting/data contracts preserved.
+- frontend/src/app/router/routeConfig.tsx: accurate additional-fields and invoice,
+  proforma, credit/debit-note detail breadcrumbs.
+- frontend/src/features/crm/CrmPage.tsx: lead timeline uses the shared large dialog.
+- frontend/src/features/crm/CustomerTimeline.tsx: readable user/company references,
+  local date values, useful column widths and suppression of null/undefined noise.
+- frontend/src/features/platform/PlatformAuditPanel.tsx: common audit list, remote
+  sort, pagination and read-only change detail dialog replacing raw JSON display.
+- frontend/src/features/platform/subscriptions.api.ts: optional audit sort query
+  parameters through the existing API client; old call signatures remain valid.
+- frontend/src/features/platform/PlatformTable.tsx: matching common row-number
+  spacing for existing platform tables without changing their public contract.
+- frontend/src/features/platform/PlatformPlansPage.tsx: separate read-only preview
+  request, truthful feedback and shared pending locks; publication rules retained.
+- frontend/src/shared/ui/display/recordLabels.ts: readable platform operations and
+  feature-availability field labels; stored/API identifiers remain unchanged.
+
+Files changed — production backend
+- backend/src/modules/invoices/invoices.schema.ts: shared strict custom-value
+  update contract and bounded field-history page/sort contract.
+- backend/src/modules/invoices/invoices.routes.ts: parse/forward these contracts
+  through existing firm/permission-protected routes for all three billing scopes.
+- backend/src/modules/invoices/invoices.repository.ts: transactional reviewed
+  settings/effective-field checks, conditional-write count guard and remote sort.
+- backend/src/modules/platform/platform-subscriptions.schema.ts: allowlisted audit
+  sort fields/directions while preserving old pagination and firm filtering.
+- backend/src/modules/platform/platform-subscriptions.routes.ts: forward parsed
+  sort to the existing authenticated platform repository.
+- backend/src/modules/platform/platform-subscriptions.repository.ts: stable
+  database ordering before paging; default remains newest record first.
+
+Files changed — regression sources
+- frontend/src/features/invoices/invoices.test.tsx: all three review/save/return
+  scopes, preserved input on background revision changes and removal confirmation.
+- frontend/src/features/automation/automation.test.tsx: on-demand numbered billing
+  history, readable boolean value, actual server sort request and exact50entry
+  final-page behavior.
+- frontend/src/features/crm/crm.test.tsx: readable identity/history values and no
+  missing-to-missing changes.
+- frontend/src/features/platform/subscriptions.test.tsx: shared audit detail and
+  remote ordering; preview cannot claim a platform save.
+- backend/tests/invoices.test.ts: strict reviewed-version and history-sort schemas.
+- backend/tests/wave08.invoice-settings.test.ts: stale settings/effective access
+  reject before writes; zero-row conditional update cannot append history;
+  exact50/51entry lookahead pagination preserves firm filtering and remote order.
+- backend/tests/platform-subscriptions.validation.test.ts: bounded audit sorting.
+Existing text plan, browser journal, record checklist and Wave10/11 delivery/
+verification reports were updated with this evidence and remaining acceptance.
+Private access notes remain outside the repository with mode0600. Existing owner
+platform sign-in details were recorded there; no password was changed/reset.
+
+Actual browser results (12Nov, independently rechecked13Nov)
+Installed local Puppeteer/Chromium was used because the earlier native browser
+control tool is unavailable in this session. Real localhost5173 UI, backend3004,
+firm administrator6/QA firm3 and platform administrator1; no mocked UI responses.
+- QA credit-note2: review unchanged Apply disabled; edit; Back/Keep editing retains
+  exact text; Apply closes/returns with toast. Reference now QA desktop fields
+  review 12 Nov, Draft version4, INR10, no issuance/posting/PDF mutation.
+- Field history: actual versions4,3,2,1 then1,2,3,4 after header sorting; exact
+  previous values retained. Independent reload13Nov confirms version4 and1–4of4.
+- Browser failure test13Nov intentionally removed request value keys using network
+  interception. Real backend returned409; the form displayed the error and kept
+  entered text. Explicit discard returned to unchanged version4/reference/INR10.
+  This is fault-injection evidence, not a claim that a real plan was revoked.
+- Actual CRM activity QA desktop timeline review 12 Nov created on the first QA
+  lead. Dirty Cancel/Keep editing, Save/close/toast and independent timeline reopen
+  passed. Subject order reversed correctly. Dialog measured1200px. Leads,
+  Opportunities and Follow-ups each showed saved records and common numbered rows.
+- Platform: real change detail retained reason/actor/date/availability; date order
+  ran from27Oct through11Nov, page2 numbered21–27of27. QA plan revision2 preview
+  passed, published revision controls remained read only, and preview said no
+  changes were saved. Four owner-excluded external integrations stayed disabled.
+- Approvals: actual empty inbox, saved notification preferences and real business
+  policy notification inspected. No independent reviewer decision/execution was
+  exercised and none is marked passed.
+- Items:13Nov list has three normal compact rows, readable complete names/codes,
+  normal unit labels, pagination1–3of3 and horizontal scrolling for wider columns.
+
+Validation
+PASS frontend8files/51checks, latest13Nov (17–20s sequential file workers):
+ /tmp/bhuminex-review-closeout-fe-tests-final.log
+PASS frontend5targeted review checks;29other invoice tests deliberately not selected:
+ /tmp/bhuminex-review-closeout-field-tests-final.log
+PASS backend3files/41checks after effective-field fence:
+ /tmp/bhuminex-review-closeout-be-tests.log
+PASS frontend TypeScript/Vite build:
+ /tmp/bhuminex-review-closeout-fe-build-final.log
+PASS frontend lint, backend typecheck and backend lint:
+ /tmp/bhuminex-review-closeout-fe-lint-final.log
+ /tmp/bhuminex-review-closeout-be-types-final.log
+ /tmp/bhuminex-review-closeout-be-lint-final.log
+The existing main-bundle warning remains (~934.42kB;287.98kBgzip).
+The earlier platform-test attempt failed because its test clicked a background
+control before the dialog exit transition finished; awaiting dialog close fixed
+that test, and the current8file batch passed. Earlier full-invoice combined
+five-second timeouts remain historical unresolved full-suite evidence; focused
+passes are not relabelled as a full-suite pass. Browser harness selector/loading/
+profile-lock failures were corrected; only final observed screens count as proof.
+
+Validation conclusion and architecture impact
+The named review, history and preview root flows are resolved in their existing
+shared/feature/repository layers. Relevant old/new billing and platform consumers
+were checked. Permissions, firm isolation, document status rules, exact financial
+values and legacy interfaces are preserved. No parallel API client, duplicated
+business logic, production debug log or new production file was introduced.
+
+Risks and remaining acceptance
+These are local desktop QA results, not an objective9/10 score or full ERP signoff.
+Complete cross-tenant/role/plan/quota and independent approval/expiry/execution
+acceptance, disposable-DB journeys, production load/security and actual restore/
+recovery/monitoring/rollout remain open. Accounting/document/legal and service/
+recovery ownership require release acceptance. Reviewer8 first-login gate stays
+intact. Mobile and unverified provider activation remain owner-excluded.
+No full production deployment or external service acceptance is claimed.
+
+Commands not executed
+No Git, install, migration, seed, Docker, backend build, deployment or disposable
+MySQL integration suite was executed. Only explicitly approved frontend checks
+and backend typecheck/lint/affected unit tests were run.
+
+
 Continuation supporting-file inventory (11 November 2026)
 Production-file changes and architectural reasons are detailed in the dated
 entries below. Additional modified files in this continuation:

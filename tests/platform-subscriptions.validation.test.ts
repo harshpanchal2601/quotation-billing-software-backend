@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { firmOverrideSchema, planVersionSchema, platformChargeSchema, platformPaymentSchema, subscriptionAssignmentSchema } from '../src/modules/platform/platform-subscriptions.schema.js';
+import { firmOverrideSchema, planVersionSchema, platformAuditQuerySchema, platformChargeSchema, platformPaymentSchema, subscriptionAssignmentSchema } from '../src/modules/platform/platform-subscriptions.schema.js';
 import { LEGACY_POLICY } from '../src/modules/entitlements/entitlements.schema.js';
 
 const reason = 'Reviewed regression fixture';
 const draft = { features: ['firm.core'], quotas: { users: '4', documents: null, storageBytes: null, aiCredits: '0' }, policy: null, price: null, currency: null, reason };
 describe('platform contracts', () => {
+  it('bounds paged platform audit ordering to registered fields and directions', () => {
+    expect(platformAuditQuerySchema.parse({})).toMatchObject({ sortBy: 'id', sortOrder: 'desc' });
+    expect(platformAuditQuerySchema.parse({ firmId: '3', page: '2', sortBy: 'createdAt', sortOrder: 'asc' })).toMatchObject({ firmId: 3, page: 2, sortBy: 'createdAt', sortOrder: 'asc' });
+    expect(platformAuditQuerySchema.safeParse({ sortBy: 'payload' }).success).toBe(false);
+    expect(platformAuditQuerySchema.safeParse({ sortOrder: 'arbitrary' }).success).toBe(false);
+  });
   it('permits unpublished policy drafts without silently supplying commercial defaults', () => {
     expect(planVersionSchema.parse(draft).policy).toBeNull();
     expect(planVersionSchema.safeParse({ ...draft, policy: { trialDays: 14 } }).success).toBe(false);

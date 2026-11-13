@@ -54,7 +54,8 @@ suite('Wave 05 authenticated customer ledger and recurring transactions', () => 
     fixture = new TwoFirmFixture(db); a = await fixture.createTenant('payments-A'); b = await fixture.createTenant('payments-B');
     const { FEATURE_KEYS } = await import('../src/modules/entitlements/feature-registry.js');
     const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
-    const plan = await db.plan.create({ data: { name: 'Wave05 fixture', slug: `wave05-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, publishedAt: new Date(), policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) }, quotas: { create: ['users', 'documents', 'storageBytes', 'aiCredits'].map((resource) => ({ resource, limit: null })) } } } }, include: { versions: true } });
+    const plan = await db.plan.create({ data: { name: 'Wave05 fixture', slug: `wave05-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) }, quotas: { create: ['users', 'documents', 'storageBytes', 'aiCredits'].map((resource) => ({ resource, limit: null })) } } } }, include: { versions: true } });
+    await fixture.publishPlanVersion(plan.versions[0]!.id);
     planId = plan.id; planVersionId = plan.versions[0]!.id;
     for (const tenant of [a, b]) await db.firmSubscription.create({ data: { firmId: tenant.firm.id, planVersionId, status: 'ACTIVE', authorId: tenant.admin.id, reason: 'Disposable payments fixture', effectiveFrom: new Date(Date.now() - 1000) } });
     const { generateAccessToken } = await import('../src/modules/auth/security/auth.tokens.js'); const { ACCESS_TOKEN_COOKIE_NAME } = await import('../src/modules/auth/auth.constants.js');
@@ -144,8 +145,8 @@ suite('Wave 05 authenticated customer ledger and recurring transactions', () => 
     await data(await request('POST', '/payments', input), 201);
   });
   it('reports outstanding invoices independently in each currency', async () => {
-    const original = await data<{ version: number; policy: Record<string, unknown> }>(await request('GET', '/settings/business-policy'));
-    const changed = await data<{ version: number }>(await request('PUT', '/settings/business-policy', { expectedVersion: original.version, policy: { ...original.policy, currency: 'USD', inAppNotifications: false } }));
+    const { configuration: original } = await data<{ configuration: { version: number; policy: Record<string, unknown> } }>(await request('GET', '/settings/business-policy'));
+    const { configuration: changed } = await data<{ configuration: { version: number } }>(await request('PUT', '/settings/business-policy', { expectedVersion: original.version, policy: { ...original.policy, currency: 'USD', inAppNotifications: false } }));
     try {
       const usd = await issued();
       const report = await data<{ buckets: Array<{ currency: string; amount: string }>; receivables: Array<{ id: number; currency: string; outstanding: string }> }>(await request('GET', '/receivables/aging?limit=100'));
@@ -169,7 +170,8 @@ suite('Wave 05 authenticated customer ledger and recurring transactions', () => 
     const paths = ['/payments', '/receivables/aging', '/billing-schedules'];
     for (const path of paths) expect((await request('GET', path, undefined, a.reader.id)).status).toBe(403);
     const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
-    const excluded = await db.planVersion.create({ data: { planId, revision: 2, createdById: a.admin.id, publishedAt: new Date(), policy: LEGACY_POLICY, features: { create: ['firm.core', 'companies', 'billing.invoices'].map((featureKey) => ({ featureKey })) } } });
+    const excluded = await db.planVersion.create({ data: { planId, revision: 2, createdById: a.admin.id, policy: LEGACY_POLICY, features: { create: ['firm.core', 'companies', 'billing.invoices'].map((featureKey) => ({ featureKey })) } } });
+    await fixture.publishPlanVersion(excluded.id);
     const sub = await db.firmSubscription.findFirstOrThrow({ where: { firmId: a.firm.id } });
     await db.firmSubscription.update({ where: { id: sub.id }, data: { planVersionId: excluded.id } });
     try {
@@ -232,7 +234,7 @@ suite('Wave 05 authenticated customer ledger and recurring transactions', () => 
     const generated = (await schedule(row.id)).runs[0]!;
     const invoice = await db.invoice.findUniqueOrThrow({ where: { id: generated.invoiceId! } });
     await data(await request('POST', `/invoices/${invoice.id}/issue`, { expectedVersion: invoice.version, confirmedTotal: invoice.grandTotal.toFixed(2) }));
-    const quota = await db.firmFeatureOverride.create({ data: { firmId: a.firm.id, target: 'quota:documents', effect: 'LIMIT', limit: 0n, authorId: a.admin.id, reason: 'Disposable recurring PDF quota' } });
+    const quota = await db.firmFeatureOverride.create({ data: { firmId: a.firm.id, target: 'quota:documents', effect: 'LIMIT', limit: 0n, startsAt: new Date(Date.now() - 1000), authorId: a.admin.id, reason: 'Disposable recurring PDF quota' } });
     try { expect((await request('POST', `/invoices/${invoice.id}/pdf`, {})).status).toBe(409); expect(await db.invoiceDocument.count({ where: { invoiceId: invoice.id } })).toBe(0); } finally { await db.firmFeatureOverride.delete({ where: { id: quota.id } }); }
     await request('POST', `/billing-schedules/${row.id}/cancel`, { expectedVersion: 1 });
   });

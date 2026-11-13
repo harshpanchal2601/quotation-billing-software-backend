@@ -8,21 +8,26 @@ import { requireAuthentication, requirePermission } from '../auth/auth.middlewar
 import { PERMISSIONS } from '../auth/permissions.js';
 import { billingAccess, invoicesRepository, invoiceSettingsRepository, type DocumentScope } from './invoices.repository.js';
 import { invoiceDocumentsRepository as documentsRepository } from './documents/invoice-documents.repository.js';
-import { adjustmentSchema, conversionSchema, customFieldValuesSchema, idSchema, invoiceDraftSchema, invoiceListSchema, invoiceUpdateSchema, issueSchema, customerOptionQuerySchema, optionQuerySchema, proformaConversionSchema, voidSchema } from './invoices.schema.js';
+import { adjustmentSchema, conversionSchema, customValuesUpdateSchema, fieldHistoryQuerySchema, idSchema, invoiceDraftSchema, invoiceListSchema, invoiceUpdateSchema, issueSchema, customerOptionQuerySchema, optionQuerySchema, proformaConversionSchema, voidSchema } from './invoices.schema.js';
 import { fiscalSettingsUpdateSchema, invoiceFieldsUpdateSchema } from './invoice-settings.schema.js';
 import { INDIA_STATES } from './india-gst.js';
 import { orderInvoiceSchema } from './invoices.schema.js';
 
 function actor(req: Request) { if (!req.user) throw new AppError('Authentication required', 401); return req.user.id; }
 function metadata(req: Request) { return { firmId: getFirmId(req), userId: actor(req), ipAddress: req.ip, userAgent: req.get('user-agent') }; }
+const cancelDraftSchema = z.object({ expectedVersion: z.number().int().positive(), reason: z.string().trim().min(5).max(2000) }).strict();
 
 function createDocumentRouter(scope: DocumentScope) {
   const router = Router();
   const permissions = billingAccess[scope];
   router.use(requireAuthentication, requireFirmContext);
   if (scope === 'INVOICE') router.post('/:id/cancel-order-draft', requirePermission(PERMISSIONS.INVOICES_VOID), asyncHandler(async (req, res) => {
-    const input = z.object({ expectedVersion: z.number().int().positive(), reason: z.string().trim().min(5).max(2000) }).strict().parse(req.body);
+    const input = cancelDraftSchema.parse(req.body);
     return sendSuccess(res, 200, 'Order invoice draft cancelled and quantities released', { document: await invoicesRepository.cancelOrderDraft(getFirmId(req), actor(req), idSchema.parse(req.params).id, input.expectedVersion, input.reason, metadata(req)) });
+  }));
+  router.post('/:id/cancel-draft', requirePermission(permissions.void), asyncHandler(async (req, res) => {
+    const input = cancelDraftSchema.parse(req.body);
+    return sendSuccess(res, 200, 'Document draft cancelled', { document: await invoicesRepository.cancelDraft(getFirmId(req), actor(req), idSchema.parse(req.params).id, input.expectedVersion, input.reason, scope, metadata(req)) });
   }));
   if (scope === 'INVOICE') router.post('/from-sales-order', requirePermission(PERMISSIONS.INVOICES_CREATE), requirePermission(PERMISSIONS.SALES_ORDERS_VIEW), asyncHandler(async (req, res) => sendSuccess(res, 201, 'Completed order quantities reserved for invoice', { document: await invoicesRepository.fromSalesOrder(getFirmId(req), actor(req), orderInvoiceSchema.parse(req.body), metadata(req)) })));
   router.get('/', requirePermission(permissions.view), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Billing documents retrieved', await invoicesRepository.list(getFirmId(req), scope, invoiceListSchema.parse(req.query)))));
@@ -42,11 +47,14 @@ function createDocumentRouter(scope: DocumentScope) {
   if (scope === 'INVOICE') router.post('/from-quotation', requirePermission(permissions.create), requirePermission(PERMISSIONS.QUOTATIONS_VIEW), asyncHandler(async (req, res) => sendSuccess(res, 201, 'Accepted revision converted', { document: await invoicesRepository.fromQuotation(getFirmId(req), actor(req), conversionSchema.parse(req.body), metadata(req)) })));
   if (scope === 'PROFORMA') router.post('/:id/convert', requirePermission(permissions.view), requirePermission(PERMISSIONS.INVOICES_CREATE), asyncHandler(async (req, res) => sendSuccess(res, 201, 'Proforma converted to invoice draft', { document: await invoicesRepository.fromProforma(getFirmId(req), actor(req), idSchema.parse(req.params).id, proformaConversionSchema.parse(req.body).idempotencyKey, metadata(req)) })));
   router.get('/:id', requirePermission(permissions.view), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Billing document retrieved', { document: await invoicesRepository.get(getFirmId(req), idSchema.parse(req.params).id, scope) })));
-  router.get('/:id/custom-fields/history', requirePermission(permissions.view), requirePermission(PERMISSIONS.AUTOMATION_VIEW), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Immutable field value history retrieved', { history: await invoicesRepository.fieldHistory(getFirmId(req), actor(req), idSchema.parse(req.params).id, scope, z.coerce.number().int().min(1).max(100000).default(1).parse(req.query.page)) })));
+  router.get('/:id/custom-fields/history', requirePermission(permissions.view), requirePermission(PERMISSIONS.AUTOMATION_VIEW), asyncHandler(async (req, res) => {
+    const query = fieldHistoryQuerySchema.parse(req.query);
+    return sendSuccess(res, 200, 'Immutable field value history retrieved', await invoicesRepository.fieldHistory(getFirmId(req), actor(req), idSchema.parse(req.params).id, scope, query.page, query));
+  }));
   router.patch('/:id', requirePermission(permissions.edit), asyncHandler(async (req, res) => sendSuccess(res, 200, 'Draft updated', { document: await invoicesRepository.update(getFirmId(req), actor(req), idSchema.parse(req.params).id, invoiceUpdateSchema.parse(req.body), scope, metadata(req)) })));
   router.patch('/:id/custom-fields', requirePermission(permissions.edit), asyncHandler(async (req, res) => {
-    const input = z.object({ expectedVersion: z.number().int().positive(), values: customFieldValuesSchema, refresh: z.boolean().default(false) }).strict().parse(req.body);
-    return sendSuccess(res, 200, 'Custom values saved', { document: await invoicesRepository.updateCustomValues(getFirmId(req), actor(req), idSchema.parse(req.params).id, scope, input.expectedVersion, input.values, input.refresh, metadata(req)) });
+    const input = customValuesUpdateSchema.parse(req.body);
+    return sendSuccess(res, 200, 'Custom values saved', { document: await invoicesRepository.updateCustomValues(getFirmId(req), actor(req), idSchema.parse(req.params).id, scope, input.expectedVersion, input.values, input.refresh, metadata(req), input.expectedSettingsVersion) });
   }));
   router.post('/:id/issue', requirePermission(permissions.issue), asyncHandler(async (req, res) => {
     const input = issueSchema.parse(req.body);

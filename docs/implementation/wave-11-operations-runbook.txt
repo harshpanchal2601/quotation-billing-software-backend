@@ -1,3 +1,71 @@
+13 November 2026 — executed local operations rehearsal
+Authorized fresh isolated migration, real-MySQL/performance and backup/restore
+checks were completed. Application ledger read-only20/20; source/provider data
+not migrated, reset, faulted or copied. Private evidence is in:
+/Users/harshpanchal/Documents/Bhuminex-QA-Artifacts/2026-11-13-closeout-4661f7c4
+
+Actual Node/tsx processes used dynamic local ports and a disposable database:
+healthy enabled worker/live/ready/database/worker200; unavailable schema live200,
+ready/database503 and workerDisabled200; malformed JSON400 without echoing its
+private marker or database credentials. Both processes received realSIGTERM and
+exited0 (15ms/8ms). WorkingBE3004 was probed read-only, all four health routes200.
+These are startup/idle-signal drills; busy drain/deadline behavior remains covered
+by injected unit dependencies, not a new production outage/recovery claim.
+
+Current-schema database/private storage recovery PASS:104tables/478rows exact
+hash/count match,23 triggers' names/targets/events/timing/bodies preserved; actual
+immutable approval guard blocked a restored edit. Issued20.00, credit5.00 and
+receivable15.00/15.00/0.00/Paid survived. Historical protected PDF checksum and
+restored repository download succeeded; foreign firm404. Snapshot writers were
+stopped, credentials used a temporary0600 client file removed in finally, source/
+restore schemas and artifacts were isolated. All owned test schemas were removed.
+Export166.19ms/import875.29ms/verified total1304.02ms for this SMALL synthetic
+snapshot; no production RPO/RTO or retention objective has been approved.
+
+Reproducible local acceptance: tests/wave11.browser.mysql.test.ts is opt-in with
+WAVE11_BROWSER_ENABLED=1,WAVE11_TEST_DATABASE_URL=local wave11_test_<suffix>,
+WAVE11_RESTORE_DATABASE_URL=separate fresh wave11_test_restore_<suffix>, and
+optional WAVE11_BROWSER_ARTIFACT_ROOT (existing private directory). Migrate the
+source first using reviewed existing migrations; the restore target must not
+exist. Requires running local FE5173, installed Puppeteer browser and native
+MySQL/mysql binaries at /usr/local/mysql/bin in this local harness. No install,
+real provider or existing-account password reset is part of acceptance.
+
+MySQL9.7.1 trigger-safe export/import learned from the real rehearsal:
+- With writes stopped, export each exact SHOW CREATE TRIGGER definition to a
+  restricted artifact. The Prisma SHOW metadata may use f2 for its SQL field;
+  validate that this is a CREATE TRIGGER statement before preserving it.
+- Export consistent table/schema/data with mysqldump --single-transaction
+  --routines --skip-triggers --hex-blob --set-gtid-purged=OFF --no-tablespaces.
+  A plain --triggers dump hit a native-client syntax error on SIGNAL-only bodies.
+- Restore table/data into a NEW isolated schema first; import preserved trigger
+  definitions using native mysql and a collision-checked delimiter <=15chars.
+  Do not use Prisma prepared statements for CREATE TRIGGER (protocol1295).
+- Compare every table's count/canonical row hash, migration ledger and protected
+  file hashes. Compare trigger name/event/timing/table/body, permitting only an
+  optional trailing semicolon normalized by the text client. Exercise a real
+  immutable guard after restore. Never omit triggers to make restore 'pass'.
+- Capture export/import/verification timings and retain safe evidence. Remove
+  client credential files and the owned disposable schema in finally/runner.
+  Synthetic local artifacts here are protected by0700/0600; production backup
+  encryption/key escrow, retention and verified operator access remain required.
+
+Large-data reporting:200k invoices/2m stock entries across2tenants,40paired reads,
+p95=2515.40ms; reconciliation PASS. Explicit baseline mode has no service gate.
+If running with WAVE10_PERF_SCHEMA_TEARDOWN=external, the dedicated DB's invoking
+operator/runner MUST actually drop its owned schema after process disconnect;
+this avoids massive row cleanup and was executed here. Default row cleanup is
+still used otherwise. Recreate/migrate a new dedicated schema for another run.
+
+Original legacy-snapshot upgrade/partial-DDL forward fix, busy-process failure,
+production workload/memory/pool/queue thresholds, encrypted production recovery,
+external duplicate-effect recovery, key rotation, dashboards/paging, retention
+and rollout sign-off remain unexecuted. Live providers remain excluded; no
+production operator/SLO/RPO/RTO/legal policy is invented by this local exercise.
+Older NOT EXECUTED recovery sections below apply to those wider drills, not the
+newly documented current-schema local rehearsal.
+
+
 11 November 2026 — owner-confirmed India local-first scope
 The owner selected: Local ERP workflows first; keep unverified external
 integrations disabled. Provider activation is excluded from the first release,

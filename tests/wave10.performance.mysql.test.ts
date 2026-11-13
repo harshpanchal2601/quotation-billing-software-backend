@@ -6,6 +6,11 @@ import { TwoFirmFixture, assertDisposableTenantDatabase, type TenantFixture } fr
 
 const url = process.env.WAVE10_PERF_DATABASE_URL;
 const suite = process.env.WAVE10_PERF_ENABLED === '1' && url ? describe : describe.skip;
+const baselineOnly = process.env.WAVE10_PERF_MODE === 'baseline';
+const budget = Number(process.env.WAVE10_PERF_REPORT_BUDGET_MS);
+// An external runner may own whole-schema teardown for this dedicated database.
+// Row-by-row deletion of millions of fixture rows is not a report latency check.
+const externalTeardown = process.env.WAVE10_PERF_SCHEMA_TEARDOWN === 'external';
 
 suite('Wave 10 opt-in large-tenant source reporting baseline', () => {
   let db: PrismaClient; let fixture: TwoFirmFixture; let a: TenantFixture; let b: TenantFixture;
@@ -14,13 +19,15 @@ suite('Wave 10 opt-in large-tenant source reporting baseline', () => {
   beforeAll(async () => {
     assertDisposableTenantDatabase(url!, '10');
     if (!/^\/wave10_test_perf_[a-zA-Z0-9_]+$/.test(new URL(url!).pathname)) throw new Error('Performance fixtures require a dedicated local wave10_test_perf_<suffix> database');
+    if (!baselineOnly && (!Number.isSafeInteger(budget) || budget <= 0)) throw new Error('Set WAVE10_PERF_MODE=baseline for measurement only, or the approved WAVE10_PERF_REPORT_BUDGET_MS for a latency gate');
     vi.stubEnv('NODE_ENV', 'test'); vi.stubEnv('DATABASE_URL', url!); vi.stubEnv('OUTBOX_WORKER_ENABLED', 'false');
     db = new PrismaClient({ datasources: { db: { url: url! } } }); fixture = new TwoFirmFixture(db);
     vi.doMock('../src/core/database/prisma.js', () => ({ prisma: db }));
     a = await fixture.createTenant('performance-A'); b = await fixture.createTenant('performance-B');
     const { FEATURE_KEYS } = await import('../src/modules/entitlements/feature-registry.js');
     const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
-    const plan = await db.plan.create({ data: { name: 'Disposable performance fixture', slug: `perf-${randomUUID()}`, versions: { create: { revision: 1, publishedAt: new Date(), createdById: a.admin.id, policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) } } } }, include: { versions: true } }); planId = plan.id;
+    const plan = await db.plan.create({ data: { name: 'Disposable performance fixture', slug: `perf-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) } } } }, include: { versions: true } });
+    await fixture.publishPlanVersion(plan.versions[0]!.id); planId = plan.id;
     for (const tenant of [a, b]) await db.firmSubscription.create({ data: { firmId: tenant.firm.id, planVersionId: plan.versions[0]!.id, status: 'ACTIVE', authorId: tenant.admin.id, reason: 'Disposable performance fixture', effectiveFrom: new Date(Date.now() - 1000) } });
     const { ReportsRepository } = await import('../src/modules/reports/reports.repository.js'); reports = new ReportsRepository(db);
     for (const tenant of [a, b]) {
@@ -35,12 +42,10 @@ suite('Wave 10 opt-in large-tenant source reporting baseline', () => {
     }
   }, 1_800_000);
   afterAll(async () => {
-    try { if (fixture) await fixture.cleanup(); if (planId) await db.plan.update({ where: { id: planId }, data: { archivedAt: new Date() } }); }
+    try { if (fixture && !externalTeardown) await fixture.cleanup(); if (planId) await db.plan.update({ where: { id: planId }, data: { archivedAt: new Date() } }); }
     finally { if (db) await db.$disconnect(); vi.doUnmock('../src/core/database/prisma.js'); vi.unstubAllEnvs(); }
   }, 180_000);
   it('reconciles 100000 invoices and 1000000 movements per tenant under concurrent reads', async () => {
-    const budget = Number(process.env.WAVE10_PERF_REPORT_BUDGET_MS);
-    if (!Number.isSafeInteger(budget) || budget <= 0) throw new Error('Set the owner-approved WAVE10_PERF_REPORT_BUDGET_MS before running the performance gate');
     const { reportQuerySchema } = await import('../src/modules/reports/reports.schema.js');
     const query = reportQuerySchema.parse({ dateFrom: '2026-11-01', dateTo: '2026-11-09', sections: 'sales,stock' });
     const durations: number[] = [];
@@ -54,7 +59,7 @@ suite('Wave 10 opt-in large-tenant source reporting baseline', () => {
       expect(stock.data.metrics).toContainEqual(expect.objectContaining({ key: 'stockValue', currency: 'INR', value: ownTenant ? '1000000.000000' : '2000000.000000' }));
     }));
     durations.sort((left, right) => left - right); const p95 = durations[Math.ceil(durations.length * .95) - 1]!;
-    console.info(JSON.stringify({ event: 'wave10.reporting.performance', samples: durations.length, concurrentTenants: 2, invoicesPerTenant: 100000, movementsPerTenant: 1000000, p95Ms: p95, budgetMs: budget }));
-    expect(p95).toBeLessThanOrEqual(budget);
+    console.info(JSON.stringify({ event: 'wave10.reporting.performance', mode: baselineOnly ? 'baseline' : 'gate', latencyAccepted: baselineOnly ? null : p95 <= budget, samples: durations.length, concurrentTenants: 2, invoicesPerTenant: 100000, movementsPerTenant: 1000000, p95Ms: p95, budgetMs: baselineOnly ? null : budget }));
+    if (!baselineOnly) expect(p95).toBeLessThanOrEqual(budget);
   }, 180_000);
 });

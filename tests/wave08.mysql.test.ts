@@ -38,7 +38,8 @@ suite('Wave 08 authenticated tenant automation and transactional execution', () 
     vi.doMock('../src/integrations/documents/index.js', () => ({ renderAndStorePdf: vi.fn().mockRejectedValue(new Error('External rendering disabled')) }));
     a = await fixture.createTenant('automation-A'); b = await fixture.createTenant('automation-B'); secondAdmin = await fixture.createActor(a.firm.id, 'FIRM_ADMIN');
     const { FEATURE_KEYS } = await import('../src/modules/entitlements/feature-registry.js'); const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
-    const plan = await db.plan.create({ data: { name: 'Wave08 fixture', slug: `wave08-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, publishedAt: new Date(), policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) }, quotas: { create: ['users', 'documents', 'storageBytes', 'aiCredits'].map((resource) => ({ resource, limit: null })) } } } }, include: { versions: true } }); planId = plan.id;
+    const plan = await db.plan.create({ data: { name: 'Wave08 fixture', slug: `wave08-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) }, quotas: { create: ['users', 'documents', 'storageBytes', 'aiCredits'].map((resource) => ({ resource, limit: null })) } } } }, include: { versions: true } });
+    await fixture.publishPlanVersion(plan.versions[0]!.id); planId = plan.id;
     for (const tenant of [a, b]) {
       await db.firmSubscription.create({ data: { firmId: tenant.firm.id, planVersionId: plan.versions[0]!.id, status: 'ACTIVE', authorId: tenant.admin.id, reason: 'Disposable automation fixture', effectiveFrom: new Date(Date.now() - 1000) } });
       await db.item.update({ where: { id: tenant.item.id }, data: { stockTracking: true } });

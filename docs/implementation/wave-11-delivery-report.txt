@@ -1,3 +1,80 @@
+13 November 2026 — fresh firm5 desktop QA closeout completed
+The remaining independent approval/automation, reversal/cancellation and final
+reconciliation tasks are complete in actual desktop UI. Invoice18 was requested
+by Accounts13, reviewed by Admin9, explicitly issued, notified and settled.
+Receipt5 reversal retained refund20; replacement6 settled both invoices; credit0,
+stock400/reserved0/eight movements. Billed-receipt cancellation safely denied.
+Final frontend build/lint and106 focused checks PASS; read-only DB checks10/10.
+Full evidence and changed paths: newest ui-ux-remediation-delivery-report.txt and
+ui-ux-browser-review.txt. Earlier isolated integration/load/recovery evidence below
+is retained. No known failing case remains in these recorded local scenarios.
+Video is OWNER-DEFERRED; mobile/unverified providers remain owner-excluded.
+Production deployment, legacy upgrade and independent accounting/legal/security/
+operations/rollout acceptance remain separate and are not certified by local QA.
+
+
+13 November 2026 — isolated local acceptance executed (latest update)
+COMPLETED:160/160 real MySQL integration checks across11files;4/4 actual Chromium
+browser/composed/recovery scenarios;1/1 large-data reporting baseline;28/28 scoped
+unit/HTTP checks; backend typecheck and lint. Local performance p95:2515.40ms,
+40 reads,2 simultaneous tenants,100,000 invoices and1,000,000 movements PER tenant.
+This is a measured local baseline, not an approved production latency objective.
+
+Independent requester/reviewer logins, self-approval403, exact invoice approval,
+perform-once issuance, idempotent retry, foreign-firm404 and protected real-PDF
+access were exercised against the real frontend5173 and an isolated real API/DB.
+The same accepted quotation/approved invoice then reconciled partial/full
+receipts, one refunded5.00 despite retry, reversed10.00, credit5.00 and final
+adjusted/allocated15.00/outstanding0.00; original invoice20.00 remains immutable.
+One receipt was entered through the real browser form; later finance commands
+used real authenticated API requests from that browser, with UI result rechecks.
+
+Fresh apply of all20 migrations on13 unique disposable schemas was authorized.
+Application ledger was read only:20/20 source/applied/checksums match, no unfinished
+or rolled-back entry. No application migration or production data edit occurred.
+Recovery passed:104 tables/478 rows exact count/hash match,23 triggers preserved,
+restored immutability guard, final settlement and protected PDF/tenant denial.
+Export166.19ms, import875.29ms, export/import/verification1304.02ms on this
+small synthetic snapshot; these are not production RPO/RTO or scale guarantees.
+Actual isolated healthy-worker and unavailable-DB processes returned safe health
+responses and exited0 on SIGTERM (15ms/8ms). Existing3004 probes all returned200;
+that working process was not restarted or faulted. Disposable schemas removed.
+
+One production defect fixed: foreign supplier-bill source references previously
+hit a composite FK before ownership validation, returning500. The existing firm
+transaction now checks firm/supplier ownership first and safely returns404,
+without bill/line/audit effects. Published-plan fixture setup now adds child
+features/quotas before publication; immutable production triggers remain intact.
+
+Detailed commands, all changed paths, failure history and evidence limits are in
+ui-ux-remediation-delivery-report.txt and ui-ux-browser-review.txt. Private evidence:
+/Users/harshpanchal/Documents/Bhuminex-QA-Artifacts/2026-11-13-closeout-4661f7c4
+This update supersedes older blanket NOT RUN/pending claims only for these named
+scenarios. Exhaustive endpoint/variant matrices, original legacy-snapshot upgrade,
+independent accounting/legal/security acceptance, production SLO/DR/retention,
+monitoring/alert ownership, packaging and rollout remain unaccepted. Mobile and
+unverified external integrations remain owner-excluded. No deployment or whole-ERP
+production certification is claimed. No new known failure in the named local run.
+
+
+13 November 2026 — desktop closeout evidence update
+The named remaining desktop priorities now have source fixes and actual local
+browser evidence: guarded/pinned field review, version/effective-field conflict
+checks, common numbered/sorted field history, CRM timeline, platform audit detail/
+ordering/paging, truthful read-only revision preview and compact item rows.
+Actual QA metadata save and independent reload, plus injected409 failure/input
+retention were observed. Details and per-file reasons are in the newest sections
+of ui-ux-remediation-delivery-report.txt and ui-ux-browser-review.txt.
+Current focused checks: frontend51+5(non-overlapping), backend41, frontend build,
+backend typecheck and both lint checks passed. Full current suite was not rerun.
+These complete the named desktop closeout list only. Complete composed/tenant/
+role/plan/quota and independent approval acceptance, disposable-DB integration,
+accounting/document/legal review, load/security/backup-restore/recovery/monitoring
+and rollout acceptance remain OPEN. No production release is accepted.
+Owner scope stays India/local ERP first; mobile and unverified external-provider
+activation excluded. No migration, deployment or live integration was executed.
+
+
 11 November 2026 — owner-confirmed India local-first scope
 The owner selected: Local ERP workflows first; keep unverified external
 integrations disabled. Provider activation is excluded from the first release,

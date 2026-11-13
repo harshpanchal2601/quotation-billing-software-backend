@@ -50,7 +50,8 @@ suite('Wave 07 authenticated inventory and purchasing with disposable MySQL', ()
     vi.doMock('../src/integrations/documents/index.js', () => ({ renderAndStorePdf: vi.fn().mockRejectedValue(new Error('External rendering disabled')) }));
     fixture = new TwoFirmFixture(db); a = await fixture.createTenant('inventory-A'); b = await fixture.createTenant('inventory-B');
     const { FEATURE_KEYS } = await import('../src/modules/entitlements/feature-registry.js'); const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
-    const plan = await db.plan.create({ data: { name: 'Wave07 fixture', slug: `wave07-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, publishedAt: new Date(), policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) }, quotas: { create: ['users', 'documents', 'storageBytes', 'aiCredits'].map((resource) => ({ resource, limit: null })) } } } }, include: { versions: true } }); planId = plan.id; planVersionId = plan.versions[0]!.id;
+    const plan = await db.plan.create({ data: { name: 'Wave07 fixture', slug: `wave07-${randomUUID()}`, versions: { create: { revision: 1, createdById: a.admin.id, policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey })) }, quotas: { create: ['users', 'documents', 'storageBytes', 'aiCredits'].map((resource) => ({ resource, limit: null })) } } } }, include: { versions: true } });
+    await fixture.publishPlanVersion(plan.versions[0]!.id); planId = plan.id; planVersionId = plan.versions[0]!.id;
     for (const tenant of [a, b]) { await db.firmSubscription.create({ data: { firmId: tenant.firm.id, planVersionId, status: 'ACTIVE', authorId: tenant.admin.id, reason: 'Disposable inventory fixture', effectiveFrom: new Date(Date.now() - 1000) } }); await db.company.update({ where: { id: tenant.company.id }, data: { isSupplier: true } }); await db.measurementUnit.update({ where: { id: tenant.unit.id }, data: { allowDecimal: true } }); }
     const { generateAccessToken } = await import('../src/modules/auth/security/auth.tokens.js'); const { ACCESS_TOKEN_COOKIE_NAME } = await import('../src/modules/auth/auth.constants.js');
     for (const actor of [a.admin, a.reader, b.admin]) { const session = await db.authSession.create({ data: { userId: actor.id, refreshTokenHash: 'unused', expiresAt: new Date(Date.now() + 3600000) } }); cookies.set(actor.id, `${ACCESS_TOKEN_COOKIE_NAME}=${generateAccessToken({ userId: actor.id, role: actor.role, sessionId: session.id })}`); }
@@ -138,23 +139,34 @@ suite('Wave 07 authenticated inventory and purchasing with disposable MySQL', ()
       expect((result.pagination as { total: number }).total).toBe(0);
     }
     expect((await request('POST', '/goods-receipts', { purchaseOrderId: foreignPo.id, expectedVersion: foreignPo.version, reference: 'Foreign receipt probe', idempotencyKey: randomUUID(), lines: [{ purchaseOrderLineId: foreignPo.lines[0]!.id, quantity: '1' }] })).status).toBe(404);
+    const billCounts = async () => Promise.all([db.supplierBill.count(), db.supplierBillLine.count(), db.auditLog.count({ where: { entityType: 'SupplierBill' } })]);
+    const beforeDeniedBills = await billCounts();
     expect((await request('POST', '/supplier-bills', bill(foreignReceipt))).status).toBe(404);
+    const foreignOrderBill = bill(foreignReceipt);
+    expect((await request('POST', '/supplier-bills', { ...foreignOrderBill, lines: foreignOrderBill.lines.map((line) => ({ description: line.description, quantity: line.quantity, unitCost: line.unitCost, taxRate: line.taxRate, purchaseOrderLineId: foreignPo.lines[0]!.id })) })).status).toBe(404);
+    expect(await billCounts()).toEqual(beforeDeniedBills);
     expect((await request('POST', '/stock/transfers', { fromWarehouseId: warehouses.get(b.firm.id), toWarehouseId: warehouses.get(a.firm.id), itemId: foreignSku.id, quantity: '1', reason: 'Foreign warehouse probe', idempotencyKey: randomUUID() })).status).toBe(404);
     const list = await data<{ records: Array<{ id: number }> }>(await request('GET', `/purchase-orders?supplierId=${b.company.id}`)); expect(list.records).toHaveLength(0);
     const options = await data<{ suppliers: Array<{ id: number }>; items: Array<{ id: number }> }>(await request('GET', '/purchase-orders/reference-options')); expect(options.suppliers.some((row) => row.id === b.company.id)).toBe(false); expect(options.items.some((row) => row.id === foreignSku.id)).toBe(false);
     const audit = await data<{ auditLogs: Array<{ firmId: number }> }>(await request('GET', '/audit-logs?entityType=SupplierBill')); expect(audit.auditLogs.every((row) => row.firmId === a.firm.id)).toBe(true);
   });
   it('requires both plan and role, honors global kills, expired grants and suspended firms', async () => {
+    let excludedRevision = 2;
+    const { FEATURE_KEYS } = await import('../src/modules/entitlements/feature-registry.js');
+    const { LEGACY_POLICY } = await import('../src/modules/entitlements/entitlements.schema.js');
     for (const [featureKey, path, writePath] of [['inventory', '/stock/availability', '/stock/adjustments'], ['purchasing', '/purchase-orders', '/purchase-orders'], ['purchasing.bills', '/supplier-bills', '/supplier-bills'], ['expenses', '/expenses', '/expenses']] as const) {
       await data(await request('GET', path)); expect((await request('GET', path, undefined, a.reader.id)).status).toBe(403);
       expect((await request('POST', writePath, {}, a.reader.id)).status).toBe(403);
-      await db.planFeatureEntitlement.delete({ where: { planVersionId_featureKey: { planVersionId, featureKey } } });
+      const excluded = await db.planVersion.create({ data: { planId, revision: excludedRevision++, createdById: a.admin.id, policy: LEGACY_POLICY, features: { create: FEATURE_KEYS.filter((key) => key !== featureKey).map((key) => ({ featureKey: key })) } } });
+      await fixture.publishPlanVersion(excluded.id);
+      const subscription = await db.firmSubscription.findFirstOrThrow({ where: { firmId: a.firm.id } });
+      await db.firmSubscription.update({ where: { id: subscription.id }, data: { planVersionId: excluded.id } });
       try {
         expect((await request('GET', path)).status).toBe(403);
         expect((await request('POST', writePath, {})).status).toBe(403);
         const grant = await db.firmFeatureOverride.create({ data: { firmId: a.firm.id, target: `feature:${featureKey}`, effect: 'ALLOW', startsAt: new Date(Date.now() - 2000), expiresAt: new Date(Date.now() - 1000), authorId: a.admin.id, reason: 'Expired fixture override' } });
         try { expect((await request('GET', path)).status).toBe(403); } finally { await db.firmFeatureOverride.delete({ where: { id: grant.id } }); }
-      } finally { await db.planFeatureEntitlement.create({ data: { planVersionId, featureKey } }); }
+      } finally { await db.firmSubscription.update({ where: { id: subscription.id }, data: { planVersionId } }); }
       await db.platformFeatureSwitch.create({ data: { key: featureKey, hardDisabled: true, authorId: a.admin.id, reason: 'Disposable feature kill' } });
       try { expect((await request('GET', path)).status).toBe(403); expect((await request('POST', writePath, {})).status).toBe(403); } finally { await db.platformFeatureSwitch.delete({ where: { key: featureKey } }); }
     }
