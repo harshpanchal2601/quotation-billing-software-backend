@@ -115,7 +115,7 @@ export function resolveDashboardDateRange(
 export class DashboardRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async getDashboardOverview(query: DashboardOverviewQuery): Promise<DashboardOverviewData> {
+  async getDashboardOverview(firmId: number, query: DashboardOverviewQuery): Promise<DashboardOverviewData> {
     const range = resolveDashboardDateRange(query.period, query.dateFrom, query.dateTo);
 
     const startBound = new Date(`${range.dateFrom}T00:00:00.000Z`);
@@ -125,6 +125,7 @@ export class DashboardRepository {
       await Promise.all([
         this.db.quotation.findMany({
           where: {
+            firmId,
             deletedAt: null,
             isLatestRevision: true,
             quotationDate: {
@@ -149,8 +150,8 @@ export class DashboardRepository {
           },
           orderBy: { createdAt: 'desc' },
         }),
-        this.db.company.count({ where: { isActive: true, deletedAt: null } }),
-        this.db.item.count({ where: { isActive: true, deletedAt: null } }),
+        this.db.company.count({ where: { firmId, isActive: true, deletedAt: null } }),
+        this.db.item.count({ where: { firmId, isActive: true, deletedAt: null } }),
         (() => {
           const today = new Date();
           const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
@@ -158,6 +159,7 @@ export class DashboardRepository {
 
           return this.db.quotation.findMany({
             where: {
+              firmId,
               deletedAt: null,
               isLatestRevision: true,
               status: { in: OPEN_STATUSES },
@@ -178,10 +180,21 @@ export class DashboardRepository {
             orderBy: { validUntil: 'asc' },
           });
         })(),
-        this.db.businessProfile.findFirst({ select: { defaultCurrency: true } }),
+        this.db.businessProfile.findUnique({ where: { firmId }, select: { defaultCurrency: true } }),
       ]);
 
-    const defaultCurrency = businessProfile?.defaultCurrency || 'INR';
+    const currency = query.currency ?? businessProfile?.defaultCurrency ?? 'INR';
+    const currencyMap = new Map<string, { count: number; total: Prisma.Decimal }>();
+    for (const quotation of quotations) {
+      const bucket = currencyMap.get(quotation.currency) ?? { count: 0, total: new Prisma.Decimal(0) };
+      bucket.count += 1;
+      bucket.total = bucket.total.add(quotation.grandTotal);
+      currencyMap.set(quotation.currency, bucket);
+    }
+    const currencyTotals = Array.from(currencyMap, ([code, bucket]) => ({
+      currency: code, quotationCount: bucket.count, totalQuotationValue: bucket.total.toFixed(2),
+    })).sort((a, b) => a.currency.localeCompare(b.currency));
+    const currencyQuotationCount = currencyMap.get(currency)?.count ?? 0;
 
     let totalQuotationValueDec = new Prisma.Decimal(0);
     let acceptedQuotationCount = 0;
@@ -197,31 +210,32 @@ export class DashboardRepository {
     }
 
     for (const quotation of quotations) {
-      totalQuotationValueDec = totalQuotationValueDec.add(quotation.grandTotal);
+      const amount = quotation.currency === currency ? quotation.grandTotal : new Prisma.Decimal(0);
+      totalQuotationValueDec = totalQuotationValueDec.add(amount);
 
       const current = statusMap.get(quotation.status);
       if (current) {
         current.count += 1;
-        current.totalValue = current.totalValue.add(quotation.grandTotal);
+        current.totalValue = current.totalValue.add(amount);
       }
 
       if (OPEN_STATUSES.includes(quotation.status)) {
         openQuotationCount += 1;
-        openQuotationValueDec = openQuotationValueDec.add(quotation.grandTotal);
+        openQuotationValueDec = openQuotationValueDec.add(amount);
       }
       if (ACCEPTED_STATUSES.includes(quotation.status)) {
         acceptedQuotationCount += 1;
-        acceptedQuotationValueDec = acceptedQuotationValueDec.add(quotation.grandTotal);
+        acceptedQuotationValueDec = acceptedQuotationValueDec.add(amount);
       }
       if (quotation.status === QuotationStatus.COMPLETED) {
         completedQuotationCount += 1;
-        completedQuotationValueDec = completedQuotationValueDec.add(quotation.grandTotal);
+        completedQuotationValueDec = completedQuotationValueDec.add(amount);
       }
     }
 
     const totalQuotations = quotations.length;
     const averageQuotationValueDec =
-      totalQuotations > 0 ? totalQuotationValueDec.div(totalQuotations) : new Prisma.Decimal(0);
+      currencyQuotationCount > 0 ? totalQuotationValueDec.div(currencyQuotationCount) : new Prisma.Decimal(0);
 
     const quotationMetrics = {
       totalQuotations,
@@ -315,12 +329,13 @@ export class DashboardRepository {
       const monthKey = `${yyyy}-${mm}`;
 
       const bucket = monthlyMap.get(monthKey);
+      const amount = quotation.currency === currency ? quotation.grandTotal : new Prisma.Decimal(0);
       if (bucket) {
         bucket.count += 1;
-        bucket.totalValue = bucket.totalValue.add(quotation.grandTotal);
+        bucket.totalValue = bucket.totalValue.add(amount);
         if (ACCEPTED_STATUSES.includes(quotation.status)) {
           bucket.acceptedCount += 1;
-          bucket.acceptedValue = bucket.acceptedValue.add(quotation.grandTotal);
+          bucket.acceptedValue = bucket.acceptedValue.add(amount);
         }
       }
     }
@@ -355,6 +370,7 @@ export class DashboardRepository {
     >();
 
     for (const quotation of quotations) {
+      if (quotation.currency !== currency) continue;
       const companyId = quotation.companyId;
       let customer = customerMap.get(companyId);
 
@@ -400,7 +416,8 @@ export class DashboardRepository {
     }));
 
     return {
-      currency: defaultCurrency,
+      currency,
+      currencyTotals,
       range,
       quotationMetrics,
       masterDataMetrics,

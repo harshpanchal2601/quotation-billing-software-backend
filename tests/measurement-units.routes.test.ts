@@ -42,6 +42,7 @@ describe('measurement units routes', () => {
 
     const req = {
       body: { name: 'Kilogram', symbol: 'kg', allowDecimal: true, isActive: true },
+      firmId: 1,
       user: { id: 7 },
       ip: '127.0.0.1',
       get: vi.fn().mockReturnValue('vitest'),
@@ -51,6 +52,7 @@ describe('measurement units routes', () => {
     await createMeasurementUnit(req, res);
 
     expect(measurementUnitsRepository.createMeasurementUnit).toHaveBeenCalledWith(
+      1,
       expect.objectContaining({ name: 'Kilogram', symbol: 'kg' }),
       expect.objectContaining({ userId: 7 }),
     );
@@ -68,6 +70,7 @@ describe('measurement units routes', () => {
 
     const req = {
       body: { name: 'Kilogram', symbol: 'kg', allowDecimal: true, isActive: true },
+      firmId: 1,
       user: { id: 7 },
       ip: '127.0.0.1',
       get: vi.fn(),
@@ -86,7 +89,7 @@ describe('measurement units routes', () => {
       pagination: { page: 1, limit: 20, total: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: false },
     } as never);
 
-    const req = { query: {} } as Request;
+    const req = { query: {}, firmId: 1 } as Request;
     const res = createRes();
 
     await listMeasurementUnits(req, res);

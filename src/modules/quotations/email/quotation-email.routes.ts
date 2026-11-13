@@ -1,18 +1,20 @@
-import { UserRole } from '@prisma/client';
 import { Router, type Request, type Response } from 'express';
 
 import { AppError } from '../../../core/errors/AppError.js';
 import { asyncHandler } from '../../../core/http/asyncHandler.js';
-import { requireAuthentication, requireRole } from '../../auth/auth.middleware.js';
+import { getFirmId } from '../../../core/tenancy/tenant-context.js';
+import { requireAuthentication, requirePermission } from '../../auth/auth.middleware.js';
+import { PERMISSIONS } from '../../auth/permissions.js';
 import {
   quotationCommunicationsRepository,
   validateSendQuotationEmailInput,
 } from '../communications/quotation-communications.repository.js';
 
+import { generatedDocumentHistorySchema, quotationCommunicationHistorySchema } from './quotation-email.schema.js';
+
 export const quotationEmailRouter = Router({ mergeParams: true });
 
 quotationEmailRouter.use(requireAuthentication);
-quotationEmailRouter.use(requireRole(UserRole.ADMIN));
 
 function parseId(param: string | undefined, paramName: string): number {
   const parsed = Number(param);
@@ -25,6 +27,7 @@ function parseId(param: string | undefined, paramName: string): number {
 function metadata(req: Request) {
   return {
     userId: req.user?.id,
+    firmId: req.firmId,
     ipAddress: req.ip,
     userAgent: req.get('user-agent'),
   };
@@ -32,13 +35,10 @@ function metadata(req: Request) {
 
 quotationEmailRouter.get(
   '/:quotationId/documents',
+  requirePermission(PERMISSIONS.QUOTATIONS_DOCUMENTS, PERMISSIONS.QUOTATIONS_EMAIL),
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = parseId(req.params.quotationId, 'quotation ID');
-    const result = await quotationCommunicationsRepository.getDocumentHistory(quotationId, {
-      page: Number(req.query.page) || 1,
-      limit: Number(req.query.limit) || 20,
-      sortOrder: req.query.sortOrder === 'asc' ? 'asc' : 'desc',
-    });
+    const result = await quotationCommunicationsRepository.getDocumentHistory(getFirmId(req), quotationId, generatedDocumentHistorySchema.parse(req.query));
     res.status(200).json({
       success: true,
       message: 'Generated document history retrieved successfully',
@@ -49,13 +49,10 @@ quotationEmailRouter.get(
 
 quotationEmailRouter.get(
   '/:quotationId/communications',
+  requirePermission(PERMISSIONS.QUOTATIONS_EMAIL),
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = parseId(req.params.quotationId, 'quotation ID');
-    const result = await quotationCommunicationsRepository.getCommunicationHistory(quotationId, {
-      page: Number(req.query.page) || 1,
-      limit: Number(req.query.limit) || 20,
-      sortOrder: req.query.sortOrder === 'asc' ? 'asc' : 'desc',
-    });
+    const result = await quotationCommunicationsRepository.getCommunicationHistory(getFirmId(req), quotationId, quotationCommunicationHistorySchema.parse(req.query));
     res.status(200).json({
       success: true,
       message: 'Quotation communication history retrieved successfully',
@@ -66,6 +63,7 @@ quotationEmailRouter.get(
 
 quotationEmailRouter.post(
   '/:quotationId/email',
+  requirePermission(PERMISSIONS.QUOTATIONS_EMAIL),
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = parseId(req.params.quotationId, 'quotation ID');
     const userId = req.user?.id;
@@ -74,6 +72,7 @@ quotationEmailRouter.post(
     }
     const validatedInput = validateSendQuotationEmailInput(req.body);
     const result = await quotationCommunicationsRepository.sendQuotationEmail(
+      getFirmId(req),
       quotationId,
       validatedInput,
       userId,

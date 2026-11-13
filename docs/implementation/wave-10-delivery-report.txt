@@ -1,0 +1,435 @@
+13 November 2026 — fresh firm5 desktop QA closeout completed
+The remaining independent approval/automation, reversal/cancellation and final
+reconciliation tasks are complete in actual desktop UI. Invoice18 was requested
+by Accounts13, reviewed by Admin9, explicitly issued, notified and settled.
+Receipt5 reversal retained refund20; replacement6 settled both invoices; credit0,
+stock400/reserved0/eight movements. Billed-receipt cancellation safely denied.
+Final frontend build/lint and106 focused checks PASS; read-only DB checks10/10.
+Full evidence and changed paths: newest ui-ux-remediation-delivery-report.txt and
+ui-ux-browser-review.txt. Earlier isolated integration/load/recovery evidence below
+is retained. No known failing case remains in these recorded local scenarios.
+Video is OWNER-DEFERRED; mobile/unverified providers remain owner-excluded.
+Production deployment, legacy upgrade and independent accounting/legal/security/
+operations/rollout acceptance remain separate and are not certified by local QA.
+
+
+13 November 2026 — isolated local acceptance executed (latest update)
+COMPLETED:160/160 real MySQL integration checks across11files;4/4 actual Chromium
+browser/composed/recovery scenarios;1/1 large-data reporting baseline;28/28 scoped
+unit/HTTP checks; backend typecheck and lint. Local performance p95:2515.40ms,
+40 reads,2 simultaneous tenants,100,000 invoices and1,000,000 movements PER tenant.
+This is a measured local baseline, not an approved production latency objective.
+
+Independent requester/reviewer logins, self-approval403, exact invoice approval,
+perform-once issuance, idempotent retry, foreign-firm404 and protected real-PDF
+access were exercised against the real frontend5173 and an isolated real API/DB.
+The same accepted quotation/approved invoice then reconciled partial/full
+receipts, one refunded5.00 despite retry, reversed10.00, credit5.00 and final
+adjusted/allocated15.00/outstanding0.00; original invoice20.00 remains immutable.
+One receipt was entered through the real browser form; later finance commands
+used real authenticated API requests from that browser, with UI result rechecks.
+
+Fresh apply of all20 migrations on13 unique disposable schemas was authorized.
+Application ledger was read only:20/20 source/applied/checksums match, no unfinished
+or rolled-back entry. No application migration or production data edit occurred.
+Recovery passed:104 tables/478 rows exact count/hash match,23 triggers preserved,
+restored immutability guard, final settlement and protected PDF/tenant denial.
+Export166.19ms, import875.29ms, export/import/verification1304.02ms on this
+small synthetic snapshot; these are not production RPO/RTO or scale guarantees.
+Actual isolated healthy-worker and unavailable-DB processes returned safe health
+responses and exited0 on SIGTERM (15ms/8ms). Existing3004 probes all returned200;
+that working process was not restarted or faulted. Disposable schemas removed.
+
+One production defect fixed: foreign supplier-bill source references previously
+hit a composite FK before ownership validation, returning500. The existing firm
+transaction now checks firm/supplier ownership first and safely returns404,
+without bill/line/audit effects. Published-plan fixture setup now adds child
+features/quotas before publication; immutable production triggers remain intact.
+
+Detailed commands, all changed paths, failure history and evidence limits are in
+ui-ux-remediation-delivery-report.txt and ui-ux-browser-review.txt. Private evidence:
+/Users/harshpanchal/Documents/Bhuminex-QA-Artifacts/2026-11-13-closeout-4661f7c4
+This update supersedes older blanket NOT RUN/pending claims only for these named
+scenarios. Exhaustive endpoint/variant matrices, original legacy-snapshot upgrade,
+independent accounting/legal/security acceptance, production SLO/DR/retention,
+monitoring/alert ownership, packaging and rollout remain unaccepted. Mobile and
+unverified external integrations remain owner-excluded. No deployment or whole-ERP
+production certification is claimed. No new known failure in the named local run.
+
+
+13 November 2026 — desktop closeout evidence update
+The named remaining desktop priorities now have source fixes and actual local
+browser evidence: guarded/pinned field review, version/effective-field conflict
+checks, common numbered/sorted field history, CRM timeline, platform audit detail/
+ordering/paging, truthful read-only revision preview and compact item rows.
+Actual QA metadata save and independent reload, plus injected409 failure/input
+retention were observed. Details and per-file reasons are in the newest sections
+of ui-ux-remediation-delivery-report.txt and ui-ux-browser-review.txt.
+Current focused checks: frontend51+5(non-overlapping), backend41, frontend build,
+backend typecheck and both lint checks passed. Full current suite was not rerun.
+These complete the named desktop closeout list only. Complete composed/tenant/
+role/plan/quota and independent approval acceptance, disposable-DB integration,
+accounting/document/legal review, load/security/backup-restore/recovery/monitoring
+and rollout acceptance remain OPEN. No production release is accepted.
+Owner scope stays India/local ERP first; mobile and unverified external-provider
+activation excluded. No migration, deployment or live integration was executed.
+
+
+Wave 10 initial reporting and manufacturing implementation
+HISTORICAL INITIAL REPORT. Current inventory and remaining scope are in
+wave-10-continuation-report.txt and wave-10-verification-matrix.txt.
+Date: 9 November 2026
+Status: INITIAL SOURCE CHANGE SETS APPLIED. WAVE 10 IS NOT COMPLETE OR ACCEPTED.
+
+The implemented flows are source-based reporting, private saved report views,
+audited summary CSV exports, and opt-in basic manufacturing through the existing
+stock ledger. Compilation, Prisma generation/validation, database migrations,
+automated tests, browser verification and load measurements were not executed.
+The direct command restrictions take precedence over commands in the DOCX brief.
+
+A. Baseline inventory and repository metadata
+
+Read directly from repository metadata without executing Git:
+backend: feat/wave11, HEAD 7ac6a7e71d7d964520d36003561ddad6b714e137
+frontend: feat/wave11, HEAD 970b3f83e03bfef42e7438b1740c5f0bb59054b9
+Git status/diff were not executed; these identifiers do not assert clean trees.
+Acceptance of prerequisite waves was not independently established at runtime.
+
+Already present: firm/session/RBAC boundaries, feature entitlements, overrides,
+global switches, firm transaction locks, audit, Decimal/currency primitives,
+outbox infrastructure, quotation revisions, billing documents and issue snapshots,
+allocations/reversals/receivables, CRM ownership rules, sales orders, purchasing,
+warehouse stock positions and immutable stock movements, SMTP and PDF providers.
+
+Partially present: the existing dashboard is quotation-focused and already
+segments quotation currencies. Domain reporting exists in the assistant billing
+reader, receivables projection, inventory period report and purchasing lists.
+ImportBatch/ImportRow exist in Prisma but no application lifecycle was found.
+TermsTemplate and business-profile defaults already exist and were retained.
+
+New in this session: Reports and Manufacturing modules, private SavedReportView,
+BillOfMaterials/BomComponent/WorkOrder, nullable stock-movement work-order ownership,
+source query indexes, two guarded frontend workspaces, and test sources.
+
+Architecture references examined:
+docs/architecture/backend/BACKEND-MODULE-RULES.md
+docs/architecture/backend/BACKEND-DEPENDENCY-BOUNDARIES.md
+
+Relevant existing sources examined/reused include dashboard.repository.ts and
+dashboard.types.ts, dashboard routes/schema/UI/tests, invoices/assistant-read,
+payments/receivables, inventory/stock-ledger and inventory.repository, purchasing
+repository, CRM access/scope, item tracking/unit guards, business policy,
+quotation communications, business profile, mail service, Wave 09 report tests,
+Wave 07/09 MySQL test conventions and the two-firm fixture. This is source
+inspection evidence, not a claim that their regression suites passed.
+
+B. Change plan versus executed changes and every changed file
+
+The first plan covered reporting, saved views and CSV. The user subsequently
+approved scoped public APIs/webhooks and basic manufacturing and delegated
+market/provider choices. A second source batch implements the approved basic
+manufacturing flow. External APIs/providers, imports and localization are still
+pending rather than represented by empty routes or success stubs.
+
+Each path below is relative to its named repository. Added/Edited describe this
+session's operations and are not Git status classifications. No package or lock
+files changed and no dependencies were installed.
+
+Backend path | Change | Why and logic changed | Existing code reused
+src/core/validation/date-window.ts | Added | Half-open UTC bounds for inclusive calendar-date pairs | Existing date-only validation at HTTP boundaries
+src/bootstrap/registerRoutes.ts | Edited | Mount /reports and /manufacturing | Narrow public module router exports
+src/modules/auth/permissions.ts | Edited | Reporting view/export and manufacturing view/manage/post grants and implied views | Existing assignable permission expansion
+src/modules/entitlements/feature-registry.ts | Edited | Opt-in reports, reports.exports and manufacturing keys and permission mappings | Existing plan evaluator, dependencies, kill switches and overrides
+src/modules/reports/index.ts | Added | Explicit router-only public boundary | Module rules
+src/modules/reports/reports.schema.ts | Added | Strict dates/currency/section filters, bounded ranges and private view commands | Zod and date-only validator
+src/modules/reports/reports.types.ts | Added | Versioned report contract with firm provenance and availability union | Decimal-string wire convention
+src/modules/reports/reports.repository.ts | Added | Single-snapshot domain composition, source-level authorization, audited exports and firm/actor-private versioned views | Domain public readers, audit and firm transactions
+src/modules/reports/reports.csv.ts | Added | Versioned CSV provenance, quoting, formula neutralization and exact numeric strings | Report contract; no parallel financial calculations
+src/modules/reports/reports.routes.ts | Added | Authenticated reports/view/export endpoints, no-store responses, origin checks and request budget | Existing HTTP/auth/firm/rate-limit patterns
+src/modules/invoices/sales-report.repository.ts | Added | Billing-owned invoice/debit/credit aggregation shared by reporting and assistant | Existing assistant sales definition and money primitives
+src/modules/invoices/assistant-read.repository.ts | Edited | Delegate the existing sales reader to the billing-owned shared function | Existing transaction isolation and assistant response shape
+src/modules/invoices/index.ts | Edited | Export narrow transactional sales reader | Existing explicit public boundary
+src/modules/quotations/quotation-report.repository.ts | Added | Aggregate latest live revisions and current acceptance rates by currency | Existing quotation status/revision and Decimal rules
+src/modules/quotations/index.ts | Edited | Export transactional quotation report reader | Existing public boundary
+src/modules/payments/receivables.repository.ts | Edited | Share ageing calculation with a summary path that omits customer detail reads; allow captured report clock | Existing tenant-scoped adjustment/allocation/reversal projection
+src/modules/payments/index.ts | Edited | Export transactional receivables summary | Existing public boundary
+src/modules/inventory/stock-report.repository.ts | Added | Closing valuation from signed tenant-owned movement values with six decimal places | Existing stock ledger and composite ownership
+src/modules/inventory/stock-ledger.ts | Edited | Optional work-order ownership on postings and matching replay check | Existing sole stock writer, weighted valuation, reservations and reversals
+src/modules/inventory/index.ts | Edited | Export valuation reader and narrow existing stock context/quantity helpers | Existing stock command boundary
+src/modules/purchasing/purchasing-report.repository.ts | Added | Separate approved commitment, posted bill and expense aggregates | Existing purchasing status/date/currency semantics
+src/modules/purchasing/index.ts | Edited | Export narrow transactional purchasing reader | Existing public boundary
+src/modules/crm/crm.repository.ts | Edited | Add stage/currency aggregate using existing owner/creator visibility | Existing access() and scope() rules
+src/modules/crm/index.ts | Edited | Export narrow transactional pipeline reader | Existing public boundary
+src/modules/manufacturing/index.ts | Added | Explicit router-only boundary | Module rules
+src/modules/manufacturing/manufacturing.schema.ts | Added | Strict immutable recipe, planning, transition, paging and snapshot contracts | Shared command-key and exact-quantity validators
+src/modules/manufacturing/manufacturing.repository.ts | Added | Version BOMs, freeze units/quantities, create work orders, atomically consume/produce and compensate cancellations | Firm locks, required audit, business policy and existing postStock()
+src/modules/manufacturing/manufacturing.routes.ts | Added | Role/plan-aware manufacturing HTTP entry points and request budget | Existing auth/firm/origin/HTTP patterns
+prisma/schema.prisma | Edited | Four new metadata/source models, inverse relations, reporting indexes and optional movement work-order FK | Existing Firm/User/Item/Warehouse/StockMovement keys
+prisma/migrations/20261109110000_wave10_source_reporting/migration.sql | Added | Saved-view DDL and six reporting indexes | Existing MySQL migration history; no financial backfill
+prisma/migrations/20261109120000_wave10_basic_manufacturing/migration.sql | Added | Manufacturing source DDL, tenant FKs, state/quantity checks and movement linkage | Existing stock ledger; no independent quantity balance table
+tests/helpers/two-firm-fixture.ts | Edited | Accept dedicated Wave 10 DB names and clean added records in FK order | Existing local disposable database safeguard
+tests/wave10.reporting.test.ts | Added | Domain precision, currencies, period boundaries, CRM scope and receivables reconciliation sources | Existing domain reader and guard test patterns
+tests/wave10.reports.test.ts | Added | Composition/authorization, private/stale views, audit failure and CSV injection sources | Existing mocked repository/guard conventions
+tests/wave10.manufacturing.test.ts | Added | Cost carry-over, deterministic retry, reversal order, quantity compatibility and ownership sources | Existing Decimal/ledger guards
+tests/wave10.mysql.test.ts | Added | Authenticated two-firm financial reconciliation, plan/role/override/suspension, rate limits, concurrency and transactional rollback sources | Existing server/cookie/session and TwoFirmFixture infrastructure
+docs/implementation/wave-10-delivery-report.txt | Added | This inventory, decisions, outstanding scope and explicit validation status | Existing per-wave delivery-report convention
+
+Frontend path | Change | Why and logic changed | Existing code reused
+src/features/reports/index.ts | Added | Explicit ReportsPage export | Feature module convention
+src/features/reports/reports.types.ts | Added | Mirror report and private view contracts | Existing decimal-string API convention
+src/features/reports/reports.api.ts | Added | Abortable report/list/export requests and versioned saved-view mutations | Shared API client, firm revision protection and React Query conventions
+src/features/reports/ReportSections.tsx | Added | Render exact values, currencies, source/date basis and unavailable states | MUI tables and layout
+src/features/reports/ReportsPage.tsx | Added | Applied filters, private saved views, paging, CSV download and actor/firm-scoped caches | Shared auth, selected-firm, layout, buttons and error helpers
+src/features/reports/reports.test.tsx | Added | Precision, failure, role visibility, applied filters and cache isolation sources | Existing RTL/React Query patterns
+src/features/manufacturing/index.ts | Added | Explicit ManufacturingPage export | Feature module convention
+src/features/manufacturing/manufacturing.api.ts | Added | Typed recipes/orders, searches and commands with actor/firm keys | Shared API client
+src/features/manufacturing/ManufacturingItemField.tsx | Added | Search tracked goods, debounce requests and clear stale selection when typing | MUI Autocomplete and existing firm query conventions
+src/features/manufacturing/ManufacturingPage.tsx | Added | Recipe versions, planning, source movement detail and separate planning/posting controls | Existing WarehouseField, Paging, CommandForm and stock API public boundary
+src/features/manufacturing/manufacturing.test.tsx | Added | Viewer/planner/poster visibility, exact payloads, versions and firm changes | Existing RTL and stable command form patterns
+src/features/auth/model/permissions.ts | Edited | Mirror new backend grants | Existing permission contract
+src/features/auth/model/auth-routing.ts | Edited | Add fallback landing candidates for new-only staff grants | Existing landing priority and platform scope
+src/features/auth/model/auth-routing.test.ts | Added | Cover new landing candidates while preserving existing priorities | Existing routing helper
+src/shared/routing/paths.ts | Edited | Add /reports and /manufacturing | Shared path registry
+src/app/router/routeConfig.tsx | Edited | Permission/entitlement-aware navigation | Existing navigation filtering
+src/app/router/router.tsx | Edited | Lazy pages behind existing AccessRoute guards | Existing protected app router
+
+C. Database migration and schema summary
+
+20261109110000_wave10_source_reporting:
+- SavedReportView stores only private filters/name/version, not financial totals.
+- Firm/actor/name uniqueness and firm/actor/update paging index.
+- Six source indexes: three opportunity date/visibility indexes, stock movement
+  firm/posting index, purchase-order creation index and supplier-bill date index.
+- Existing quotation/invoice/expense date indexes are reused.
+
+20261109120000_wave10_basic_manufacturing:
+- BillOfMaterials versions and BomComponent rows are immutable through the API.
+- WorkOrder is a source document, not an inventory balance. Snapshot quantities
+  describe planned production; all actual consumption/output is StockMovement.
+- Composite foreign keys enforce same-firm BOM/item/warehouse/work-order links.
+- Uniqueness protects recipe revisions, command keys and per-action retries.
+- CHECK constraints protect positive quantities, versions, statuses, command-state
+  consistency and WORK_ORDER source identity on linked stock movements.
+- Existing StockMovement rows receive only a nullable ownership column; their
+  quantities, values, source identifiers and historical snapshots are untouched.
+
+No migration was applied and no financial backfill is required or proposed.
+The Prisma client must be regenerated from the updated schema before validation.
+Review index creation and ALTER TABLE locking against the actual MySQL version
+and tenant sizes before any rollout; online DDL behavior was not measured.
+
+Rollback/forward fix: disable the new opt-in features before reverting application
+code. Preserve saved views, source documents, audit and posted stock movements.
+Use additive forward fixes after real activity. Do not drop tables/constraints
+or delete/recalculate production movements as a rollback strategy. Business
+cancellation is the explicit source-linked stock compensation command.
+
+D. APIs, domain rules, entitlements and tenant ownership
+
+All routes below are under /api/v1 and use session authentication, active firm
+context and backend RBAC/entitlements. Firm/actor IDs come from trusted context,
+not request bodies or report filters. New features have legacy:false and receive
+no automatic plan grants in either migration.
+
+Endpoint | Feature | Permission | Additional ownership/access
+GET /reports/overview | reports | reports.view | Each section rechecks its source domain permission and feature
+GET /reports/export.csv | reports + reports.exports | reports.view + reports.export | Same source checks; required firm-scoped export audit before returning bytes
+GET/POST /reports/saved-views | reports | reports.view | firmId AND actorId, paginated private namespace
+PUT/DELETE /reports/saved-views/:id | reports | reports.view | firmId AND actorId, expectedVersion, firm-locked write and required audit
+GET /manufacturing/reference-options | manufacturing -> inventory | manufacturing.view + inventory.view | Active tracked goods in the selected firm
+GET /manufacturing/boms and /work-orders | manufacturing -> inventory | manufacturing.view + inventory.view | Firm-scoped parent and nested relations; paginated
+GET /manufacturing/work-orders/:id | manufacturing -> inventory | manufacturing.view + inventory.view | Direct-ID lookup constrained by firm
+POST /manufacturing/boms and /work-orders | manufacturing -> inventory | manufacturing.manage + inventory.view | Validate all item/BOM/warehouse IDs; required audit; immutable source snapshots
+POST /manufacturing/work-orders/:id/complete or /cancel | manufacturing -> inventory | manufacturing.post + inventory.view | Expected version, stable key/hash, firm lock and same-transaction stock/audit
+
+Source report permission chart:
+quotations: quotations.view + quotations; latest non-deleted revisions.
+sales: invoices.view + billing.invoices AND billing-adjustments.view + billing.adjustments.
+receivables: payments.view + payments.record; existing authorized settlement projection.
+pipeline: crm.view + crm; existing owner/creator restriction unless crm.view-all applies.
+stock: inventory.view + inventory; same-firm movement/position join.
+purchaseOrders: purchasing.view + purchasing; current approved/partially received/received commitments.
+supplierBills: supplier-bills.view + purchasing.bills; posted bills.
+expenses: expenses.view + expenses; posted expenses.
+
+Reporting uses one repeatable-read DB transaction. All period dates are explicit;
+UTC timestamp windows include the complete through-date. Invoice/quotation/bill
+business dates retain their existing source semantics. Receivables are CURRENT,
+use the billing calendar in Asia/Kolkata and share the captured report clock.
+Stock is CLOSING before the exclusive through-date boundary, capped at generation.
+Current status/acceptance is not represented as historical status at period end.
+Financial amounts stay strings and are segmented by currency without implicit FX.
+Document sales include tax and are expressly not labeled recognized GL revenue.
+Stock valuation retains six decimal places; unlike item quantities are not summed.
+
+Unavailable sections contain no totals. Non-authorization failures propagate,
+including receivables reconciliation errors; failures do not become false zeros.
+CSV carries firm/schema/date/source/currency provenance and formula-safe text.
+Saved filters confer no rights to the underlying data when rerun.
+
+Manufacturing is one-level, whole-order production in one warehouse, without MRP,
+partial completion, WIP, labor/overhead capitalization or a general ledger. BOM
+ratios must fit current item unit precision exactly, without silently rounding a
+recipe. Completion consumes available stock at existing moving-average ledger
+cost, then receives output at the exact total component value. Cancellation
+appends original-value reversals and can fail if output stock/value is unavailable
+or reserved. Item units and currency changes are checked against frozen sources.
+
+Request budgets use the existing express-rate-limit infrastructure: reporting
+30/minute and manufacturing 60/minute per firm/actor, currently process-local.
+No report files are stored by CSV export, and no legal-document/storage quota is
+consumed by summary reads or metadata. New manufacturing-count quotas were not
+invented. Document-capacity-zero fixtures exercise applicable read independence.
+
+E. Feature and acceptance mapping
+
+Brief section 2 item | Current result
+1 Cross-module dashboards | SOURCE IMPLEMENTED for quotation acceptance, scoped opportunity pipeline, issued document sales, current outstanding, closing stock, purchases, supplier bills and expenses. Runtime reconciliation remains unverified. Recognized accounting revenue is not claimed.
+2 Export/import center | PARTIAL: audited summary CSV and private saved filters implemented. ImportBatch/ImportRow lifecycle, XLSX/PDF export formats, persisted export jobs and import provenance/compensation NOT IMPLEMENTED.
+3 API/webhooks | NOT IMPLEMENTED. User approved versioned, narrow scopes and signed at-least-once delivery. No API-key/webhook routes or credentials are released by this batch.
+4 Accounting exports | NOT IMPLEMENTED. No second general ledger or unsupported journal mapping was added.
+5 Payments/providers | NOT IMPLEMENTED; external activation BLOCKED pending real account/configuration/sandbox contracts. Existing mail/PDF providers are unchanged.
+6 Localization | NOT IMPLEMENTED. Existing issue snapshots and raw financial quantities were preserved; report date/timezone metadata is explicit.
+7 India compliance adapters | BLOCKED pending applicable official/provider specification, account and sandbox verification. No tax submission, IRN or e-way endpoint is released as compliant.
+8 Optional manufacturing | SOURCE IMPLEMENTED as an opt-in basic extension using the existing stock writer, source-linked reversals and exact valuation conservation. Dedicated runtime acceptance remains pending.
+9 Operational performance | PARTIAL: database aggregation, date/paging bounds, indexes and request budgets implemented. Incremental materializations and realistic large-tenant measurements NOT IMPLEMENTED.
+
+Brief section 11 acceptance | Current result
+Financial dashboards reconcile and identify currencies/periods | Source contract and reconciliation fixtures written; NOT VERIFIED AT RUNTIME.
+Integrations disabled unless configured/authorized/auditable | No new external integration activation surface added; complete integration feature NOT IMPLEMENTED.
+Tenant-safe keys/webhooks/imports/exports | CSV/private views have guards and test sources; keys/webhooks/imports NOT IMPLEMENTED; tests NOT RUN.
+Localization preserves legal snapshots | No legal snapshot writes changed; localization feature NOT IMPLEMENTED; regression tests NOT RUN.
+Manufacturing shares inventory ledger | Source uses existing postStock exclusively; no second quantity store; reconciliation and compensation tests NOT RUN.
+Unverified compliance not released as compliant | No compliance adapter or production tax submission was introduced.
+
+F. Validation evidence and exact deferred commands
+
+Executed evidence: read-only rg/sed/cat/textutil inspection, repository metadata
+reads, official-source web search, source edits and manual caller/callee review.
+No compiler or automated test result is available. No skipped check is passing.
+
+New test sources:
+tests/wave10.reporting.test.ts: high-precision/multi-currency quotations, source
+denial, half-open dates, stock valuation ownership, purchasing statuses, CRM
+visibility and shared receivables reconciliation without per-page totals.
+tests/wave10.reports.test.ts: snapshot composition, independent report/export
+access, unavailable versus failed data, captured clock, private/stale views,
+required audit failure and formula-safe exact CSV.
+tests/wave10.manufacturing.test.ts: actual component value carry-over, identical
+retry, source-linked reversal order, unit changes, unrepresentable recipe ratios,
+foreign IDs and separate authorization.
+tests/wave10.mysql.test.ts: dedicated migrated two-firm DB and authenticated HTTP;
+sales INR 85.00 / USD 7.25; outstanding INR 55.00 after an unreversed allocation;
+stock INR 90.000000; purchase commitment KWD 12.001; independent role/plan checks,
+expired/revoked grants, hard-off/suspension, private ID probes, count/export
+isolation, stale write concurrency, audit rollback and rate budgets. Manufacturing
+fixtures consume 2.002 components at cost 2.001, receive value 4.006002, conserve
+total stock value, replay concurrent completion/cancellation, deny foreign nested
+IDs and refuse cancellation after output consumption. External mail/PDF calls are
+explicitly disabled in these disposable application tests; these are not provider
+sandbox contract tests.
+Frontend reports/manufacturing/auth-routing tests cover exact values and payloads,
+role visibility, retry, applied filters, optimistic versions, navigation and firm/
+actor cache isolation. All new test sources remain NOT RUN.
+
+The following command strings are recorded for later explicitly authorized
+validation only; none was executed in this session:
+- backend: npm run typecheck
+- backend: npm run lint
+- backend: npm test
+- backend: npm run build
+- backend: npm run prisma:validate
+- frontend: npm run typecheck
+- frontend: npm run lint
+- frontend: npm test
+- frontend: npm run build
+- backend: npm test -- tests/wave10.reporting.test.ts tests/wave10.reports.test.ts tests/wave10.manufacturing.test.ts
+- backend: npm test -- tests/wave10.mysql.test.ts
+- backend: npm test -- tests/wave09.reports.test.ts tests/dashboard.repository.test.ts tests/dashboard.routes.test.ts tests/wave07.test.ts tests/architecture/dependency-boundaries.test.ts
+- frontend: npm test -- src/features/reports/reports.test.tsx src/features/manufacturing/manufacturing.test.tsx src/features/auth/model/auth-routing.test.ts
+
+NOT RUN reasons: direct user command restrictions. Current installed dependency,
+generated Prisma client, disposable DB and browser readiness were not established
+by execution. MySQL additionally requires WAVE10_TEST_DATABASE_URL pointing to a
+local disposable wave10_test_<suffix> database with both new migrations and all
+prerequisite migrations applied outside this session. No migration helper in the
+suite applies migrations or falls back to the application's production URL.
+
+Provider sandbox/regulatory fixtures, import compensation, API credential/webhook
+security/replay, localized presentation and large-tenant load suites are NOT
+IMPLEMENTED for the pending capabilities. Their checks are not passing/skipped
+substitutes for the required acceptance work.
+
+Unmeasured performance targets for subsequent validation: report p95 <= 2 seconds
+for 100,000 billing documents, 1,000,000 movements and 10,000 purchase orders in
+one tenant, alongside a second tenant containing similarly named data. Measure
+actual query plans, rows examined, concurrency, request budgets and transaction
+timeouts before accepting these targets. No performance claim is made here.
+
+G. Decisions, risks, conflicts and next-wave recommendation
+
+User decisions recorded: provider/market policy choices delegated; narrow versioned
+public API and signed at-least-once webhooks approved; basic manufacturing included.
+These approvals remain applicable to the remaining implementation. There is no
+request here to reapprove those same scope decisions.
+
+Selected future provider baseline: prioritize the application's existing India
+business context, Razorpay sandbox evaluation for payments, and the existing SMTP
+integration for communication. Preserve current deployment residency and do not
+export tenant data or move infrastructure implicitly. Actual provider account,
+region, contract and secret configuration remain deployment-specific requirements;
+no credentials were requested, read, generated or sent to an external provider.
+GST integrations remain an explicit opt-in jurisdiction adapter subject to current
+official/provider verification, rather than a default compliance guarantee.
+
+Official-source search references obtained on 9 November 2026:
+- ERPNext immutable ledger: original postings plus reversing entries support the
+  selected stock compensation design.
+  https://docs.frappe.io/erpnext/immutable-ledger-in-erpnext
+- ERPNext stock ledger/manufacturing references support a shared stock ledger.
+  https://docs.frappe.io/erpnext/stock-ledger
+  https://docs.frappe.io/erpnext/work-order
+- Razorpay validation references identify event-ID deduplication and retaining
+  old-secret validation for retried events after rotation.
+  https://razorpay.com/docs/webhooks/validate-test/
+- The official IRP API integration portal describes taxpayer/integrator onboarding.
+  https://einvoice6.gst.gov.in/content/api-integration/
+
+The initial official-source search succeeded. Subsequent full-page retrieval
+failed with HTTP 401 token_revoked. These references are design context, not
+completed provider/regulatory contract validation. No legal or production tax
+policy was implemented from incomplete documentation.
+
+Known risks and assumptions:
+- Full Wave 10 scope remains incomplete as classified in E; implementation approval
+  does not mean these pending capabilities have been shipped.
+- Source changes and test sources are uncompiled/unexecuted. Runtime correctness,
+  regression compatibility, migration validity and performance remain unverified.
+- New opt-in features require explicit plan inclusion and successful dedicated
+  accounting/inventory acceptance before release. Neither migration grants access.
+- Existing assistant sales shape and receivables aging behavior are intended to
+  remain compatible through shared helpers; existing regressions were not run.
+- Manufacturing intentionally excludes partial completion, WIP, multi-level MRP,
+  labor/overhead capitalization and GL posting. Only actual component stock value
+  is transferred to output. Currency/unit incompatibility stops posting safely.
+- Process-local rate limits are not aggregate budgets across multiple replicas.
+- Source indexes may require an online DDL rollout strategy on large live tables.
+- Provider APIs, signing/retry secrets, jurisdiction applicability, localization,
+  export/import jobs and official sandbox contracts still require implementation
+  and validation; no fake success paths were added for them.
+
+Internal source review: new flows reuse shared money, stock, auth, entitlement,
+audit and transaction abstractions. Domain readers retain their ownership rules;
+route files contain no Prisma access. Existing stock callers omit the new optional
+work-order link and retain their original command behavior. Shared consumers were
+traced, and frontend permission/navigation/default landing integration was updated.
+This review is not a substitute for successful compiler, database and test runs.
+
+Recommendation: NO-GO for full Wave 10 acceptance, manufacturing release, new live
+provider activation or progression to the next wave. Complete the outstanding
+Wave 10 capabilities and execute the deferred validation gates first. Preserve
+these initial changes as reviewable source work; do not report the wave complete.
+
+Commands not executed: npm/pnpm/yarn, nx, build, test, lint, format, install,
+migrations, Git, Docker and deployment. No production database or external
+financial/customer operation was performed.

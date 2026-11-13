@@ -1,0 +1,201 @@
+Wave 10 integration and data exchange contracts
+Date: 9 November 2026
+Status: SOURCE CONTRACTS; runtime and provider acceptance pending.
+
+Authority and ownership
+
+Session routes use the existing authentication cookie, active firm context,
+current RBAC and entitlement evaluator. A super administrator selects a firm via
+x-firm-id and the existing required platform-access audit. Mutating session
+requests require Origin equal to the configured frontend origin. JSON contracts
+reject unknown fields. Reads and credential responses use private, no-store.
+Imports, keys, endpoints and export jobs are private to their creating actor as
+well as their firm. Firm administration can disable an issuer through existing
+user controls; disabling identity or its permissions invalidates later access.
+
+External report API
+
+Base: /api/v1/external/v1
+Authentication: Authorization: Bearer bnx_<64 lowercase hex characters>.
+This is a separately versioned read-only contract. Cookies and x-firm-id do not
+change the firm bound to a key. No external mutation or arbitrary domain routes
+are exposed. The issuer must retain API-key management and underlying report
+permissions; plan overrides, suspension and global switches are reevaluated.
+
+GET /reports/overview requires reports.read.
+GET /reports/export.csv, /reports/export.xlsx, /reports/export.pdf require
+reports.export. Report filters are the existing dates, currency and sections,
+plus optional locale, language and display timezone. Source-level permissions
+still control each section. Aggregates are segmented by currency. Reads and
+exports recheck the credential after computation before releasing output.
+
+POST /api/v1/api-keys creates a named key with scopes and lifetimeDays 1..365.
+GET /api/v1/api-keys lists current actor metadata with page/limit.
+POST /api/v1/api-keys/:id/revoke revokes immediately.
+POST /api/v1/api-keys/:id/rotate atomically revokes the old credential and creates
+a replacement using an explicit name/scopes/lifetime body. The raw token is
+returned once and is not stored; only SHA-256 of 256 random bits is persisted.
+API-key metadata and required audit do not contain token material. The UI keeps
+the one-time value in component state, outside mutation/query result caches.
+
+API scopes are not permissions and never grant missing user or plan rights.
+Errors retain the existing {success:false,message,errors?} API envelope: 400
+invalid input, 401 unavailable/expired/revoked credential, 403 scope/role/plan
+denial, 404 private resource unavailable, 409 stale/conflicting command, 413
+export budget, 429 request budget, 500/503 infrastructure failure. No error is a
+successful empty export. Rate budgets are process-local, not cluster-wide.
+
+Outgoing webhooks
+
+Management base: /api/v1/webhooks. Requires webhooks.manage and
+integrations.webhooks. Creation accepts name and HTTPS URL and starts disabled.
+PUT /:id accepts {enabled:boolean}; POST /:id/rotate returns a new signing secret
+once. GET /:id/deliveries returns paginated, sanitized durable outbox attempts.
+Lists omit ciphertext, secrets and event bodies.
+
+Only report.exported.v1 is currently published. The immutable event body has
+schemaVersion, eventId, type, firmId, generatedAt and format. It deliberately has
+no financial totals, customer names, filters, documents or API credentials. The
+eventId links to the ReportExport audit or ReportExportJob lineage.
+
+Delivery headers:
+x-bhuminex-delivery: stable delivery UUID
+x-bhuminex-timestamp: current attempt Unix seconds
+x-bhuminex-secret-version: signing version captured when enqueued
+x-bhuminex-signature: v1=<lowercase hex HMAC-SHA256>
+
+Signed bytes are UTF-8: timestamp + '.' + deliveryId + '.' + exact raw JSON body.
+Before parsing, receivers verify the signature in constant time, reject timestamps
+outside a five-minute window, and durably deduplicate deliveryId atomically with
+their business effect. Retries retain body, event ID, delivery ID and signing
+version; the timestamp/signature are refreshed. Delivery is at least once, not
+an exactly-once network guarantee. Five automatic attempts use the existing
+outbox backoff and lease recovery. A receiver must acknowledge duplicates safely.
+
+Each attempt reauthorizes the endpoint owner, exporting actor, firm, source event
+ownership and plan. Disabling an endpoint before its next attempt prevents send;
+a send already accepted by a receiver cannot be withdrawn. Signing rotation
+preserves pending deliveries' original encrypted secrets and version. Receivers
+retain old verification versions until those deliveries settle.
+
+Deployment configuration is opt-in:
+OUTBOX_WORKER_ENABLED=true is required for activation and enqueue.
+WEBHOOK_ENCRYPTION_KEY is a canonical base64 32-byte AES-256-GCM key.
+WEBHOOK_ENCRYPTION_PREVIOUS_KEYS retains up to five older base64 keys for reads.
+WEBHOOK_ALLOWED_HOSTS is a comma-separated list of exact approved DNS hostnames.
+No URLs, wildcards, IP literals, userinfo, query strings or alternate ports are
+accepted. Every send resolves public IPv4, rejects internal/reserved destinations,
+pins a validated address through TLS connection, follows no redirects and bounds
+DNS, request duration and response bytes. IPv6-only receivers are not supported.
+
+Encryption AAD binds firm, endpoint and signing version. During root-key rotation,
+retain previous decryption keys, coordinate signing rotation for all endpoints,
+and let old pending/processing deliveries settle before removing old keys.
+Do not replace the root key without retaining keys for referenced ciphertext.
+The endpoint allowlist is operational approval, not proof of receiver compliance.
+
+Controlled imports
+
+Base: /api/v1/imports. Requires imports.manage plus the corresponding existing
+companies.manage or items.manage permission and both relevant plan features.
+POST /preview accepts {target:'CUSTOMERS'|'ITEMS',csv:string}. It creates lineage
+and APPROVED/REJECTED preview rows, without creating business records. CSV is
+UTF-8, at most 512 KB and 500 data rows; unknown/duplicate headers, malformed
+quoting, invalid controls, mismatched columns and invalid numbers are rejected.
+
+Customer headers: externalId,name,legalName,gstin,pan,website,notes.
+Item headers: externalId,name,categoryId,measurementUnitId,defaultRate,gstRate,
+hsnCode,kind,shortDescription. Optional columns can be omitted. externalId/name
+are required; items also require measurementUnitId. External identifiers use
+ASCII letters/digits with . _ : - after the first alphanumeric character.
+Nested unit/category IDs must belong to the current firm and remain active.
+No supplier flags, stock balances, tracking activation or legal documents are
+imported. No import performs network fetches or changes existing records.
+
+POST /:id/commit accepts {expectedVersion}. It serializes commands on the existing
+firm lock and writes each approved row, source record, counters and required
+audit in one transaction. Duplicate identifiers are checked again at commit,
+case-insensitively per firm/target. Imported rows are never created twice.
+Infrastructure and audit failures abort for retry; expected row conflicts become
+FAILED. Completed batches are COMPLETED, PARTIAL or FAILED. A dropped connection
+requires reloading the private batch and retrying its remaining approved rows.
+
+POST /:id/rows/:rowId/compensate accepts {expectedVersion}. It preserves lineage
+and history and deactivates the imported source only if its full scalar record
+fingerprint is unchanged under a row lock. A changed record, foreign identifier,
+or tracked item is refused. Compensation never erases stock or financial history.
+GET / and GET /:id are private, paginated/bounded batch and preview reads. Legacy
+batches with no new target/hash are retained and excluded from this lifecycle.
+
+Report exports and jobs
+
+Direct CSV/XLSX/PDF remain /api/v1/reports/export.<format>. Values retain exact
+decimal strings and source currencies. CSV quotes and neutralizes formulas;
+XLSX writes inline text, not floating point or formulas. PDF escapes source
+markup. CSV/XLSX preserve the machine contract and source calendar metadata;
+PDF/report UI can apply selected presentation formatting. Exports do not imply
+recognized GL revenue or cross-currency conversion.
+
+/api/v1/exports provides POST, paginated GET, GET /:id/download and DELETE /:id.
+POST accepts {requestKey,format,filters}; retries with the same actor/firm key and
+payload return the existing job. Worker-disabled servers refuse new jobs with
+409. Generation captures a source snapshot when the worker runs. Preparation
+renders outside database transactions; final authorization, file reference,
+storage-byte quota, audit and completion commit together through the outbox.
+Aggregate exports consume storage bytes, not legal-document numbering/quota.
+
+Files live under private report-exports/<firm>/<job>/<attempt>.<format>, outside
+static asset mounts. Downloads verify actor/firm, current source rights, file
+path, SHA-256 and byte count. Removal tombstones lineage, releases storage once
+and removes the file. If filesystem removal fails after the tombstone commits,
+the same authorized actor can retry DELETE with the same job ID. Retries neither
+release quota nor append the deletion audit a second time. Deleted jobs remain
+unavailable for listing, generation and download. Crashes or uncertain cleanup can leave unreferenced
+attempt files: an operator must reconcile these against committed references,
+with workers stopped, before deleting any orphan. Referenced/uncertain files
+must be retained. No automatic retention period has been invented.
+
+Accounting export
+
+/api/v1/accounting-exports/mapping exposes the latest explicit account mapping.
+Publishing uses {expectedVersion,mapping:{receivables,sales,outputTax,rounding}}
+and requires accounting.manage. Versions are append-only. No default account
+numbers or recognition policy is guessed.
+GET /export.csv requires accounting.export and invoice/adjustment source view
+rights. Filters are dateFrom/dateTo/mappingVersion. UTC issue/void events from
+immutable issued snapshots produce balanced debit/credit rows per event and
+original currency. Credits and voids invert signs, including negative rounding.
+source_event includes document ID, source history version and event kind for
+downstream deduplication. Invalid snapshots/history, incompatible precision or
+unbalanced sources fail closed. Export audit records mapping version and hash.
+Coverage is billing issues and voids only; receipts, purchasing, expense and
+inventory journals are not implemented in this mapping contract. No GL balance
+or journal-posted flag is stored by this export.
+
+Localization
+
+The existing versioned business policy accepts optional presentation preferences
+for en-IN/en-US/en-GB/hi-IN/gu-IN and a supported IANA timezone. New billing issue
+snapshots freeze preferences and policy version. The renderer reads that snapshot,
+never current settings. Legacy snapshots retain their original rendering path.
+Dates without times retain their calendar; India fiscal dates remain unchanged.
+Exact display formatting uses BigInt integer grouping and source fractional digits.
+Report headings/table labels support English/Hindi/Gujarati; source explanations
+and legal document wording remain English. This is partial localization, not a
+claim of full application or legally certified translation.
+
+Provider status and exclusions
+
+GET /api/v1/integrations is firm/RBAC-protected configuration metadata only.
+SMTP uses the existing provider and current permission/plan gates; configuration
+is not sandbox evidence. Razorpay and IRP/e-way display NOT_IMPLEMENTED with no
+activation controls. No charge, tax submission, gateway callback, customer email
+or external recipient was executed during implementation.
+
+Official references checked on 9 November 2026:
+https://razorpay.com/docs/webhooks/validate-test
+https://razorpay.com/docs/api/orders/create
+These require raw-body signature validation, event deduplication and retaining
+old webhook secrets for retries. They are contract research, not verification of
+an installed gateway. No merchant agreement, mapped sandbox configuration or
+applicable IRP contract was established in this work.

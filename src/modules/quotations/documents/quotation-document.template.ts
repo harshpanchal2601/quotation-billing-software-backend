@@ -1,25 +1,24 @@
 import type { QuotationPdfViewModel } from './quotation-documents.types.js';
+import { Prisma } from '@prisma/client';
 
-export function escapeHtml(str: string | null | undefined): string {
-  if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+import { escapeHtml } from '../../../core/html/escape-html.js';
+import { renderDocumentPresentation } from '../../automation/document-presentation.js';
+export { escapeHtml } from '../../../core/html/escape-html.js';
 
 export function formatCurrencyPdf(val: string | number, currency: string = 'INR'): string {
-  const num = Number(val);
-  if (!Number.isFinite(num)) return `${currency} 0.00`;
-  return `${currency} ${num.toFixed(2)}`;
+  try {
+    const amount = new Prisma.Decimal(String(val));
+    return `${currency} ${amount.isFinite() ? amount.toFixed(2, Prisma.Decimal.ROUND_HALF_UP) : '0.00'}`;
+  } catch {
+    return `${currency} 0.00`;
+  }
 }
 
-export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string {
+export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel, presentation?: unknown): string {
   const bp = data.businessProfile;
   const bank = data.bankDetail;
   const currency = escapeHtml(data.currency || 'INR');
+  const decoration = presentation === undefined ? { heading: '', footer: '' } : renderDocumentPresentation(presentation, { businessName: bp?.displayName ?? '', documentNumber: data.quotationNumber, entityType: 'QUOTATION', status: data.status, currency: data.currency, total: data.grandTotal });
 
   const primaryColor = bp?.primaryColour || '#168A56';
   const secondaryColor = bp?.secondaryColour || '#082B67';
@@ -275,13 +274,14 @@ export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string
   </style>
 </head>
 <body>
+${decoration.heading}
 
   <!-- Header -->
   <table class="header-table">
     <tr>
       <td>
         ${bp?.logoDataUrl ? `<img src="${bp.logoDataUrl}" style="max-height: 60px; max-width: 200px; margin-bottom: 8px;" alt="Logo"><br>` : ''}
-        <div class="company-title">${escapeHtml(bp?.displayName || 'Buminex Pharmtech Solutions')}</div>
+        <div class="company-title">${escapeHtml(bp?.displayName || 'Your Company')}</div>
         <div class="company-details">
           ${bp?.legalName ? `<strong>${escapeHtml(bp.legalName)}</strong><br>` : ''}
           ${escapeHtml(bp?.addressLine1 || '')} ${escapeHtml(bp?.addressLine2 || '')}<br>
@@ -482,7 +482,7 @@ export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string
       </td>
       <td class="signatory-cell">
         <div class="signatory-block">
-          <div class="signatory-company">For ${escapeHtml(bp?.displayName || 'Buminex Pharmtech Solutions')}</div>
+          <div class="signatory-company">For ${escapeHtml(bp?.displayName || 'Your Company')}</div>
           ${signatoryAssetsHtml}
           <span class="signatory-label">Authorised Signatory</span>
         </div>
@@ -490,6 +490,7 @@ export function renderQuotationHtmlTemplate(data: QuotationPdfViewModel): string
     </tr>
   </table>
 
+${decoration.footer}
 </body>
 </html>`;
 }

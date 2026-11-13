@@ -1,48 +1,47 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 import { AppError } from '../../../core/errors/AppError.js';
-import { getOrCreateQuotationSettings } from '../../settings/index.js';
+import { reserveDocumentSequence } from '../../../core/sequences/index.js';
 
 export async function generateUniqueQuotationNumber(
   tx: Prisma.TransactionClient,
-  dbForSetting: PrismaClient,
+  settingsId: number,
+  firmId: number,
   quotationDate: Date = new Date(),
 ): Promise<string> {
-  const settings = await getOrCreateQuotationSettings(dbForSetting);
-
-  const prefix = settings.quotationPrefix || 'BUMINEX';
-  const fyFormat = settings.financialYearFormat || 'YYYY-YY';
-  const fyString = getFinancialYearString(quotationDate, fyFormat);
-
+  // Lock the legacy settings scope for lazy initialization as well as settings
+  // edits. Migration seeds the high-water mark; fresh firms initialize here.
+  const rows = await tx.$queryRaw<Array<{ id: number }>>`
+    SELECT s.id FROM quotation_settings s JOIN business_profiles p ON p.id = s.business_profile_id
+    WHERE s.id = ${settingsId} AND p.firm_id = ${firmId} FOR UPDATE`;
+  if (rows.length !== 1) throw new AppError('Quotation settings not found', 404);
+  const settings = await tx.quotationSetting.findUniqueOrThrow({ where: { id: settingsId } });
   const maxAttempts = 5;
-  let currentSeq = settings.nextSequenceNumber;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const currentSeq = await reserveDocumentSequence(tx, { firmId, documentType: 'QUOTATION', period: 'LEGACY' }, BigInt(settings.nextSequenceNumber));
+    const prefix = settings.quotationPrefix || 'ERP';
+    const fyString = getFinancialYearString(quotationDate, settings.financialYearFormat || 'YYYY-YY');
     const paddedSeq = String(currentSeq).padStart(6, '0');
     const candidateNumber = `${prefix}/${fyString}/${paddedSeq}`;
+    if (candidateNumber.length > 50) throw new AppError('Quotation number exceeds its supported length', 409);
 
     const existing = await tx.quotation.findFirst({
-      where: { quotationNumber: candidateNumber },
+      where: { firmId, quotationNumber: candidateNumber },
       select: { id: true },
     });
 
     if (!existing) {
-      await tx.quotationSetting.update({
-        where: { id: settings.id },
-        data: { nextSequenceNumber: currentSeq + 1 },
-      });
       return candidateNumber;
     }
-
-    currentSeq += 1;
   }
 
   throw new AppError('Quotation number could not be generated safely due to concurrency. Please retry.', 409);
 }
 
 export function getFinancialYearString(date: Date, format: string): string {
-  const month = date.getMonth() + 1; // 1-12
-  const year = date.getFullYear();
+  const month = date.getUTCMonth() + 1; // Quotation dates are stored as UTC date-only values.
+  const year = date.getUTCFullYear();
 
   const startYear = month >= 4 ? year : year - 1;
   const endYear = startYear + 1;

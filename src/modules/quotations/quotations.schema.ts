@@ -58,6 +58,7 @@ export const itemInputSchema = z.object({
 });
 
 export const calculationPreviewSchema = z.object({
+  currency: z.string().trim().length(3).toUpperCase().default('INR'),
   taxMode: z.nativeEnum(TaxMode).default(TaxMode.CGST_SGST),
   quotationDiscountType: z.nativeEnum(DiscountType).default(DiscountType.NONE),
   quotationDiscountValue: nonNegativeDecimalNumberSchema.default(0),
@@ -146,7 +147,7 @@ export const quotationListQuerySchema = z.object({
   minTotal: z.coerce.number().min(0).optional(),
   maxTotal: z.coerce.number().min(0).optional(),
   sortBy: z
-    .enum(['quotationNumber', 'quotationDate', 'validUntil', 'grandTotal', 'createdAt', 'updatedAt'])
+    .enum(['id', 'quotationNumber', 'quotationDate', 'validUntil', 'grandTotal', 'createdAt', 'updatedAt'])
     .default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });

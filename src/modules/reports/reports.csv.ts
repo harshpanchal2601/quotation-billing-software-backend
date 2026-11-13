@@ -1,0 +1,25 @@
+import type { ReportOverview } from './reports.types.js';
+import { csvDocument } from '../../core/serialization/csv.js';
+
+export function reportRows(report: ReportOverview): string[][] {
+  const rows: string[][] = [[
+    'schema_version', 'firm_id', 'generated_at', 'date_from', 'date_to', 'currency_policy', 'section', 'status',
+    'source', 'basis', 'date_basis', 'as_of', 'timezone', 'scope', 'metric', 'dimension', 'currency', 'unit', 'value',
+  ]];
+  for (const section of report.sections) {
+    const prefix = [String(report.schemaVersion), String(report.firmId), report.generatedAt, report.dateFrom, report.dateTo, report.currencyPolicy, section.key, section.status];
+    if (section.status === 'UNAVAILABLE') {
+      rows.push([...prefix, ...Array<string>(11).fill('')]);
+      continue;
+    }
+    const data = section.data;
+    const context = [...prefix, data.source, data.basis, data.dateBasis, data.asOf, data.timezone, data.scope];
+    if (data.metrics.length === 0) rows.push([...context, ...Array<string>(5).fill('')]);
+    for (const metric of data.metrics) rows.push([...context, metric.key, metric.dimension ?? '', metric.currency ?? '', metric.unit, metric.value]);
+  }
+  return rows;
+}
+
+export function reportCsv(report: ReportOverview) {
+  return csvDocument(reportRows(report));
+}

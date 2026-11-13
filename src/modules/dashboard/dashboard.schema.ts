@@ -4,6 +4,7 @@ const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
 export const dashboardOverviewQuerySchema = z
   .object({
+    currency: z.string().trim().regex(/^[A-Za-z]{3}$/, 'Expected a three-letter currency code').toUpperCase().optional(),
     period: z
       .enum(['CURRENT_FINANCIAL_YEAR', 'LAST_30_DAYS', 'LAST_90_DAYS', 'CURRENT_CALENDAR_YEAR', 'CUSTOM'])
       .optional()

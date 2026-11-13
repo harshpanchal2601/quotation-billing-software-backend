@@ -3,6 +3,7 @@ export type MailAddressInput = string | string[];
 export type MailAttachment = {
   filename?: string;
   path?: string;
+  content?: Buffer;
   contentType?: string;
   [key: string]: unknown;
 };

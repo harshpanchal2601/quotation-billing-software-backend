@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { listOrderBy } from '../../../core/validation/list-sort.js';
 import {
   AuditAction,
   CommunicationStatus,
@@ -12,10 +13,15 @@ import { mailConfig } from '../../../config/mail.config.js';
 import { storageConfig } from '../../../config/storage.config.js';
 import { AppError } from '../../../core/errors/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../../core/audit/audit-log.service.js';
+import { logOperationalEvent } from '../../../core/observability/logger.js';
 import { prisma } from '../../../core/database/prisma.js';
 import { mailService } from '../../../integrations/mail/index.js';
 import { storageService } from '../../../integrations/storage/index.js';
 import { getBusinessProfileRecordForQuotation } from '../../settings/index.js';
+import { discountPercentage, emitAutomationEvent, enforceApproval, quotationApprovalEnabled } from '../../automation/runtime.js';
+import { requestHash } from '../../../core/idempotency/request-hash.js';
+import { customerQuotationSnapshot } from '../quotation-customer.js';
+import { withFirmEntitlementTransaction } from '../../entitlements/index.js';
 import { validateStatusTransition, getStatusTimestampUpdate } from '../quotation-status.js';
 import { buildQuotationEmailContent } from '../email/quotation-email.template.js';
 import { sendQuotationEmailSchema } from '../email/quotation-email.schema.js';
@@ -122,9 +128,9 @@ function serialiseCommunication(
 export class QuotationCommunicationsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async assertQuotationExists(quotationId: number) {
+  async assertQuotationExists(firmId: number, quotationId: number) {
     const quotation = await this.db.quotation.findFirst({
-      where: { id: quotationId, deletedAt: null },
+      where: { id: quotationId, firmId, deletedAt: null },
       select: { id: true, quotationNumber: true },
     });
     if (!quotation) {
@@ -134,25 +140,27 @@ export class QuotationCommunicationsRepository {
   }
 
   async getDocumentHistory(
+    firmId: number,
     quotationId: number,
-    query: { page?: number; limit?: number; sortOrder?: 'asc' | 'desc' },
+    query: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' },
   ): Promise<GeneratedDocumentHistoryResponse> {
-    const quotation = await this.assertQuotationExists(quotationId);
+    const quotation = await this.assertQuotationExists(firmId, quotationId);
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
     const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
 
-    const { total, documents } = await quotationDocumentsRepository.listDocumentHistory(quotationId, {
+    const { total, documents } = await quotationDocumentsRepository.listDocumentHistory(firmId, quotationId, {
       page,
       limit,
       sortOrder,
+      sortBy: query.sortBy,
     });
 
     const pdfStorageDir = storageService.resolveStoragePath(storageConfig.quotationDocumentDirectory);
 
     const items: GeneratedDocumentHistoryItemDto[] = await Promise.all(
       documents.map(async (doc) => {
-        const fullPath = path.resolve(storageConfig.root, doc.filePath.replace(/^\/?storage\//, ''));
+        const fullPath = quotationDocumentsRepository.resolveDocumentAbsolutePath(doc.filePath);
         let isAvailable = false;
         if (fullPath.startsWith(pdfStorageDir)) {
           isAvailable = await quotationDocumentsRepository.documentFileExists(doc.filePath);
@@ -181,20 +189,21 @@ export class QuotationCommunicationsRepository {
   }
 
   async getCommunicationHistory(
+    firmId: number,
     quotationId: number,
-    query: { page?: number; limit?: number; sortOrder?: 'asc' | 'desc' },
+    query: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' },
   ): Promise<QuotationCommunicationHistoryResponse> {
-    await this.assertQuotationExists(quotationId);
+    await this.assertQuotationExists(firmId, quotationId);
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
-    const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
+    const orderBy = listOrderBy(query, ['id', 'createdAt', 'status', 'subjectSnapshot', 'attemptNumber'], 'createdAt');
     const skip = (page - 1) * limit;
 
     const [total, communications] = await Promise.all([
       this.db.quotationCommunication.count({ where: { quotationId } }),
       this.db.quotationCommunication.findMany({
         where: { quotationId },
-        orderBy: { createdAt: sortOrder },
+        orderBy,
         skip,
         take: limit,
         include: {
@@ -211,13 +220,14 @@ export class QuotationCommunicationsRepository {
   }
 
   async sendQuotationEmail(
+    firmId: number,
     quotationId: number,
     input: SendQuotationEmailInput,
     userId: number,
     metadata: RequestMetadata,
   ): Promise<SendQuotationEmailResponse> {
     const quotation = await this.db.quotation.findFirst({
-      where: { id: quotationId, deletedAt: null },
+      where: { id: quotationId, firmId, deletedAt: null },
       select: {
         id: true,
         quotationNumber: true,
@@ -258,15 +268,10 @@ export class QuotationCommunicationsRepository {
       throw new AppError('Invalid document path', 403);
     }
 
-    let pdfStat: import('node:fs').Stats;
-    try {
-      const fs = await import('node:fs/promises');
-      pdfStat = await fs.stat(pdfFullPath);
-    } catch {
-      throw new AppError('Selected quotation PDF file is missing from storage', 404);
-    }
+    const pdfSize = await storageService.storageFileSize(document.filePath.replace(/^\/?storage\//, ''));
+    if (pdfSize === 0) throw new AppError('Selected quotation PDF file is missing from storage', 404);
 
-    let totalSizeBytes = pdfStat.size;
+    let totalSizeBytes = pdfSize;
     const safePdfName = `Quotation-${quotation.quotationNumber.replace(/[/\\\\]/g, '-')}.pdf`;
     const documentSnapshot = {
       id: document.id,
@@ -304,26 +309,11 @@ export class QuotationCommunicationsRepository {
 
       for (const att of fetchedAttachments) {
         const attFullPath = resolveAttachmentAbsolutePath(att.filePath);
-        try {
-          const fs = await import('node:fs/promises');
-          const attStat = await fs.stat(attFullPath);
-          totalSizeBytes += attStat.size;
-          selectedAttachments.push({
-            id: att.id,
-            fullPath: attFullPath,
-            originalFilename: att.originalFilename,
-            mimeType: att.mimeType,
-            size: attStat.size,
-          });
-          selectedAttachmentSnapshots.push({
-            id: att.id,
-            originalFilename: att.originalFilename,
-            mimeType: att.mimeType,
-            fileSize: attStat.size,
-          });
-        } catch {
-          throw new AppError(`Attachment file "${att.originalFilename}" is missing from storage`, 404);
-        }
+        const size = await storageService.storageFileSize(att.filePath.replace(/^\/?storage\//, ''));
+        if (size === 0) throw new AppError(`Attachment file "${att.originalFilename}" is missing from storage`, 404);
+        totalSizeBytes += size;
+        selectedAttachments.push({ id: att.id, fullPath: attFullPath, originalFilename: att.originalFilename, mimeType: att.mimeType, size });
+        selectedAttachmentSnapshots.push({ id: att.id, originalFilename: att.originalFilename, mimeType: att.mimeType, fileSize: size });
       }
     }
 
@@ -331,10 +321,10 @@ export class QuotationCommunicationsRepository {
       throw new AppError('Total email attachment size exceeds 20 MB limit', 413);
     }
 
-    const businessProfile = await getBusinessProfileRecordForQuotation();
-    const businessName = businessProfile?.displayName || 'Buminex Pharmtech Solutions';
+    const businessProfile = await getBusinessProfileRecordForQuotation(firmId);
+    const businessName = businessProfile?.displayName || 'Your Company';
     const fromEmail = mailConfig.fromEmail || businessProfile?.primaryEmail || 'noreply@example.com';
-    const fromName = mailConfig.fromName || businessName;
+    const fromName = businessName;
 
     const { text, html } = buildQuotationEmailContent({
       quotationNumber: quotation.quotationNumber,
@@ -343,16 +333,22 @@ export class QuotationCommunicationsRepository {
     });
 
     const emailAttachments = [
-      { filename: safePdfName, path: pdfFullPath, contentType: 'application/pdf' },
-      ...selectedAttachments.map((att) => ({
+      { filename: safePdfName, content: await storageService.readStorageFile(path.relative(storageConfig.root, pdfFullPath)), contentType: 'application/pdf' },
+      ...await Promise.all(selectedAttachments.map(async (att) => ({
         filename: sanitiseFilename(att.originalFilename),
-        path: att.fullPath,
+        content: await storageService.readStorageFile(path.relative(storageConfig.root, att.fullPath)),
         contentType: att.mimeType,
-      })),
+      }))),
     ];
 
     const attemptNumber = (await this.db.quotationCommunication.count({ where: { quotationId } })) + 1;
-    const attempt = await this.db.quotationCommunication.create({
+    const { attempt, approvedQuotationUpdatedAt } = await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      await tx.$queryRaw`SELECT id FROM quotations WHERE id = ${quotationId} AND firm_id = ${firmId} FOR UPDATE`;
+      const current = await tx.quotation.findFirst({ where: { id: quotationId, firmId, deletedAt: null }, include: { items: { orderBy: { lineNumber: 'asc' } } } });
+      if (!current) throw new AppError('Quotation not found', 404);
+      if (await quotationApprovalEnabled(tx, firmId) && (!document.sourceSnapshotHash || document.sourceSnapshotHash !== requestHash(customerQuotationSnapshot(current)))) throw new AppError('Generate a current quotation PDF before an approval-controlled send', 409);
+      if (current.status === QuotationStatus.DRAFT || current.status === QuotationStatus.PENDING) await enforceApproval(tx, firmId, userId, { action: 'QUOTATION_SEND', entityId: quotationId });
+      const attempt = await tx.quotationCommunication.create({
       data: {
         quotationId,
         generatedDocumentId: document.id,
@@ -368,6 +364,8 @@ export class QuotationCommunicationsRepository {
         documentSnapshot: documentSnapshot as Prisma.InputJsonValue,
         attachmentSnapshots: selectedAttachmentSnapshots as Prisma.InputJsonValue,
       },
+      });
+      return { attempt, approvedQuotationUpdatedAt: current.updatedAt };
     });
 
     let sendInfo: unknown;
@@ -386,7 +384,7 @@ export class QuotationCommunicationsRepository {
       if (err instanceof AppError && err.statusCode === 503) {
         throw err;
       }
-      console.error('SMTP Send Error:', err instanceof Error ? err.message : 'Unknown SMTP error');
+      logOperationalEvent('error', { event: 'smtp.failed' });
       const failure = safeFailureSummary(err);
       await this.db.quotationCommunication.update({
         where: { id: attempt.id },
@@ -402,62 +400,94 @@ export class QuotationCommunicationsRepository {
 
     const acceptedAt = new Date();
     const providerMessageId = getProviderMessageId(sendInfo);
-    const shouldTransitionToSent =
-      quotation.isLatestRevision &&
-      (quotation.status === QuotationStatus.DRAFT || quotation.status === QuotationStatus.PENDING);
-
     let quotationStatusAfter = quotation.status;
     let statusTransitioned = false;
 
-    await this.db.$transaction(async (tx) => {
-      await tx.quotationCommunication.update({
-        where: { id: attempt.id },
-        data: { status: CommunicationStatus.ACCEPTED, acceptedAt, providerMessageId },
-      });
-
-      if (shouldTransitionToSent) {
-        validateStatusTransition(quotation.status, QuotationStatus.SENT);
-        await tx.quotation.update({
-          where: { id: quotation.id },
-          data: {
-            status: QuotationStatus.SENT,
-            updatedById: userId,
-            ...getStatusTimestampUpdate(QuotationStatus.SENT),
-          },
+    try {
+      await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+        await tx.quotationCommunication.update({
+          where: { id: attempt.id },
+          data: { status: CommunicationStatus.ACCEPTED, acceptedAt, providerMessageId },
         });
-        await tx.quotationStatusHistory.create({
-          data: {
+
+        // SMTP can take long enough for another request to change the quotation.
+        const current = await tx.quotation.findFirst({
+          where: { id: quotation.id, firmId, deletedAt: null },
+        });
+        if (current) quotationStatusAfter = current.status;
+        if (current?.isLatestRevision && current.updatedAt.getTime() === approvedQuotationUpdatedAt.getTime() &&
+            (current.status === QuotationStatus.DRAFT || current.status === QuotationStatus.PENDING)) {
+          validateStatusTransition(current.status, QuotationStatus.SENT);
+          const updated = await tx.quotation.updateMany({
+            where: { id: quotation.id, firmId, deletedAt: null, isLatestRevision: true,
+              status: current.status, updatedAt: current.updatedAt },
+            data: {
+              status: QuotationStatus.SENT,
+              updatedById: userId,
+              ...getStatusTimestampUpdate(QuotationStatus.SENT),
+            },
+          });
+          if (updated.count === 1) {
+            await tx.quotationStatusHistory.create({
+              data: {
+                quotationId,
+                fromStatus: current.status,
+                toStatus: QuotationStatus.SENT,
+                changedById: userId,
+                comment: `Quotation emailed. Communication attempt #${attempt.id}.`,
+              },
+            });
+            await createAuditLog(tx, {
+              policy: 'REQUIRED',
+              metadata: { ...metadata, firmId, userId },
+              entityType: 'Quotation',
+              entityId: String(quotation.id),
+              action: AuditAction.STATUS_CHANGE,
+              oldValues: { status: current.status },
+              newValues: { status: QuotationStatus.SENT, communicationId: attempt.id },
+            });
+            quotationStatusAfter = QuotationStatus.SENT;
+            statusTransitioned = true;
+            await emitAutomationEvent(tx, firmId, userId, `quotation:${quotationId}:sent`, { trigger: 'quotation.sent', entity: 'QUOTATION', entityId: quotationId, documentNumber: current.quotationNumber, status: 'SENT', currency: current.currency, total: current.grandTotal.toString(), discountPercent: discountPercentage(current.subtotal, current.itemDiscountAmount.add(current.quotationDiscountAmount)) });
+          } else {
+            const latest = await tx.quotation.findFirst({
+              where: { id: quotation.id, firmId, deletedAt: null },
+            });
+            if (latest) quotationStatusAfter = latest.status;
+          }
+        }
+
+        await createAuditLog(tx, {
+          policy: 'REQUIRED',
+          metadata: { ...metadata, firmId, userId },
+          entityType: 'QuotationCommunication',
+          entityId: String(attempt.id),
+          action: AuditAction.CREATE,
+          newValues: {
+            event: 'QUOTATION_EMAIL_ACCEPTED',
             quotationId,
-            fromStatus: quotation.status,
-            toStatus: QuotationStatus.SENT,
-            changedById: userId,
-            comment: `Quotation emailed. Communication attempt #${attempt.id}.`,
+            quotationNumber: quotation.quotationNumber,
+            revisionNumber: quotation.revisionNumber,
+            generatedDocumentId: input.generatedDocumentId,
+            recipientCount: recipients.to.length,
+            ccCount: recipients.cc.length,
+            bccCount: recipients.bcc.length,
+            attachmentCount: selectedAttachments.length,
+            acceptedAt: acceptedAt.toISOString(),
+            statusTransitioned,
           },
         });
-        quotationStatusAfter = QuotationStatus.SENT;
-        statusTransitioned = true;
-      }
-
-      await createAuditLog(tx, {
-        metadata: { ...metadata, userId },
-        entityType: 'QuotationCommunication',
-        entityId: String(attempt.id),
-        action: AuditAction.CREATE,
-        newValues: {
-          event: 'QUOTATION_EMAIL_ACCEPTED',
-          quotationId,
-          quotationNumber: quotation.quotationNumber,
-          revisionNumber: quotation.revisionNumber,
-          generatedDocumentId: input.generatedDocumentId,
-          recipientCount: recipients.to.length,
-          ccCount: recipients.cc.length,
-          bccCount: recipients.bcc.length,
-          attachmentCount: selectedAttachments.length,
-          acceptedAt: acceptedAt.toISOString(),
-          statusTransitioned,
-        },
       });
-    });
+    } catch (error) {
+      // SMTP acceptance is irreversible. Make the outcome explicit to prevent a blind resend.
+      const failure = new AppError(
+        'The email provider accepted this email, but its confirmation could not be saved. Check delivery history with an administrator before resending.',
+        503,
+        { communicationId: attempt.id, providerAccepted: true },
+      );
+      failure.cause = error;
+      throw failure;
+    }
 
     return {
       communicationId: attempt.id,

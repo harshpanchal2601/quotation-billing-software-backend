@@ -10,6 +10,10 @@ process.env.BCRYPT_SALT_ROUNDS = '10';
 
 vi.mock('../src/core/database/prisma.js', () => ({
   prisma: {
+    firm: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+    },
     itemCategory: {
       upsert: vi.fn(),
     },
@@ -28,6 +32,8 @@ const {
   defaultItemCategory,
   defaultMeasurementUnits,
   getInitialAdminSeedInput,
+  initialFirm,
+  seedInitialFirm,
   seedInitialAdmin,
 } = await import('../prisma/seed.js');
 const { prisma } = await import('../src/core/database/prisma.js');
@@ -55,6 +61,26 @@ describe('seed reference data', () => {
       { name: 'Metre', symbol: 'MTR', allowDecimal: true },
       { name: 'Job', symbol: 'JOB', allowDecimal: false },
     ]);
+  });
+
+  it('creates the initial firm with the four-account limit', async () => {
+    vi.mocked(prisma.firm.findUnique).mockResolvedValueOnce(null);
+    vi.mocked(prisma.firm.create).mockResolvedValueOnce({
+      id: 1,
+      ...initialFirm,
+      status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    });
+
+    await expect(seedInitialFirm()).resolves.toMatchObject(initialFirm);
+    expect(prisma.firm.create).toHaveBeenCalledWith({
+      data: {
+        ...initialFirm,
+        status: 'ACTIVE',
+      },
+    });
   });
 });
 
@@ -87,7 +113,7 @@ describe('initial administrator seed', () => {
       email: 'Admin@Example.com',
       username: 'Admin.User',
       password: 'StrongPass1!',
-    });
+    }, 1);
 
     expect(result).toBe('created');
     expect(prisma.user.findFirst).toHaveBeenCalledWith({
@@ -103,6 +129,8 @@ describe('initial administrator seed', () => {
       email: 'admin@example.com',
       username: 'admin.user',
       role: 'ADMIN',
+      accountType: 'FIRM_ADMIN',
+      firmId: 1,
       status: 'ACTIVE',
     });
     expect(createCall?.data.passwordHash).not.toBe('StrongPass1!');
@@ -117,7 +145,11 @@ describe('initial administrator seed', () => {
       username: 'admin',
       passwordHash: 'existing-hash',
       role: 'ADMIN',
+      accountType: 'FIRM_ADMIN',
+      firmId: 1,
+      firmRoleId: null,
       status: 'ACTIVE',
+      mustChangePassword: false,
       lastLoginAt: null,
       passwordChangedAt: null,
       createdAt: new Date(),
@@ -131,7 +163,7 @@ describe('initial administrator seed', () => {
         email: 'admin@example.com',
         username: 'admin',
         password: 'StrongPass1!',
-      }),
+      }, 1),
     ).resolves.toBe('already-existed');
     expect(prisma.user.create).not.toHaveBeenCalled();
   });

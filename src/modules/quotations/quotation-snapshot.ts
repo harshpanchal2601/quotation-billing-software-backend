@@ -5,13 +5,14 @@ import type { AddressSnapshot, QuotationItemInput } from './quotations.types.js'
 
 export async function deriveCompanySnapshots(
   db: PrismaClient,
+  firmId: number,
   companyId: number,
   contactId?: number | null,
   billingAddressId?: number | null,
   shippingAddressId?: number | null,
 ) {
   const company = await db.company.findFirst({
-    where: { id: companyId, deletedAt: null },
+    where: { id: companyId, firmId, deletedAt: null },
   });
 
   if (!company) {
@@ -94,6 +95,7 @@ export async function deriveCompanySnapshots(
 
 export async function validateAndSnapshotQuotationItems(
   db: PrismaClient,
+  firmId: number,
   itemsInput: QuotationItemInput[],
 ): Promise<QuotationItemInput[]> {
   if (!itemsInput || itemsInput.length === 0) {
@@ -117,7 +119,7 @@ export async function validateAndSnapshotQuotationItems(
 
     if (itemInput.itemId) {
       const masterItem = await db.item.findFirst({
-        where: { id: itemInput.itemId, deletedAt: null },
+        where: { id: itemInput.itemId, firmId, deletedAt: null },
         include: {
           category: true,
           measurementUnit: true,

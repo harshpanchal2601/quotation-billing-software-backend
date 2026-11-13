@@ -3,6 +3,9 @@ import { AuditAction } from '@prisma/client';
 
 import { createAuditLog, pickChangedFields, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
+import { AppError } from '../../core/errors/AppError.js';
+import { listOrderBy } from '../../core/validation/list-sort.js';
+import { withFirmEntitlementTransaction } from '../entitlements/index.js';
 import { createPaginationMetadata } from './measurement-units.types.js';
 import {
   serialiseMeasurementUnit,
@@ -28,8 +31,9 @@ const unitDetailInclude = {
 export class MeasurementUnitsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async listMeasurementUnits(query: MeasurementUnitListQuery) {
+  async listMeasurementUnits(firmId: number, query: MeasurementUnitListQuery) {
     const where: Prisma.MeasurementUnitWhereInput = {
+      firmId,
       deletedAt: null,
       ...(query.isActive === undefined ? {} : { isActive: query.isActive }),
       ...(query.allowDecimal === undefined ? {} : { allowDecimal: query.allowDecimal }),
@@ -39,7 +43,7 @@ export class MeasurementUnitsRepository {
     const [measurementUnits, total] = await this.db.$transaction([
       this.db.measurementUnit.findMany({
         where,
-        orderBy: { [query.sortBy]: query.sortOrder },
+        orderBy: listOrderBy(query, ['name', 'symbol', 'createdAt', 'updatedAt'], 'name', 'asc'),
         skip: (query.page - 1) * query.limit,
         take: query.limit,
         include: unitDetailInclude,
@@ -53,9 +57,10 @@ export class MeasurementUnitsRepository {
     };
   }
 
-  async getMeasurementUnitOptions() {
+  async getMeasurementUnitOptions(firmId: number) {
     const measurementUnits = await this.db.measurementUnit.findMany({
       where: {
+        firmId,
         deletedAt: null,
         isActive: true,
       },
@@ -67,31 +72,33 @@ export class MeasurementUnitsRepository {
     };
   }
 
-  async findDuplicateMeasurementUnit(name: string, symbol: string, excludeId?: number) {
+  async findDuplicateMeasurementUnit(firmId: number, name: string, symbol: string, excludeId?: number) {
     return this.db.measurementUnit.findFirst({
       where: {
+        firmId,
         OR: [{ name }, { symbol }],
         ...(excludeId === undefined ? {} : { NOT: { id: excludeId } }),
       },
     });
   }
 
-  async findMeasurementUnitById(id: number): Promise<MeasurementUnitWithItemCount | null> {
+  async findMeasurementUnitById(firmId: number, id: number): Promise<MeasurementUnitWithItemCount | null> {
     return this.db.measurementUnit.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, firmId, deletedAt: null },
       include: unitDetailInclude,
     });
   }
 
-  async findDeletedMeasurementUnitById(id: number) {
+  async findDeletedMeasurementUnitById(firmId: number, id: number) {
     return this.db.measurementUnit.findFirst({
-      where: { id, deletedAt: { not: null } },
+      where: { id, firmId, deletedAt: { not: null } },
     });
   }
 
-  async findRestoreConflict(id: number, name: string, symbol: string) {
+  async findRestoreConflict(firmId: number, id: number, name: string, symbol: string) {
     return this.db.measurementUnit.findFirst({
       where: {
+        firmId,
         OR: [{ name }, { symbol }],
         deletedAt: null,
         NOT: { id },
@@ -99,18 +106,20 @@ export class MeasurementUnitsRepository {
     });
   }
 
-  async countLinkedItems(id: number) {
+  async countLinkedItems(firmId: number, id: number) {
     return this.db.item.count({
-      where: { measurementUnitId: id, deletedAt: null },
+      where: { firmId, measurementUnitId: id, deletedAt: null },
     });
   }
 
   async createMeasurementUnit(
+    firmId: number,
     input: MeasurementUnitCreateInput,
     metadata: RequestMetadata,
   ) {
     const unit = await this.db.measurementUnit.create({
       data: {
+        firmId,
         name: input.name,
         symbol: input.symbol,
         allowDecimal: input.allowDecimal,
@@ -129,21 +138,26 @@ export class MeasurementUnitsRepository {
     metadata: RequestMetadata,
     previous: MeasurementUnit,
   ) {
-    const updateData: Prisma.MeasurementUnitUpdateInput = {
-      ...(input.name === undefined ? {} : { name: input.name }),
-      ...(input.symbol === undefined ? {} : { symbol: input.symbol }),
-      ...(input.allowDecimal === undefined ? {} : { allowDecimal: input.allowDecimal }),
-      ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
-    };
+    return withFirmEntitlementTransaction(this.db, previous.firmId, async (tx) => {
+      const current = await tx.measurementUnit.findFirst({ where: { id, firmId: previous.firmId, deletedAt: null } });
+      if (!current) throw new AppError('Measurement unit unavailable', 404);
+      if (input.allowDecimal !== undefined && input.allowDecimal !== current.allowDecimal && await tx.item.count({ where: { firmId: previous.firmId, measurementUnitId: id, stockTracking: true } })) throw new AppError('Decimal precision cannot change for a unit used by tracked inventory', 409);
+      const updateData: Prisma.MeasurementUnitUpdateInput = {
+        ...(input.name === undefined ? {} : { name: input.name }),
+        ...(input.symbol === undefined ? {} : { symbol: input.symbol }),
+        ...(input.allowDecimal === undefined ? {} : { allowDecimal: input.allowDecimal }),
+        ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+      };
 
-    const updated = await this.db.measurementUnit.update({
-      where: { id },
-      data: updateData,
-      include: unitDetailInclude,
+      const updated = await tx.measurementUnit.update({
+        where: { id },
+        data: updateData,
+        include: unitDetailInclude,
+      });
+
+      await this.auditUnit(AuditAction.UPDATE, updated, metadata, current, tx);
+      return serialiseMeasurementUnit(updated);
     });
-
-    await this.auditUnit(AuditAction.UPDATE, updated, metadata, previous);
-    return serialiseMeasurementUnit(updated);
   }
 
   async updateMeasurementUnitStatus(
@@ -193,6 +207,7 @@ export class MeasurementUnitsRepository {
     unit: MeasurementUnit,
     metadata: RequestMetadata,
     previous?: MeasurementUnit,
+    db: PrismaClient | Prisma.TransactionClient = this.db,
   ) {
     const changed = previous
       ? pickChangedFields(
@@ -202,11 +217,12 @@ export class MeasurementUnitsRepository {
         )
       : undefined;
 
-    await createAuditLog(this.db, {
+    await createAuditLog(db, {
       metadata,
       entityType: 'MeasurementUnit',
       entityId: String(unit.id),
       action,
+      policy: db === this.db ? 'BEST_EFFORT' : 'REQUIRED',
       oldValues: changed?.oldValues,
       newValues: changed?.newValues ?? {
         name: unit.name,

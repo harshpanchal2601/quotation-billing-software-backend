@@ -1,0 +1,64 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Private Qorwell ERP storage and EC2 access. Bucket and data are retained when the stack is removed.",
+  "Parameters": {
+    "BucketName": { "Type": "String", "AllowedPattern": "[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]" },
+    "RuntimeKeyPrefix": { "Type": "String", "Default": "development", "AllowedPattern": "[A-Za-z0-9_-]+" }
+  },
+  "Resources": {
+    "FilesBucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "BucketName": { "Ref": "BucketName" },
+        "OwnershipControls": { "Rules": [{ "ObjectOwnership": "BucketOwnerEnforced" }] },
+        "PublicAccessBlockConfiguration": { "BlockPublicAcls": true, "IgnorePublicAcls": true, "BlockPublicPolicy": true, "RestrictPublicBuckets": true },
+        "BucketEncryption": { "ServerSideEncryptionConfiguration": [{ "ServerSideEncryptionByDefault": { "SSEAlgorithm": "AES256" } }] },
+        "VersioningConfiguration": { "Status": "Enabled" },
+        "LifecycleConfiguration": { "Rules": [{ "Id": "AbortIncompleteUploads", "Status": "Enabled", "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 } }] },
+        "Tags": [{ "Key": "Project", "Value": "Qorwell" }, { "Key": "Environment", "Value": "development" }, { "Key": "Purpose", "Value": "ERP files" }]
+      }
+    },
+    "TransportPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": { "Ref": "FilesBucket" },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{ "Sid": "DenyInsecureTransport", "Effect": "Deny", "Principal": "*", "Action": "s3:*", "Resource": [{ "Fn::GetAtt": ["FilesBucket", "Arn"] }, { "Fn::Sub": "${FilesBucket.Arn}/*" }], "Condition": { "Bool": { "aws:SecureTransport": "false" } } }]
+        }
+      }
+    },
+    "StorageRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "Description": "EC2 application file access to the development prefix only; no permanent access keys.",
+        "AssumeRolePolicyDocument": { "Version": "2012-10-17", "Statement": [{ "Effect": "Allow", "Principal": { "Service": "ec2.amazonaws.com" }, "Action": "sts:AssumeRole" }] },
+        "Policies": [{
+          "PolicyName": "ErpFiles",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              { "Effect": "Allow", "Action": "s3:GetBucketLocation", "Resource": { "Fn::GetAtt": ["FilesBucket", "Arn"] } },
+              { "Effect": "Allow", "Action": "s3:ListBucket", "Resource": { "Fn::GetAtt": ["FilesBucket", "Arn"] }, "Condition": { "StringLike": { "s3:prefix": [{ "Ref": "RuntimeKeyPrefix" }, { "Fn::Sub": "${RuntimeKeyPrefix}/*" }] } } },
+              { "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"], "Resource": { "Fn::Sub": "${FilesBucket.Arn}/${RuntimeKeyPrefix}/*" } }
+            ]
+          }
+        }],
+        "Tags": [{ "Key": "Project", "Value": "Qorwell" }]
+      }
+    },
+    "StorageInstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": { "Roles": [{ "Ref": "StorageRole" }] }
+    }
+  },
+  "Outputs": {
+    "Bucket": { "Value": { "Ref": "FilesBucket" } },
+    "Region": { "Value": { "Ref": "AWS::Region" } },
+    "RuntimePrefix": { "Value": { "Ref": "RuntimeKeyPrefix" } },
+    "RoleArn": { "Value": { "Fn::GetAtt": ["StorageRole", "Arn"] } },
+    "InstanceProfileArn": { "Value": { "Fn::GetAtt": ["StorageInstanceProfile", "Arn"] } }
+  }
+}

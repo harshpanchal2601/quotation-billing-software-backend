@@ -1,13 +1,17 @@
-import { CommunicationStatus, CommunicationType, QuotationStatus } from '@prisma/client';
+import { CommunicationStatus, CommunicationType, Prisma, QuotationStatus } from '@prisma/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildQuotationEmailContent, escapeHtml } from '../src/modules/quotations/email/quotation-email.template';
 import { validateSendQuotationEmailInput } from '../src/modules/quotations/communications/quotation-communications.repository';
+import { generatedDocumentHistorySchema, quotationCommunicationHistorySchema } from '../src/modules/quotations/email/quotation-email.schema.js';
+import { AppError } from '../src/core/errors/AppError.js';
+import { requestHash } from '../src/core/idempotency/request-hash.js';
+import { customerQuotationSnapshot } from '../src/modules/quotations/quotation-customer.js';
 
 process.env.SMTP_HOST = 'smtp.example.com';
 
 const mocks = vi.hoisted(() => {
   const prisma = {
-    quotation: { findFirst: vi.fn(), update: vi.fn() },
+    quotation: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     generatedDocument: { findFirst: vi.fn() },
     quotationAttachment: { findMany: vi.fn() },
     businessProfile: { findFirst: vi.fn() },
@@ -20,14 +24,19 @@ const mocks = vi.hoisted(() => {
     quotationStatusHistory: { create: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
+    $queryRaw: vi.fn(),
   };
 
   return {
     prisma,
     sendMail: vi.fn(),
     stat: vi.fn(),
+    enforceApproval: vi.fn(),
+    quotationApprovalEnabled: vi.fn(),
   };
 });
+
+vi.mock('../src/modules/automation/runtime.js', () => ({ enforceApproval: mocks.enforceApproval, quotationApprovalEnabled: mocks.quotationApprovalEnabled, emitAutomationEvent: vi.fn(), discountPercentage: vi.fn(() => '0'), assertQuotationPublicationApproved: vi.fn() }));
 
 vi.mock('../src/core/database/prisma.js', () => ({
   prisma: mocks.prisma,
@@ -50,12 +59,10 @@ vi.mock('../src/modules/settings/index.js', () => ({
   resolveBrandingPath: vi.fn(),
 }));
 
-vi.mock('node:fs/promises', () => ({
-  default: {
-    stat: mocks.stat,
-  },
-  stat: mocks.stat,
-}));
+vi.mock('../src/integrations/storage/index.js', async (original) => {
+  const actual = await original<typeof import('../src/integrations/storage/index.js')>();
+  return { ...actual, storageService: { ...actual.storageService, storageFileSize: mocks.stat, readStorageFile: vi.fn().mockResolvedValue(Buffer.from('QA file bytes')) } };
+});
 
 import {
   quotationCommunicationsRepository,
@@ -141,6 +148,8 @@ describe('quotation email communication lifecycle', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.quotationApprovalEnabled.mockResolvedValue(false);
+    mocks.prisma.$queryRaw.mockResolvedValue([{ id: 1 }]);
     mocks.prisma.$transaction.mockImplementation(async (callback: unknown) => {
       if (typeof callback === 'function') return callback(mocks.prisma);
       return undefined;
@@ -151,6 +160,9 @@ describe('quotation email communication lifecycle', () => {
       revisionNumber: 0,
       status: QuotationStatus.DRAFT,
       isLatestRevision: true,
+      updatedAt: now,
+      quotationDate: now, validUntil: null, freightAmount: new Prisma.Decimal('0'), otherCharges: new Prisma.Decimal('0'), items: [],
+      currency: 'INR', subtotal: new Prisma.Decimal('100'), grandTotal: new Prisma.Decimal('100'), itemDiscountAmount: new Prisma.Decimal('0'), quotationDiscountAmount: new Prisma.Decimal('0'),
     });
     mocks.prisma.generatedDocument.findFirst.mockResolvedValue({
       id: 10,
@@ -166,9 +178,10 @@ describe('quotation email communication lifecycle', () => {
     mocks.prisma.quotationCommunication.create.mockResolvedValue({ id: 100 });
     mocks.prisma.quotationCommunication.update.mockResolvedValue({ id: 100 });
     mocks.prisma.quotation.update.mockResolvedValue({ id: 1, status: QuotationStatus.SENT });
+    mocks.prisma.quotation.updateMany.mockResolvedValue({ count: 1 });
     mocks.prisma.quotationStatusHistory.create.mockResolvedValue({ id: 1 });
     mocks.prisma.auditLog.create.mockResolvedValue({ id: 1 });
-    mocks.stat.mockResolvedValue({ size: 1024 });
+    mocks.stat.mockResolvedValue(1024);
     mocks.sendMail.mockResolvedValue({ messageId: 'smtp-message-123' });
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
@@ -180,6 +193,7 @@ describe('quotation email communication lifecycle', () => {
   it('records an accepted communication and transitions latest Draft quotation to Sent after SMTP acceptance', async () => {
     const result = await quotationCommunicationsRepository.sendQuotationEmail(
       1,
+      1,
       {
         generatedDocumentId: 10,
         to: ['customer@example.com', 'customer@example.com'],
@@ -189,7 +203,7 @@ describe('quotation email communication lifecycle', () => {
         message: 'Please find the quotation attached.',
       },
       1,
-      { userId: 1 },
+      { userId: 1, firmId: 1 },
     );
 
     expect(mocks.prisma.quotationCommunication.create).toHaveBeenCalledWith({
@@ -221,8 +235,8 @@ describe('quotation email communication lifecycle', () => {
         providerMessageId: 'smtp-message-123',
       }),
     });
-    expect(mocks.prisma.quotation.update).toHaveBeenCalledWith({
-      where: { id: 1 },
+    expect(mocks.prisma.quotation.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: 1, firmId: 1, status: QuotationStatus.DRAFT, isLatestRevision: true }),
       data: expect.objectContaining({ status: QuotationStatus.SENT, updatedById: 1 }),
     });
     expect(mocks.prisma.quotationStatusHistory.create).toHaveBeenCalledWith({
@@ -242,11 +256,94 @@ describe('quotation email communication lifecycle', () => {
     });
   });
 
+  it('requires approval before creating an email attempt or invoking SMTP', async () => {
+    mocks.enforceApproval.mockRejectedValueOnce(new AppError('Approval required', 409));
+    await expect(quotationCommunicationsRepository.sendQuotationEmail(1, 1, { generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Reviewed quotation', message: 'Please review.' }, 1, { userId: 1, firmId: 1 })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mocks.prisma.quotationCommunication.create).not.toHaveBeenCalled();
+    expect(mocks.sendMail).not.toHaveBeenCalled();
+  });
+
+  it('requires regeneration of unverifiable historical PDFs before an approval-controlled send', async () => {
+    mocks.quotationApprovalEnabled.mockResolvedValue(true);
+    await expect(quotationCommunicationsRepository.sendQuotationEmail(1, 1, { generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Reviewed quotation', message: 'Please review.' }, 1, { userId: 1, firmId: 1 })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mocks.enforceApproval).not.toHaveBeenCalled();
+    expect(mocks.prisma.quotationCommunication.create).not.toHaveBeenCalled();
+    expect(mocks.sendMail).not.toHaveBeenCalled();
+  });
+
+  it('rejects a PDF whose recorded source differs from the currently approved quotation', async () => {
+    mocks.quotationApprovalEnabled.mockResolvedValue(true);
+    mocks.prisma.generatedDocument.findFirst.mockResolvedValue({ id: 10, quotationId: 1, versionNumber: 2, documentType: 'QUOTATION_PDF', filePath: 'quotation-documents/quote.pdf', generatedAt: now, generatedBy: null, sourceSnapshotHash: '0'.repeat(64) });
+    await expect(quotationCommunicationsRepository.sendQuotationEmail(1, 1, { generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Reviewed quotation', message: 'Please review.' }, 1, { userId: 1, firmId: 1 })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mocks.prisma.quotationCommunication.create).not.toHaveBeenCalled();
+    expect(mocks.sendMail).not.toHaveBeenCalled();
+  });
+
+  it('allows a current PDF through the existing explicit email command after approval', async () => {
+    const quotation = await mocks.prisma.quotation.findFirst();
+    const document = await mocks.prisma.generatedDocument.findFirst();
+    mocks.quotationApprovalEnabled.mockResolvedValue(true);
+    mocks.prisma.generatedDocument.findFirst.mockResolvedValue({ ...document, sourceSnapshotHash: requestHash(customerQuotationSnapshot(quotation)) });
+    await quotationCommunicationsRepository.sendQuotationEmail(1, 1, { generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Reviewed quotation', message: 'Please review.' }, 1, { userId: 1, firmId: 1 });
+    expect(mocks.enforceApproval).toHaveBeenCalled();
+    expect(mocks.sendMail).toHaveBeenCalledOnce();
+  });
+
+  it('leaves a draft edited during SMTP in its current state', async () => {
+    mocks.sendMail.mockImplementationOnce(async () => {
+      mocks.prisma.quotation.findFirst.mockResolvedValue({ id: 1, status: QuotationStatus.DRAFT, isLatestRevision: true, updatedAt: new Date(now.getTime() + 1) });
+      return { messageId: 'smtp-message-123' };
+    });
+    const result = await quotationCommunicationsRepository.sendQuotationEmail(1, 1, { generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Quotation', message: 'Attached' }, 1, { firmId: 1, userId: 1 });
+    expect(result).toMatchObject({ statusTransitioned: false, quotationStatusAfter: QuotationStatus.DRAFT });
+    expect(mocks.prisma.quotation.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite a quotation cancelled while SMTP is in flight', async () => {
+    mocks.sendMail.mockImplementationOnce(async () => {
+      mocks.prisma.quotation.findFirst.mockResolvedValue({
+        id: 1, status: QuotationStatus.CANCELLED, isLatestRevision: true, updatedAt: now,
+      });
+      return { messageId: 'smtp-message-123' };
+    });
+    const result = await quotationCommunicationsRepository.sendQuotationEmail(1, 1, {
+      generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Quotation', message: 'Attached',
+    }, 1, { firmId: 1, userId: 1 });
+    expect(result).toMatchObject({ statusTransitioned: false, quotationStatusAfter: QuotationStatus.CANCELLED });
+    expect(mocks.prisma.quotation.updateMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.quotationStatusHistory.create).not.toHaveBeenCalled();
+  });
+
+  it('does not append history when a status mutation wins after the post-send read', async () => {
+    mocks.prisma.quotation.updateMany.mockResolvedValueOnce({ count: 0 });
+    mocks.prisma.quotation.findFirst
+      .mockResolvedValueOnce({ id: 1, quotationNumber: 'ERP/2026-27/000001', revisionNumber: 0,
+        status: QuotationStatus.DRAFT, isLatestRevision: true, updatedAt: now })
+      .mockResolvedValueOnce({ id: 1, status: QuotationStatus.DRAFT, isLatestRevision: true, updatedAt: now })
+      .mockResolvedValueOnce({ id: 1, status: QuotationStatus.CANCELLED, isLatestRevision: true, updatedAt: now });
+    const result = await quotationCommunicationsRepository.sendQuotationEmail(1, 1, {
+      generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Quotation', message: 'Attached',
+    }, 1, { firmId: 1, userId: 1 });
+    expect(result).toMatchObject({ statusTransitioned: false, quotationStatusAfter: QuotationStatus.CANCELLED });
+    expect(mocks.prisma.quotationStatusHistory.create).not.toHaveBeenCalled();
+  });
+
+  it('propagates mandatory audit failure after SMTP acceptance', async () => {
+    mocks.prisma.auditLog.create.mockRejectedValueOnce(new Error('audit unavailable'));
+    await expect(quotationCommunicationsRepository.sendQuotationEmail(1, 1, {
+      generatedDocumentId: 10, to: ['customer@example.com'], subject: 'Quotation', message: 'Attached',
+    }, 1, { firmId: 1, userId: 1 })).rejects.toMatchObject({
+      statusCode: 503, details: { communicationId: 100, providerAccepted: true },
+    });
+    expect(mocks.sendMail).toHaveBeenCalledOnce();
+  });
+
   it('records failed SMTP attempts without changing quotation status', async () => {
-    mocks.sendMail.mockRejectedValueOnce(Object.assign(new Error('Auth failed'), { code: 'EAUTH' }));
+    mocks.sendMail.mockRejectedValueOnce(Object.assign(new Error('private-smtp-password-and-recipient'), { code: 'EAUTH' }));
 
     await expect(
       quotationCommunicationsRepository.sendQuotationEmail(
+        1,
         1,
         {
           generatedDocumentId: 10,
@@ -255,12 +352,13 @@ describe('quotation email communication lifecycle', () => {
           message: 'Please find attached.',
         },
         1,
-        { userId: 1 },
+        { userId: 1, firmId: 1 },
       ),
     ).rejects.toMatchObject({
       statusCode: 502,
       message: 'Failed to send quotation email. Please check SMTP settings or recipient addresses.',
     });
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('private-smtp-password-and-recipient');
 
     expect(mocks.prisma.quotationCommunication.update).toHaveBeenCalledWith({
       where: { id: 100 },
@@ -302,8 +400,11 @@ describe('quotation email communication lifecycle', () => {
       },
     ]);
 
-    const result = await quotationCommunicationsRepository.getCommunicationHistory(1, {});
+    const result = await quotationCommunicationsRepository.getCommunicationHistory(1, 1, {});
 
+    expect(mocks.prisma.quotationCommunication.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { quotationId: 1 }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: 0, take: 20,
+    }));
     expect(result.communications).toEqual([
       expect.objectContaining({
         id: 100,
@@ -316,4 +417,24 @@ describe('quotation email communication lifecycle', () => {
       }),
     ]);
   });
+  it('sorts communication history before pagination with an ID tie-breaker', async () => {
+    mocks.prisma.quotationCommunication.count.mockResolvedValueOnce(43);
+    mocks.prisma.quotationCommunication.findMany.mockResolvedValueOnce([]);
+    const result = await quotationCommunicationsRepository.getCommunicationHistory(1, 1, {
+      page: 2, limit: 20, sortBy: 'subjectSnapshot', sortOrder: 'asc',
+    });
+    expect(mocks.prisma.quotationCommunication.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      orderBy: [{ subjectSnapshot: 'asc' }, { id: 'asc' }], skip: 20, take: 20,
+    }));
+    expect(result.pagination).toEqual({ page: 2, limit: 20, total: 43, totalPages: 3 });
+  });
+
+  it('rejects invalid history pagination and unsupported sorting fields', () => {
+    expect(generatedDocumentHistorySchema.safeParse({ page: '1.5' }).success).toBe(false);
+    expect(generatedDocumentHistorySchema.safeParse({ sortBy: 'filePath' }).success).toBe(false);
+    expect(quotationCommunicationHistorySchema.safeParse({ limit: '101' }).success).toBe(false);
+    expect(quotationCommunicationHistorySchema.safeParse({ sortOrder: 'sideways' }).success).toBe(false);
+    expect(quotationCommunicationHistorySchema.parse({ page: '2', sortBy: 'subjectSnapshot', sortOrder: 'asc' })).toEqual({ page: 2, limit: 20, sortBy: 'subjectSnapshot', sortOrder: 'asc' });
+  });
+
 });

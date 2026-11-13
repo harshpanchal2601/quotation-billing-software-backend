@@ -1,9 +1,10 @@
 import path from 'node:path';
+import { listOrderBy } from '../../../core/validation/list-sort.js';
 
 import { AuditAction, DocumentType, type PrismaClient } from '@prisma/client';
 
 import { prisma } from '../../../core/database/prisma.js';
-import { storageConfig } from '../../../config/storage.config.js';
+import { isFirmPublicAssetPath, storageConfig } from '../../../config/storage.config.js';
 import { createAuditLog, type RequestMetadata } from '../../../core/audit/audit-log.service.js';
 import {
   brandingAssetConfig,
@@ -11,25 +12,44 @@ import {
   type BrandingAssetType,
 } from '../../settings/index.js';
 import { storageService } from '../../../integrations/storage/index.js';
+import { AppError } from '../../../core/errors/AppError.js';
+import { assertTransactionFeature, recordUsage, withFirmEntitlementTransaction } from '../../entitlements/index.js';
 import type { QuotationPdfViewModel } from './quotation-documents.types.js';
+import { resolveDocumentPresentation } from '../../automation/runtime.js';
+import { authorizeFirmJobActor } from '../../auth/index.js';
+import { PERMISSIONS } from '../../auth/permissions.js';
+import { requestHash } from '../../../core/idempotency/request-hash.js';
+import { customerQuotationSnapshot } from '../quotation-customer.js';
 
 export async function getBrandingFileDataUrl(
+  firmId: number,
   assetType: BrandingAssetType,
   relativePath: string | null | undefined,
 ): Promise<string | null> {
   if (!relativePath) return null;
 
   try {
-    const normalizedPath = relativePath.replace(/^\/?storage\//, '');
+    const normalizedPath = relativePath.replace(/^\/?storage\//, '').replace(/\\/g, '/');
     const expectedDirectory = brandingAssetConfig[assetType].directory;
-    const relativeDirectory = normalizedPath.split(/[\\/]/)[0];
+    const fullPath = resolveBrandingPath(normalizedPath);
+    const allowedDirectories = [expectedDirectory];
 
-    if (relativeDirectory !== expectedDirectory) {
+    const isAllowedPath = isFirmPublicAssetPath(normalizedPath, firmId, expectedDirectory) || allowedDirectories.some((directory) => {
+      const absoluteDirectory = resolveBrandingPath(directory);
+      const relativeToDirectory = path.relative(absoluteDirectory, fullPath);
+      return (
+        relativeToDirectory.length > 0 &&
+        relativeToDirectory !== '..' &&
+        !relativeToDirectory.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relativeToDirectory)
+      );
+    });
+
+    if (!isAllowedPath) {
       console.warn(`Configured ${assetType} branding asset is outside its storage area.`);
       return null;
     }
 
-    const fullPath = resolveBrandingPath(normalizedPath);
     const fileBuffer = await storageService.readStorageFile(
       path.relative(storageConfig.root, fullPath).replace(/\\/g, '/'),
     );
@@ -38,7 +58,7 @@ export async function getBrandingFileDataUrl(
     return `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
   } catch (error) {
     const code = error instanceof Error && 'code' in error ? error.code : undefined;
-    if (code !== 'ENOENT') {
+    if (code !== 'ENOENT' && !(error instanceof AppError && error.statusCode === 404)) {
       console.warn(`Configured ${assetType} branding asset could not be loaded for PDF generation.`);
     }
     return null;
@@ -229,41 +249,59 @@ export function buildQuotationPdfViewModel(
 export class QuotationDocumentsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async findQuotationForPdf(quotationId: number) {
+  async preparePresentation(firmId: number, quotationId: number, actorId: number) {
+    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      await authorizeFirmJobActor(tx, firmId, actorId, PERMISSIONS.QUOTATIONS_DOCUMENTS);
+      await assertTransactionFeature(tx, firmId, 'quotations.documents');
+      const quotation = await tx.quotation.findFirst({ where: { id: quotationId, firmId, deletedAt: null }, include: { items: { orderBy: { sortOrder: 'asc' } } } });
+      if (!quotation) throw new AppError('Quotation not found', 404);
+      const historical = await tx.generatedDocument.count({ where: { quotationId } });
+      const presentation = quotation.automationPresentationSnapshot ?? (historical ? { templateVersionId: null, template: null, fields: [] } : await resolveDocumentPresentation(tx, firmId, 'QUOTATION', quotationId));
+      return { quotation, presentation };
+    });
+  }
+
+  async findQuotationForPdf(firmId: number, quotationId: number) {
     return this.db.quotation.findFirst({
-      where: { id: quotationId, deletedAt: null },
+      where: { id: quotationId, firmId, deletedAt: null },
       include: {
         items: { orderBy: { sortOrder: 'asc' } },
       },
     });
   }
 
-  async getNextDocumentVersionNumber(quotationId: number) {
-    const count = await this.db.generatedDocument.count({
-      where: {
-        quotationId,
-        documentType: DocumentType.QUOTATION_PDF,
-      },
-    });
-    return count + 1;
-  }
-
   async createGeneratedDocument(data: {
+    firmId: number;
     quotationId: number;
-    versionNumber: number;
+    fileSize: number;
     filePath: string;
     fileHash: string;
     generatedById: number;
+    presentation?: import('@prisma/client').Prisma.InputJsonValue;
+    expectedUpdatedAt?: Date;
   }) {
-    return this.db.generatedDocument.create({
-      data: {
-        quotationId: data.quotationId,
-        versionNumber: data.versionNumber,
-        documentType: DocumentType.QUOTATION_PDF,
-        filePath: data.filePath,
-        fileHash: data.fileHash,
-        generatedById: data.generatedById,
-      },
+    return withFirmEntitlementTransaction(this.db, data.firmId, async (tx) => {
+      await tx.$queryRaw`SELECT id FROM quotations WHERE id = ${data.quotationId} AND firm_id = ${data.firmId} FOR UPDATE`;
+      const quotation = await tx.quotation.findFirst({ where: { id: data.quotationId, firmId: data.firmId, deletedAt: null }, include: { items: { orderBy: { lineNumber: 'asc' } } } });
+      if (quotation === null) throw new AppError('Quotation not found', 404);
+      if (data.expectedUpdatedAt !== undefined && quotation.updatedAt.getTime() !== data.expectedUpdatedAt.getTime()) throw new AppError('Quotation changed while rendering; reload and retry', 409);
+      await assertTransactionFeature(tx, data.firmId, 'quotations.documents');
+      const existing = await tx.generatedDocument.findFirst({ where: { quotationId: data.quotationId, filePath: data.filePath } });
+      if (existing !== null) {
+        if (existing.fileHash !== data.fileHash || existing.generatedById !== data.generatedById) throw new AppError('Document event conflicts with existing metadata', 409);
+        return existing;
+      }
+      await recordUsage(tx, data.firmId, 'documents', 1n, `document:${data.filePath}`);
+      await recordUsage(tx, data.firmId, 'storageBytes', BigInt(data.fileSize), `document:${data.filePath}`);
+      if (quotation.automationPresentationSnapshot === null && data.presentation !== undefined) await tx.quotation.update({ where: { id: quotation.id }, data: { automationPresentationSnapshot: data.presentation } });
+      const versionNumber = await tx.generatedDocument.count({ where: { quotationId: data.quotationId, documentType: DocumentType.QUOTATION_PDF } }) + 1;
+      return tx.generatedDocument.create({
+        data: {
+          quotationId: data.quotationId, versionNumber, documentType: DocumentType.QUOTATION_PDF,
+          filePath: data.filePath, fileHash: data.fileHash, generatedById: data.generatedById,
+          sourceSnapshotHash: data.expectedUpdatedAt === undefined ? null : requestHash(customerQuotationSnapshot(quotation)),
+        },
+      });
     });
   }
 
@@ -292,25 +330,26 @@ export class QuotationDocumentsRepository {
     });
   }
 
-  async findDocumentForQuotation(quotationId: number, documentId: number) {
+  async findDocumentForQuotation(firmId: number, quotationId: number, documentId: number) {
     return this.db.generatedDocument.findFirst({
-      where: { id: documentId, quotationId },
+      where: { id: documentId, quotationId, quotation: { firmId } },
       include: { quotation: true },
     });
   }
 
   async listDocumentHistory(
+    firmId: number,
     quotationId: number,
-    query: { page: number; limit: number; sortOrder: 'asc' | 'desc' },
+    query: { page: number; limit: number; sortBy?: string; sortOrder: 'asc' | 'desc' },
   ) {
-    const { page, limit, sortOrder } = query;
+    const { page, limit } = query;
     const skip = (page - 1) * limit;
 
     const [total, documents] = await Promise.all([
-      this.db.generatedDocument.count({ where: { quotationId } }),
+      this.db.generatedDocument.count({ where: { quotationId, quotation: { firmId } } }),
       this.db.generatedDocument.findMany({
-        where: { quotationId },
-        orderBy: { generatedAt: sortOrder },
+        where: { quotationId, quotation: { firmId } },
+        orderBy: listOrderBy(query, ['id', 'versionNumber', 'generatedAt', 'documentType'], 'generatedAt'),
         skip,
         take: limit,
         include: {
@@ -324,7 +363,11 @@ export class QuotationDocumentsRepository {
 
   resolveDocumentAbsolutePath(relativeFilePath: string) {
     const normalised = relativeFilePath.replace(/^\/?storage\//, '');
-    return storageService.resolveStoragePath(normalised);
+    const absolutePath = storageService.resolveStoragePath(normalised);
+    const root = storageService.resolveStoragePath(storageConfig.quotationDocumentDirectory);
+    const child = path.relative(root, absolutePath);
+    if (!child || child.startsWith('..') || path.isAbsolute(child)) throw new AppError('Invalid document path', 403);
+    return absolutePath;
   }
 
   async documentFileExists(relativeFilePath: string) {

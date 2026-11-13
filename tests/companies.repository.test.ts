@@ -34,7 +34,11 @@ type MockPrisma = {
   auditLog: {
     create: ReturnType<typeof vi.fn>;
   };
+  purchaseOrder: { count: ReturnType<typeof vi.fn> };
+  supplierBill: { count: ReturnType<typeof vi.fn> };
+  expense: { count: ReturnType<typeof vi.fn> };
   $transaction: ReturnType<typeof vi.fn>;
+  $queryRaw: ReturnType<typeof vi.fn>;
 };
 
 function asPrisma(db: MockPrisma): PrismaClient {
@@ -67,8 +71,12 @@ function createMockPrisma(): MockPrisma {
       findMany: vi.fn(),
       groupBy: vi.fn(),
     },
+    purchaseOrder: { count: vi.fn().mockResolvedValue(0) },
+    supplierBill: { count: vi.fn().mockResolvedValue(0) },
+    expense: { count: vi.fn().mockResolvedValue(0) },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
+    $queryRaw: vi.fn().mockResolvedValue([{ id: 1 }]),
   };
   db.$transaction.mockImplementation(async (input: unknown) => {
     if (Array.isArray(input)) return Promise.all(input);
@@ -83,6 +91,7 @@ const now = new Date('2026-01-01T00:00:00.000Z');
 function company(overrides: Partial<Company> = {}): Company {
   return {
     id: 1,
+    firmId: 1,
     companyCode: 'COMP-000001',
     name: 'Acme Pharma',
     legalName: null,
@@ -91,6 +100,7 @@ function company(overrides: Partial<Company> = {}): Company {
     website: null,
     notes: null,
     isActive: true,
+    isSupplier: false,
     createdById: 1,
     updatedById: 1,
     createdAt: now,
@@ -148,6 +158,7 @@ function companyDetail(overrides: Partial<Company> = {}) {
 function quotation(overrides: Partial<Quotation> = {}): Quotation {
   return {
     id: 1,
+    firmId: 1,
     quotationNumber: 'Q-1',
     revisionNumber: 0,
     companyId: 1,
@@ -225,18 +236,19 @@ describe('company repositories', () => {
 
     const service = new CompaniesRepository(asPrisma(db));
     const result = await service.createCompany(
+      1,
       {
         name: 'Acme Pharma',
         isActive: true,
         contacts: [{ name: 'Nitish', isPrimary: true }],
         addresses: [{ addressType: AddressType.BILLING, addressLine1: 'Line 1', country: 'India', isPrimary: true }],
       },
-      { userId: 1 },
+      { userId: 1, firmId: 1 },
     );
 
     expect(result.companyCode).toBe('COMP-000001');
     expect(db.company.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ companyCode: 'COMP-000001', createdById: 1 }),
+      data: expect.objectContaining({ firmId: 1, companyCode: 'COMP-000001', createdById: 1 }),
     });
     expect(db.$transaction).toHaveBeenCalled();
   });
@@ -246,7 +258,7 @@ describe('company repositories', () => {
     db.company.count.mockResolvedValueOnce(1);
 
     const service = new CompaniesRepository(asPrisma(db));
-    const result = await service.listCompanies({
+    const result = await service.listCompanies(1, {
       page: 1,
       limit: 20,
       search: 'nitish',
@@ -258,7 +270,7 @@ describe('company repositories', () => {
     expect(result.pagination.total).toBe(1);
     expect(result.companies[0]?.primaryContact?.name).toBe('Nitish');
     expect(db.company.findMany.mock.calls[0]?.[0]).toMatchObject({
-      where: { deletedAt: null, isActive: true },
+      where: { firmId: 1, deletedAt: null, isActive: true },
       skip: 0,
       take: 20,
     });
@@ -270,7 +282,7 @@ describe('company repositories', () => {
     db.companyContact.update.mockResolvedValueOnce(contact({ id: 2, isPrimary: true }));
 
     const service = new CompanyContactsRepository(asPrisma(db));
-    await service.setPrimaryContact(1, 2, { userId: 1 });
+    await service.setPrimaryContact(1, 1, 2, { userId: 1, firmId: 1 });
 
     expect(db.companyContact.updateMany).toHaveBeenCalledWith({
       where: { companyId: 1, deletedAt: null, isPrimary: true, NOT: { id: 2 } },
@@ -286,7 +298,7 @@ describe('company repositories', () => {
     db.companyContact.update.mockResolvedValue(contact());
 
     const service = new CompanyContactsRepository(asPrisma(db));
-    await service.deleteContact(1, 1, { userId: 1 });
+    await service.deleteContact(1, 1, 1, { userId: 1, firmId: 1 });
 
     expect(db.companyContact.update).toHaveBeenCalledWith({
       where: { id: 2 },
@@ -300,7 +312,7 @@ describe('company repositories', () => {
     db.companyAddress.update.mockResolvedValueOnce(address({ id: 2, isPrimary: true }));
 
     const service = new CompanyAddressesRepository(asPrisma(db));
-    await service.setPrimaryAddress(1, 2, { userId: 1 });
+    await service.setPrimaryAddress(1, 1, 2, { userId: 1, firmId: 1 });
 
     expect(db.companyAddress.updateMany).toHaveBeenCalledWith({
       where: {
@@ -319,7 +331,7 @@ describe('company repositories', () => {
     db.quotation.count.mockResolvedValueOnce(1);
 
     const service = new CompaniesRepository(asPrisma(db));
-    await expect(service.deleteCompany(1, { userId: 1 })).rejects.toMatchObject({
+    await expect(service.deleteCompany(1, 1, { userId: 1, firmId: 1 })).rejects.toMatchObject({
       statusCode: 409,
       message: 'Company cannot be deleted because quotations are linked to it.',
     });
@@ -331,7 +343,7 @@ describe('company repositories', () => {
     db.company.update.mockResolvedValueOnce(company({ deletedAt: now, isActive: false }));
 
     const service = new CompaniesRepository(asPrisma(db));
-    await service.deleteCompany(1, { userId: 1 });
+    await service.deleteCompany(1, 1, { userId: 1, firmId: 1 });
 
     expect(db.company.update).toHaveBeenCalledWith({
       where: { id: 1 },
@@ -347,7 +359,7 @@ describe('company repositories', () => {
     db.quotation.groupBy.mockResolvedValueOnce([]);
 
     const service = new CompaniesRepository(asPrisma(db));
-    await service.restoreCompany(1, { userId: 1 });
+    await service.restoreCompany(1, 1, { userId: 1, firmId: 1 });
 
     expect(db.company.update).toHaveBeenCalledWith({
       where: { id: 1 },
@@ -364,7 +376,7 @@ describe('company repositories', () => {
     db.quotation.count.mockResolvedValueOnce(1);
 
     const service = new CompaniesRepository(asPrisma(db));
-    const result = await service.listCompanyQuotations(1, {
+    const result = await service.listCompanyQuotations(1, 1, {
       page: 1,
       limit: 10,
       sortOrder: 'desc',

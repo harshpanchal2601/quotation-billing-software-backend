@@ -25,8 +25,8 @@ const addressAuditFields = [
 export class CompanyAddressesRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async createAddress(companyId: number, input: CompanyAddressCreateInput, metadata: RequestMetadata) {
-    await this.ensureActiveCompany(companyId);
+  async createAddress(firmId: number, companyId: number, input: CompanyAddressCreateInput, metadata: RequestMetadata) {
+    await this.ensureActiveCompany(firmId, companyId);
 
     const created = await this.db.$transaction(async (tx) => {
       if (input.isPrimary) {
@@ -51,13 +51,14 @@ export class CompanyAddressesRepository {
   }
 
   async updateAddress(
+    firmId: number,
     companyId: number,
     addressId: number,
     input: CompanyAddressUpdateInput,
     metadata: RequestMetadata,
   ) {
-    await this.ensureActiveCompany(companyId);
-    const existing = await this.getActiveAddress(companyId, addressId);
+    await this.ensureActiveCompany(firmId, companyId);
+    const existing = await this.getActiveAddress(firmId, companyId, addressId);
     const nextType = input.addressType ?? existing.addressType;
     const nextIsPrimary = input.isPrimary ?? existing.isPrimary;
     const data = toAddressUpdateData(input);
@@ -96,9 +97,9 @@ export class CompanyAddressesRepository {
     return serialiseAddress(updated);
   }
 
-  async deleteAddress(companyId: number, addressId: number, metadata: RequestMetadata) {
-    await this.ensureActiveCompany(companyId);
-    const existing = await this.getActiveAddress(companyId, addressId);
+  async deleteAddress(firmId: number, companyId: number, addressId: number, metadata: RequestMetadata) {
+    await this.ensureActiveCompany(firmId, companyId);
+    const existing = await this.getActiveAddress(firmId, companyId, addressId);
 
     await this.db.$transaction(async (tx) => {
       await tx.companyAddress.update({
@@ -114,9 +115,9 @@ export class CompanyAddressesRepository {
     await this.auditAddress(AuditAction.DELETE, existing, metadata);
   }
 
-  async setPrimaryAddress(companyId: number, addressId: number, metadata: RequestMetadata) {
-    await this.ensureActiveCompany(companyId);
-    const existing = await this.getActiveAddress(companyId, addressId);
+  async setPrimaryAddress(firmId: number, companyId: number, addressId: number, metadata: RequestMetadata) {
+    await this.ensureActiveCompany(firmId, companyId);
+    const existing = await this.getActiveAddress(firmId, companyId, addressId);
 
     const updated = await this.db.$transaction(async (tx) => {
       await tx.companyAddress.updateMany({
@@ -142,17 +143,17 @@ export class CompanyAddressesRepository {
     return serialiseAddress(updated);
   }
 
-  private async ensureActiveCompany(companyId: number) {
+  private async ensureActiveCompany(firmId: number, companyId: number) {
     const company = await this.db.company.findFirst({
-      where: { id: companyId, deletedAt: null },
+      where: { id: companyId, firmId, deletedAt: null },
       select: { id: true },
     });
     if (company === null) throw new AppError('Company not found', 404);
   }
 
-  private async getActiveAddress(companyId: number, addressId: number) {
+  private async getActiveAddress(firmId: number, companyId: number, addressId: number) {
     const address = await this.db.companyAddress.findFirst({
-      where: { id: addressId, companyId, deletedAt: null, company: { deletedAt: null } },
+      where: { id: addressId, companyId, deletedAt: null, company: { firmId, deletedAt: null } },
     });
     if (address === null) throw new AppError('Company address not found', 404);
     return address;

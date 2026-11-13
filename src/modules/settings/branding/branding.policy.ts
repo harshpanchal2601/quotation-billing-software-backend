@@ -3,12 +3,12 @@ import path from 'node:path';
 
 import multer from 'multer';
 
-import { storageConfig } from '../../../config/storage.config.js';
+import { firmPublicAssetDirectory, storageConfig } from '../../../config/storage.config.js';
 import { AppError } from '../../../core/errors/AppError.js';
 import {
   deleteStorageFile,
-  ensureStorageDirectory,
-  publicAssetPath,
+  createManagedUploadStorage,
+  storedUploadRelativePath,
   resolveStoragePath,
 } from '../../../integrations/storage/index.js';
 
@@ -29,30 +29,17 @@ const allowedMimeExtensions = {
 export const BRANDING_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 export const uploadBrandingAsset = multer({
-  storage: multer.diskStorage({
-    destination: async (req, _file, callback) => {
-      try {
-        const assetType = req.params.assetType as BrandingAssetType | undefined;
-        if (assetType === undefined || !(assetType in brandingAssetConfig)) {
-          callback(new AppError('Unsupported branding asset type', 404), '');
-          return;
-        }
-        const directory = brandingAssetConfig[assetType].directory;
-        await ensureStorageDirectory(directory);
-        callback(null, publicAssetPath(directory));
-      } catch (error) {
-        callback(error as Error, '');
-      }
-    },
-    filename: (req, file, callback) => {
+  storage: createManagedUploadStorage({
+    directory: (req) => {
       const assetType = req.params.assetType as BrandingAssetType | undefined;
+      if (!assetType || !(assetType in brandingAssetConfig)) throw new AppError('Unsupported branding asset type', 404);
+      if (req.firmId === undefined) throw new AppError('Firm context is required', 500);
+      return firmPublicAssetDirectory(req.firmId, brandingAssetConfig[assetType].directory, req.firmName);
+    },
+    filename: (req, file) => {
       const extension = allowedMimeExtensions[file.mimetype as keyof typeof allowedMimeExtensions];
-      if (assetType === undefined || extension === undefined) {
-        callback(new AppError('Unsupported image type', 415), '');
-        return;
-      }
-
-      callback(null, `${assetType}-${crypto.randomUUID()}${extension}`);
+      if (!extension) throw new AppError('Unsupported image type', 415);
+      return `${req.params.assetType}-${crypto.randomUUID()}${extension}`;
     },
   }),
   limits: {
@@ -102,8 +89,9 @@ export async function removeStoredBrandingAsset(relativePath: string | null) {
   }
 }
 
-export function toBrandingRelativePath(assetType: BrandingAssetType, filename: string) {
-  return `${brandingAssetConfig[assetType].directory}/${path.basename(filename)}`;
+export function toBrandingRelativePath(firmId: number, assetType: BrandingAssetType, filename: string, storedPath?: string) {
+  if (storedPath !== undefined) return storedUploadRelativePath(firmId, storageConfig.firmAssetDirectory, filename, storedPath, brandingAssetConfig[assetType].directory);
+  return `${firmPublicAssetDirectory(firmId, brandingAssetConfig[assetType].directory)}/${path.basename(filename)}`;
 }
 
 export function resolveBrandingPath(relativePath: string) {

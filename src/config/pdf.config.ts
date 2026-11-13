@@ -7,6 +7,9 @@ export const pdfConfig = {
   pdfOptions: {
     format: 'A4',
     printBackground: true,
+    displayHeaderFooter: true,
+    headerTemplate: '<span></span>',
+    footerTemplate: '<div style="width:100%;padding:0 15mm;text-align:right;font:9px Arial,sans-serif;color:#526077">Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>',
     margin: {
       top: '15mm',
       right: '15mm',

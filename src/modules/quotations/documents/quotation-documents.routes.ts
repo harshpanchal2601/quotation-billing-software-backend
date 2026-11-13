@@ -1,13 +1,14 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs';
 import { Router, type Request, type Response } from 'express';
 
-import { storageConfig } from '../../../config/storage.config.js';
+import { firmProtectedDirectory, storageConfig } from '../../../config/storage.config.js';
 import { AppError } from '../../../core/errors/AppError.js';
 import { asyncHandler } from '../../../core/http/asyncHandler.js';
-import { pdfService } from '../../../integrations/pdf/index.js';
+import { getFirmId } from '../../../core/tenancy/tenant-context.js';
+import { renderAndStorePdf } from '../../../integrations/documents/index.js';
 import { storageService } from '../../../integrations/storage/index.js';
-import { requireAuthentication, requireRole } from '../../auth/auth.middleware.js';
+import { requireAuthentication, requirePermission } from '../../auth/auth.middleware.js';
+import { PERMISSIONS } from '../../auth/permissions.js';
 import {
   getBusinessProfileRecordForQuotation,
   getDefaultBankDetailRecordForQuotation,
@@ -23,10 +24,10 @@ import type { GeneratedDocumentDto } from './quotation-documents.types.js';
 export const quotationDocumentsRouter = Router({ mergeParams: true });
 
 quotationDocumentsRouter.use(requireAuthentication);
-quotationDocumentsRouter.use(requireRole('ADMIN'));
 
 quotationDocumentsRouter.post(
   '/:id/pdf',
+  requirePermission(PERMISSIONS.QUOTATIONS_DOCUMENTS),
   asyncHandler(async (req: Request, res: Response) => {
     const quotationId = Number(req.params.id);
     if (!Number.isInteger(quotationId) || quotationId <= 0) {
@@ -38,18 +39,16 @@ quotationDocumentsRouter.post(
       throw new AppError('Authentication required', 401);
     }
 
-    const quotation = await quotationDocumentsRepository.findQuotationForPdf(quotationId);
-    if (!quotation) {
-      throw new AppError('Quotation not found', 404);
-    }
+    const firmId = getFirmId(req);
+    const { quotation, presentation } = await quotationDocumentsRepository.preparePresentation(firmId, quotationId, userId);
 
-    const businessProfile = await getBusinessProfileRecordForQuotation();
-    const fallbackBank = await getDefaultBankDetailRecordForQuotation();
+    const businessProfile = await getBusinessProfileRecordForQuotation(firmId);
+    const fallbackBank = await getDefaultBankDetailRecordForQuotation(firmId);
 
     const [logoDataUrl, signatureDataUrl, stampDataUrl] = await Promise.all([
-      getBrandingFileDataUrl('logo', businessProfile?.logoPath),
-      getBrandingFileDataUrl('signature', businessProfile?.signaturePath),
-      getBrandingFileDataUrl('stamp', businessProfile?.stampPath),
+      getBrandingFileDataUrl(firmId, 'logo', businessProfile?.logoPath),
+      getBrandingFileDataUrl(firmId, 'signature', businessProfile?.signaturePath),
+      getBrandingFileDataUrl(firmId, 'stamp', businessProfile?.stampPath),
     ]);
 
     const viewModel = buildQuotationPdfViewModel(
@@ -59,33 +58,29 @@ quotationDocumentsRouter.post(
       { logoDataUrl, signatureDataUrl, stampDataUrl },
     );
 
-    const html = renderQuotationHtmlTemplate(viewModel);
-    const pdfBuffer = await pdfService.generateBufferFromHtml(html);
+    const html = renderQuotationHtmlTemplate(viewModel, presentation);
 
     const fileUuid = crypto.randomUUID();
     const filename = `${fileUuid}.pdf`;
-    const relativeFilePath = `${storageConfig.quotationDocumentDirectory}/${filename}`;
+    const relativeFilePath = `${firmProtectedDirectory(storageConfig.quotationDocumentDirectory, firmId, req.firmName)}/${filename}`;
 
-    try {
-      await storageService.writeStorageFile(relativeFilePath, pdfBuffer);
-    } catch {
-      throw new AppError('Failed to save PDF file to disk', 500);
-    }
-
-    const fileHash = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
-    const documentVersionNumber = await quotationDocumentsRepository.getNextDocumentVersionNumber(quotation.id);
+    const rendered = await renderAndStorePdf(html, relativeFilePath);
 
     let generatedDoc;
     try {
       generatedDoc = await quotationDocumentsRepository.createGeneratedDocument({
+        firmId,
         quotationId: quotation.id,
-        versionNumber: documentVersionNumber,
+        fileSize: rendered.fileSize,
         filePath: relativeFilePath,
-        fileHash,
+        fileHash: rendered.fileHash,
         generatedById: userId,
+        presentation,
+        expectedUpdatedAt: quotation.updatedAt,
       });
-    } catch {
+    } catch (error) {
       await storageService.deleteStorageFile(relativeFilePath).catch(() => {});
+      if (error instanceof AppError) throw error;
       throw new AppError('Failed to record generated document metadata', 500);
     }
 
@@ -96,10 +91,11 @@ quotationDocumentsRouter.post(
         quotationId: quotation.id,
         quotationNumber: quotation.quotationNumber,
         revisionNumber: quotation.revisionNumber,
-        fileSize: pdfBuffer.length,
+        fileSize: rendered.fileSize,
       },
       {
         userId,
+        firmId,
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       },
@@ -137,15 +133,15 @@ async function streamPdfDocument(req: Request, res: Response, disposition: 'inli
     throw new AppError('Invalid document ID', 400);
   }
 
-  const doc = await quotationDocumentsRepository.findDocumentForQuotation(quotationId, documentId);
+  const doc = await quotationDocumentsRepository.findDocumentForQuotation(getFirmId(req), quotationId, documentId);
   if (!doc || !doc.quotation || doc.quotation.deletedAt) {
     throw new AppError('Generated document not found for this quotation', 404);
   }
 
-  const absolutePath = quotationDocumentsRepository.resolveDocumentAbsolutePath(doc.filePath);
+  quotationDocumentsRepository.resolveDocumentAbsolutePath(doc.filePath);
   const exists = await quotationDocumentsRepository.documentFileExists(doc.filePath);
   if (!exists) {
-    throw new AppError('PDF file not found on storage disk', 404);
+    throw new AppError('PDF file not found in storage', 404);
   }
 
   const safeQuotationNum = doc.quotation.quotationNumber.replace(/[^a-zA-Z0-9_-]/g, '-');
@@ -154,14 +150,13 @@ async function streamPdfDocument(req: Request, res: Response, disposition: 'inli
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `${disposition}; filename="${downloadFilename}"`);
 
-  const fileStream = fs.createReadStream(absolutePath);
-  fileStream.pipe(res);
+  await storageService.sendStorageFile(doc.filePath.replace(/^\/?storage\//, ''), res);
 }
 
-quotationDocumentsRouter.get('/:id/pdf/:documentId/preview', asyncHandler(async (req, res) => {
+quotationDocumentsRouter.get('/:id/pdf/:documentId/preview', requirePermission(PERMISSIONS.QUOTATIONS_DOCUMENTS), asyncHandler(async (req, res) => {
   await streamPdfDocument(req, res, 'inline');
 }));
 
-quotationDocumentsRouter.get('/:id/pdf/:documentId/download', asyncHandler(async (req, res) => {
+quotationDocumentsRouter.get('/:id/pdf/:documentId/download', requirePermission(PERMISSIONS.QUOTATIONS_DOCUMENTS), asyncHandler(async (req, res) => {
   await streamPdfDocument(req, res, 'attachment');
 }));

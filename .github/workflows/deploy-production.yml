@@ -3,7 +3,7 @@ name: Deploy Backend
 on:
   push:
     branches:
-      - feat/code-migration 
+      - main
   workflow_dispatch:
 
 permissions:

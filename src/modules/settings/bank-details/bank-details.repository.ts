@@ -11,8 +11,8 @@ import type { BankDetailCreateInput, BankDetailUpdateInput } from './bank-detail
 export class BankDetailsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async listBankDetails() {
-    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
+  async listBankDetails(firmId: number) {
+    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile(firmId);
     const bankDetails = await this.db.bankDetail.findMany({
       where: { businessProfileId: businessProfile.id, deletedAt: null },
       orderBy: [{ isDefault: 'desc' }, { bankName: 'asc' }, { createdAt: 'asc' }],
@@ -20,8 +20,8 @@ export class BankDetailsRepository {
     return bankDetails.map(serialiseBankDetail);
   }
 
-  async createBankDetail(input: BankDetailCreateInput, metadata: RequestMetadata) {
-    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
+  async createBankDetail(firmId: number, input: BankDetailCreateInput, metadata: RequestMetadata) {
+    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile(firmId);
 
     const created = await this.db.$transaction(async (tx) => {
       if (input.isDefault) {
@@ -43,8 +43,8 @@ export class BankDetailsRepository {
     return serialiseBankDetail(created);
   }
 
-  async updateBankDetail(id: number, input: BankDetailUpdateInput, metadata: RequestMetadata) {
-    const existing = await this.getExistingBankDetail(id);
+  async updateBankDetail(firmId: number, id: number, input: BankDetailUpdateInput, metadata: RequestMetadata) {
+    const existing = await this.getExistingBankDetail(firmId, id);
 
     const updated = await this.db.$transaction(async (tx) => {
       if (input.isDefault === true) {
@@ -69,8 +69,8 @@ export class BankDetailsRepository {
     return serialiseBankDetail(updated);
   }
 
-  async deleteBankDetail(id: number, metadata: RequestMetadata) {
-    const existing = await this.getExistingBankDetail(id);
+  async deleteBankDetail(firmId: number, id: number, metadata: RequestMetadata) {
+    const existing = await this.getExistingBankDetail(firmId, id);
 
     await this.db.$transaction(async (tx) => {
       await tx.bankDetail.update({
@@ -103,8 +103,8 @@ export class BankDetailsRepository {
     await this.auditBankDetail(AuditAction.DELETE, existing, metadata);
   }
 
-  async getDefaultBankDetailRecord() {
-    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
+  async getDefaultBankDetailRecord(firmId: number) {
+    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile(firmId);
     const defaultBank = await this.db.bankDetail.findFirst({
       where: { businessProfileId: businessProfile.id, deletedAt: null, isDefault: true },
     });
@@ -115,8 +115,8 @@ export class BankDetailsRepository {
     });
   }
 
-  async setDefaultBankDetail(id: number, metadata: RequestMetadata) {
-    const existing = await this.getExistingBankDetail(id);
+  async setDefaultBankDetail(firmId: number, id: number, metadata: RequestMetadata) {
+    const existing = await this.getExistingBankDetail(firmId, id);
 
     const updated = await this.db.$transaction(async (tx) => {
       await tx.bankDetail.updateMany({
@@ -141,8 +141,8 @@ export class BankDetailsRepository {
     return serialiseBankDetail(updated);
   }
 
-  private async getExistingBankDetail(id: number) {
-    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile();
+  private async getExistingBankDetail(firmId: number, id: number) {
+    const businessProfile = await this.getBusinessProfileRepository().getOrCreateBusinessProfile(firmId);
     const bankDetail = await this.db.bankDetail.findFirst({
       where: { id, businessProfileId: businessProfile.id, deletedAt: null },
     });

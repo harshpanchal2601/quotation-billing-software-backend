@@ -52,11 +52,12 @@ describe('dashboard routes', () => {
       topCustomers: [],
     } as never);
 
-    const req = { query: {} } as Request;
+    const req = { query: {}, firmId: 1 } as Request;
     const res = createRes();
 
     await getDashboardOverview(req, res);
 
+    expect(dashboardRepository.getDashboardOverview).toHaveBeenCalledWith(1, expect.any(Object));
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({

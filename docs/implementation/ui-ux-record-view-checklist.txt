@@ -1,0 +1,239 @@
+13 November 2026 — additional actual desktop views checked
+Approval inbox/pending/performed, independent request detail and decision form,
+customer receipt create/save/close/toast, receipt refund/cancellation history,
+quotation-derived invoice with paid/adjusted balance, foreign-firm not-found,
+issued PDF and protected restored-PDF access now have actual Chromium/DB evidence.
+Final4scenario acceptance PASS; see latest ui-ux-browser-review.txt for exact
+records, screenshots, artifacts and limits. Earlier named view checks remain
+historical evidence; this does not certify every conditional view or mobile.
+
+
+13 November 2026 — named desktop priorities completed
+Billing field-review/history and index spacing: completed source and real
+save/discard/return/toast/history ordering; independent13Nov reload and409 failure
+retention check. Credit-note2 is Draftv4/INR10, reference retained; not issued.
+CRM timeline: completed real activity create, guard, save/close/toast, independent
+reopen and subject order in both directions. Wider shared dialog verified.
+Platform audit/preview: completed shared detail, chronological order before
+paging,21–27of27 and published QA revision2 read-only preview with truthful
+feedback. Global exclusions stayed disabled; no plan/access mutation.
+Items:13Nov compact rows and complete names verified; no vertical character wrap.
+Approval inbox/notifications: empty/present states inspected; independent
+request/decision/expiry/execution remains OPEN and belongs to the role matrix.
+The old pending statements below are historical for these named rows. They do
+not mean whole-module variants or production release gates have been accepted.
+See ui-ux-browser-review.txt and ui-ux-remediation-delivery-report.txt.
+
+
+Latest shared layout and cross-scope check — 11 November 2026
+1 Old quotation1 rechecked: exactAccepted/revision0/INR50, shared customer/details/
+  addresses/notes/actions and team-only warning retained after common changes.
+5 Invoice5: Draftv2/INR51 unchanged; readable empty additional-field summary and
+  useful review/history actions only. No empty Save action.
+6 Proforma6: Issuedv3/INR26 unchanged; empty additional fields read only. Long50-
+  line notes now compact with natural-height totals; expanded final50th line and
+  collapsed again in the browser. Existing PDF history unchanged.
+7 Credit-note2: independently reloaded Draftv3/INR10 with saved QA reference.
+Shared DetailLayout owns preview/height behavior; no stored/PDF text is truncated.
+Other variants and separate review/history routes remain open. Narrow index/source
+line spacing in compact document tables is an explicit remaining table check.
+
+Latest billing row7 update — 11 November 2026
+Credit-note draft2 preferred overview/parties/line/totals, exactINR10, source and
+reason inspected. Issue preview cancelled without issuing. Shared detail now
+omits empty values saves and uses a deliberate guarded editor. Actual optional
+QA reference adoptionv2 then editor Keep editing/save/close/toast/summaryv3 were
+observed. Note remains Draft. No note PDF/issuance is claimed; the separate latest
+fields review route and historical field presentation still need remediation.
+
+Latest purchasing rows12..15 — 11 November 2026
+Actual current PO/receipt/return/bill/expense details inspected in the preferred
+shared style. Reference lookup moved into the stable compact editor; selected
+supplier/receipt and entered values survived a nonmatching search. New PO-000002
+saved to list/toast and reopened with exactINR26 total/item/description; remains
+Draft. Two-order reference sorting verified both directions. Bill trial discarded;
+expense editor closed cleanly. Exact records/limits in the current browser journal.
+Other negative/date/page/role/concurrency/action variants remain open.
+
+Latest desktop row updates — 11 November 2026
+9 Categories: actual new QA category create/save/list/toast/independent detail
+  and Keep editing observed; exact record/code in the browser journal.
+10 Measurement units: existing NOS and new QA11 details inspected; new unit
+  create/save/list/toast/Keep editing observed; existing name sort both ways.
+Both use the same shared guarded editor lifecycle. Unrecorded variants stay open.
+
+Latest scope: owner-confirmed India/local ERP first. Four integration features
+are now globally hard disabled; named firm-admin denials and retained local
+features were inspected. Both labelled colour-input consumers visually checked.
+Details and limits: current browser journal and delivery report.
+
+11 November 2026 — administration/settings additions
+22 Firm subscription: actual33feature labels, usage values and both feature/usage
+   sort directions inspected; downgrade/quota acceptance remains separate.
+New audit list/detail: compact rows, exact before/after, raw expansion, activity1739,
+   page2 numbering21..40 and both remote date orders inspected.
+Settings: BillingConfigurationv4, business profile restored, financial policyv2,
+   quotation defaults restored and one synthetic bank account created/edited.
+   Common summaries/editors, required/percentage/IFSC validation, confirmation,
+   close/list/toast and named discard flows inspected in the firm-admin browser.
+Roles/users: numbered readable users, username both ways, existing61-permission
+   role labels and Keep editing/Discard reviewed without changing access.
+Exact scope/limits and current validation: latest ui-ux-browser-review.txt and
+ui-ux-remediation-delivery-report.txt. Every unrecorded variant remains open.
+
+11 November 2026 — latest row updates (supersedes older pending text below)
+5/8 Payments and invoice settlement: latest shared desktop style inspected on
+  receipt2; simulated refund10 then remaining40cancellation verified, credit0.
+  Original receipt1/invoice1 applied100 preserved. Allocation reversal open.
+6 Proforma6: issued PF/2627/000001v3, total26; actual long-note PDFv2 inspected
+  on both pages with PageNofM. Conversion/negative/other templates remain open.
+16 Imports: actual preview rejected foreign unit, mixed batch3 committed1/2,
+  item3independently checked Active then Inactive after undo; history retained.
+17 Recurring: schedule1approved, worker generated exact invoiceDraft7/51,
+  completed period/nextdate observed; then scheduleCancelled. Other periods open.
+19 Portal: actual invitation, approved invoice-only grant, customer session,
+  IDsortbothways, exacttotals, staffhistory and contact revocation/401 inspected.
+  Other source kinds, quotation decisions and negative/expiry variants remain open.
+Reports/PDF/account mapping: final queued report PDFf506b8e6... inspected on both
+  pages, all8sections, no orphan content, exactvalues/pagefooters; old approved
+  export3830b068...removed viaUI. QA mapping1publication/save/discard and actual
+  balanced journal CSVdownload observed. External importer is unverified.
+Current validation and record IDs: ui-ux-browser-review.txt and delivery report.
+These are named journey passes, not blanket acceptance of every row/permission.
+
+ERP record-view consistency checklist — updated 11 November 2026
+Status: active. Source migration is not browser acceptance.
+Reference: older quotation view; shared DetailHeader, DetailSection,
+DetailFields, DetailActions, AmountSummary and numbered RecordTable.
+
+Review contract for EVERY row below
+[ ] Title/status/back link/breadcrumbs and grouped actions
+[ ] All original fields, exact quantities/money and linked history retained
+[ ] Aligned sections, totals, table numbers and applicable sorting
+[ ] Plain language and explicit cancellation consequences
+[ ] Loading, empty, failure, retry and permission states
+[ ] Create/save/close/list feedback and changed-form cancellation
+[ ] Desktop and keyboard/focus; phone/tablet review is owner-deferred
+[ ] Real QA records and linked results independently inspected
+[ ] PDF preview/download/pagination where supported
+No row is accepted until its applicable checks have runtime evidence.
+
+Routed full record views (router.tsx verified)
+1. /quotations/:id — QuotationDetailsPage.tsx
+   Shared migration implemented; preferred desktop layout observed on QA #1.
+   New-style mobile, all document/history/action states remain pending.
+2. /companies/:id — CompanyDetailsPage.tsx / CompanyDetailSections.tsx
+   Shared migration implemented. Desktop company #1 observed. Contact and
+   shipping-address create closed to numbered tables with success feedback.
+   Contact sort-by-name observed. Both directions with multiple records, mobile,
+   embedded panels, edit/delete/denied/error remain individual open checks.
+3. /items/:id — ItemDetailsPage.tsx / ItemStockPanel.tsx
+   Shared main view implemented; desktop QA component #1 fields observed.
+   Existing stock read verified 11 on hand, 0 reserved, INR 275 valuation.
+   Embedded stock headings and mobile remain open.
+4. /sales-orders/:id — SalesOrderDetailsPage.tsx / OrderStockPanel.tsx
+   Shared migration implemented. QA orders #1/#2 have real reservation/release,
+   completion/cancellation and fractional invoice conversion evidence (separate
+   browser report). Latest desktop order #2, conversion Save/Keep editing, invoice #4 cancellation
+   and quantity restoration observed 11 November. Other sort/page/negative
+   variants remain open; mobile is deferred.
+5. /invoices/:id — InvoiceDetailsPage.tsx / InvoiceSettlementPanel.tsx
+   Shared preferred style desktop observed on issued invoice #1. Keep invoice
+   closes cancellation without changing Issued/version 2. Latest error-colour,
+   rejection/dirty variants remain open; mobile is deferred. Real one-page PDF
+   observed. Latest draft #5 create/edit saves returned to list/toast with stable
+   customer/address and exact totals, verified 11 November.
+6. /proformas/:id — same InvoiceDetailsPage scope=proformas
+   Real proforma draft #6 created 11 November; save/list/toast and shared detail
+   layout observed. Subtotal25.50, round-off0.50, total26 retained. Issue preview
+   cancelled with Escape; Draft/version1 unchanged. Place of supply Gujarat (24)
+   verified. Actual issue/conversion/PDF and negative variants remain open.
+7. /billing-adjustments/:id — same InvoiceDetailsPage
+   Real credit-note draft #2 saved and reviewed before preferred style migration.
+   Latest style/mobile/issue/cancel/PDF checks remain open.
+8. /payments/:id — PaymentDetailsPage.tsx
+   Shared source; QA receipt #1 applied INR 100, invoice balance 0 independently
+   observed before latest preferred style. Latest layout and reverse/refund open.
+
+Record detail dialogs and embedded full views (entry components verified)
+9. Categories — CategoryDetailsDialog.tsx
+   Shared fields/section implemented. Default Uncategorised category desktop
+   fields, status and Close return to original action observed. Mobile/edit open.
+10. Measurement units — MeasurementUnitDetailsDialog.tsx
+    Shared fields/section implemented. Browser desktop/mobile/action review open.
+11. Manufacturing / work orders — ManufacturingPage.tsx
+    Shared detail sections and complete-set tables implemented. QA work order #1
+    desktop observed 11 November; movement quantity ascending -4,-2,2,4 and
+    descending 4,2,-2,-4 verified. One component control toggled both directions;
+    multiple-component ordering and new lifecycle variants remain open.
+12. Purchasing / purchase orders — PurchasingPage.tsx
+13. Purchasing / goods receipts and returns — PurchasingPage.tsx
+14. Purchasing / supplier bills — PurchasingPage.tsx
+15. Purchasing / expenses — PurchasingPage.tsx
+    Shared source implemented across all four. Actual QA PO/receipt/return/bill/
+    expense created and reconciled. Latest preferred style/plain-label desktop/
+    mobile recheck open (older mobile expense view observed).
+16. Import batch / row results — ImportsPage.tsx
+    Shared detail sections and row-result table implemented. Latest desktop
+    failed-row/recovery and commit-result acceptance remains open.
+17. Recurring schedule / preview / versions / periods — BillingSchedulesPage.tsx
+    Shared source migration is tracked separately from runtime evidence. Real
+    schedule approval/generation and latest desktop detail checks remain open.
+18. CRM lead activity and company timeline — CrmPage.tsx / CustomerTimeline.tsx
+    Shared presentation is used by the current activity/timeline flow. Earlier
+    QA activity creation exists; remaining desktop error/permission/history
+    variants remain open. Mobile is deferred.
+19. Customer portal shared quotation/order/invoice — PortalDocument.tsx
+    Separate customer session retains its session/API boundary. Shared document
+    presentation is implemented; real invitation/grant/customer-session browser
+    acceptance remains open.
+20. Platform plan/revision preview — PlatformPlansPage.tsx / PlatformSection
+21. Platform firm subscription/access/history — PlatformSubscriptionsPage.tsx
+22. Firm subscription and usage — FirmEntitlementsPage.tsx / EffectiveAccessPanel
+    These are inline configuration/read views, not routed detail pages. Inspect
+    shared PlatformSection/EffectiveAccessPanel before changes; latest preferred
+    style, long labels/mobile and allowed actions remain open.
+23. Automation published version history — AutomationPage.tsx
+    Shared numbered table and dialog, server sorting. Browser saved inactive
+    quotation-template v1/v2, observed closure/toast and both version directions.
+    Other configuration kinds, republishing and nonempty runs remain open.
+24. Assistant proposal review — ProposalReview.tsx
+    Shared numbered change table, readable exact target/status, expiry and
+    single-flight confirmation implemented. QA quotation #3 preview/cancellation
+    and cancelled-history result observed. Actual execution/expiry/error and
+    independent approval browser journeys remain open.
+25. Assistant Settings — AssistantSettingsPage.tsx
+    Shared availability/policy/connection sections and md-width policy editor.
+    Desktop visual layout, native numeric entry, actual save/close/toast, summary
+    version update, Keep editing and Discard all observed. Connected AI/storage
+    stayed off. Error/deletion confirmation regression checks are separate from
+    unexecuted live provider/retention-worker acceptance.
+
+Related previews and editors (separate lifecycle checks, same UI standards)
+- Quotation/billing saved PDF previews and quotation attachments.
+- Invoice additional-fields review (InvoiceFieldsReviewPage).
+- Company contact/address editors; item/company/quotation routed editors.
+- Invoice/order/quotation conversion dialogs and credit/debit-note editor.
+- Bank details, role/user and platform create/edit dialogs are editors, not
+  full record views; retain in form/permission/confirmation acceptance scope.
+- Inventory tab tables, webhook delivery history and audit logs are list views,
+  not full record pages; keep in numbered/sorting/empty-state review scope.
+- Approvals decision dialog is a consequential action, separately check its
+  preview/consequence/error/permission/focus paths.
+
+Outstanding broad work
+Keep ui-ux-remediation-plan.txt and ui-ux-browser-review.txt as the overall
+workflow/release record. This checklist prevents a single invoice fix from
+being reported as whole-ERP view acceptance. Wave 10/11 release gates stay open.
+
+11 November desktop continuation
+AssistantPage: Ask & search / Review document text / My history, exact names,
+server search/history ordering and original-question result context implemented.
+Real QA quotation #3 saved to list/toast (INR30). Selected extraction line
+transferred exactly (0.003,25.50), then reviewed quantity2 saved as invoice #5
+(INR51) to list/toast. Invoice customer remained visible after address selection.
+Order invoice #4 (INR25) created/cancelled; source order #2 restored available1.
+Dashboard recent quotations observed with No. and both quotation-number orders.
+Complete-set local sorting is never used for a paginated server result.
+Create-only invoice/proforma saved-summary handling has automated regressions;
+live browser acceptance under that restricted role remains open.

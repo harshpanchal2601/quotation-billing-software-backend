@@ -1,8 +1,15 @@
 import { AuditAction, ItemSourceType, Prisma, type Item, type PrismaClient } from '@prisma/client';
 
 import { AppError } from '../../core/errors/AppError.js';
+import { authorizeFirmJobActor } from '../auth/index.js';
+import { PERMISSIONS } from '../auth/permissions.js';
+import { resolveBusinessPolicy } from '../settings/index.js';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
+import { requestHash } from '../../core/idempotency/request-hash.js';
+import { jsonObject } from '../../core/serialization/json.js';
+import { listOrderBy } from '../../core/validation/list-sort.js';
+import { assertTransactionFeature, prepareStorageUsage, recordStorageReplacement, withFirmEntitlementTransaction } from '../entitlements/index.js';
 import { formatItemCode, findLatestItemCodeSequence } from './code/item-code.js';
 import { removeStoredItemImage, toItemRelativePath } from './images/item-image.policy.js';
 import {
@@ -34,13 +41,15 @@ const itemDetailInclude = {
 export class ItemsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async listItems(query: ItemListQuery) {
+  async listItems(firmId: number, query: ItemListQuery) {
     const where: Prisma.ItemWhereInput = {
+      firmId,
       deletedAt: null,
       ...(query.isActive === undefined ? {} : { isActive: query.isActive }),
       ...(query.categoryId === undefined ? {} : { categoryId: query.categoryId }),
       ...(query.measurementUnitId === undefined ? {} : { measurementUnitId: query.measurementUnitId }),
       ...(query.sourceType === undefined ? {} : { sourceType: query.sourceType }),
+      ...(query.kind === undefined ? {} : { kind: query.kind }),
       ...(query.minRate !== undefined || query.maxRate !== undefined
         ? {
             defaultRate: {
@@ -55,7 +64,7 @@ export class ItemsRepository {
     const [items, total] = await this.db.$transaction([
       this.db.item.findMany({
         where,
-        orderBy: { [query.sortBy]: query.sortOrder },
+        orderBy: listOrderBy(query, ['id', 'itemCode', 'name', 'defaultRate', 'gstRate', 'createdAt', 'updatedAt'], 'createdAt'),
         skip: (query.page - 1) * query.limit,
         take: query.limit,
         include: itemDetailInclude,
@@ -69,8 +78,9 @@ export class ItemsRepository {
     };
   }
 
-  async getItemOptions(query: ItemOptionsQuery) {
+  async getItemOptions(firmId: number, query: ItemOptionsQuery) {
     const where: Prisma.ItemWhereInput = {
+      firmId,
       deletedAt: null,
       isActive: true,
       category: {
@@ -104,17 +114,24 @@ export class ItemsRepository {
     };
   }
 
-  async createItem(input: ItemCreateInput, metadata: RequestMetadata) {
-    const categoryId = await this.resolveAndValidateCategory(input.categoryId);
-    await this.validateMeasurementUnit(input.measurementUnitId);
+  async createItem(firmId: number, input: ItemCreateInput, metadata: RequestMetadata) {
+    return this.createItemRecord(this.db, firmId, input, metadata);
+  }
 
-    const itemCode = await this.generateUniqueItemCodeWithRetry();
+  async createItemRecord(db: PrismaClient | Prisma.TransactionClient, firmId: number, input: ItemCreateInput, metadata: RequestMetadata, sourceExternalId?: string) {
+    const categoryId = await this.resolveAndValidateCategory(firmId, input.categoryId, db);
+    await this.validateMeasurementUnit(firmId, input.measurementUnitId, db);
 
-    const item = await this.db.item.create({
+    const itemCode = await this.generateUniqueItemCodeWithRetry(firmId, db);
+
+    const item = await db.item.create({
       data: {
+        firmId,
         itemCode,
         categoryId,
         name: input.name,
+        kind: input.kind ?? 'GOODS',
+        stockTracking: false,
         shortDescription: input.shortDescription ?? null,
         detailedDescription: input.detailedDescription ?? null,
         specifications: input.specifications as unknown as Prisma.InputJsonValue,
@@ -122,9 +139,9 @@ export class ItemsRepository {
         defaultRate: new Prisma.Decimal(input.defaultRate ?? '0.00'),
         hsnCode: input.hsnCode ?? null,
         gstRate: new Prisma.Decimal(input.gstRate ?? '18.00'),
-        sourceType: ItemSourceType.MANUAL,
+        sourceType: sourceExternalId === undefined ? ItemSourceType.MANUAL : ItemSourceType.CSV_IMPORT,
         sourceUrl: null,
-        sourceExternalId: null,
+        sourceExternalId: sourceExternalId ?? null,
         isActive: input.isActive ?? true,
         createdById: metadata.userId ?? null,
         updatedById: metadata.userId ?? null,
@@ -132,28 +149,35 @@ export class ItemsRepository {
       include: itemDetailInclude,
     });
 
-    await this.auditItem(AuditAction.CREATE, item, metadata);
+    await this.auditItem(AuditAction.CREATE, item, metadata, undefined, db);
     return serialiseItemDetail(item);
   }
 
-  async getItem(id: number) {
-    const item = await this.getExistingItemRecord(id);
+  async getItem(firmId: number, id: number) {
+    const item = await this.getExistingItemRecord(firmId, id);
     return serialiseItemDetail(item);
   }
 
-  async updateItem(id: number, input: ItemUpdateInput, metadata: RequestMetadata) {
-    const existing = await this.getExistingItemRecord(id);
+  async updateItem(firmId: number, id: number, input: ItemUpdateInput, metadata: RequestMetadata) {
+    return withFirmEntitlementTransaction(this.db, firmId, (tx) => this.updateItemRecord(tx, firmId, id, input, metadata));
+  }
+
+  private async updateItemRecord(tx: Prisma.TransactionClient, firmId: number, id: number, input: ItemUpdateInput, metadata: RequestMetadata) {
+    const existing = await tx.item.findFirst({ where: { id, firmId, deletedAt: null }, include: itemDetailInclude });
+    if (!existing) throw new AppError('Item not found', 404);
+    if (existing.stockTracking && ((input.kind !== undefined && input.kind !== existing.kind) || (input.measurementUnitId !== undefined && input.measurementUnitId !== existing.measurementUnitId))) throw new AppError('Tracked goods classification and stock unit cannot change; create a separately classified item', 409);
 
     let targetCategoryId = existing.categoryId;
     if (input.categoryId !== undefined) {
-      targetCategoryId = await this.resolveAndValidateCategory(input.categoryId);
+      targetCategoryId = await this.resolveAndValidateCategory(firmId, input.categoryId);
     }
 
     if (input.measurementUnitId !== undefined && input.measurementUnitId !== existing.measurementUnitId) {
-      await this.validateMeasurementUnit(input.measurementUnitId);
+      await this.validateMeasurementUnit(firmId, input.measurementUnitId);
     }
 
     const updateData: Prisma.ItemUpdateInput = {
+      ...(input.kind === undefined ? {} : { kind: input.kind }),
       ...(input.name === undefined ? {} : { name: input.name }),
       ...(input.categoryId === undefined ? {} : { category: { connect: { id: targetCategoryId ?? undefined } } }),
       ...(input.shortDescription === undefined ? {} : { shortDescription: input.shortDescription ?? null }),
@@ -167,18 +191,36 @@ export class ItemsRepository {
       updatedBy: metadata.userId ? { connect: { id: metadata.userId } } : undefined,
     };
 
-    const updated = await this.db.item.update({
+    const updated = await tx.item.update({
       where: { id },
       data: updateData,
       include: itemDetailInclude,
     });
 
-    await this.auditItem(AuditAction.UPDATE, updated, metadata, existing);
+    await this.auditItem(AuditAction.UPDATE, updated, metadata, existing, tx);
     return serialiseItemDetail(updated);
   }
 
-  async updateItemStatus(id: number, isActive: boolean, metadata: RequestMetadata) {
-    const existing = await this.getExistingItemRecord(id);
+  async setInventory(firmId: number, id: number, stockTracking: boolean, metadata: RequestMetadata) {
+    if (!metadata.userId) throw new AppError('Authentication required', 401);
+    const actorId = metadata.userId;
+    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      await authorizeFirmJobActor(tx, firmId, actorId, PERMISSIONS.INVENTORY_MANAGE);
+      await authorizeFirmJobActor(tx, firmId, actorId, PERMISSIONS.ITEMS_MANAGE);
+      await assertTransactionFeature(tx, firmId, 'inventory'); await assertTransactionFeature(tx, firmId, 'items');
+      if (stockTracking && (await resolveBusinessPolicy(tx, firmId)).policy.sales?.preset === 'SERVICE') throw new AppError('The service-only preset does not enable inventory', 403);
+      const existing = await tx.item.findFirst({ where: { id, firmId, deletedAt: null }, include: itemDetailInclude });
+      if (!existing) throw new AppError('Item not found', 404);
+      if (stockTracking && existing.kind !== 'GOODS') throw new AppError('Service items cannot track stock', 409);
+      if (existing.stockTracking === stockTracking) return serialiseItemDetail(existing);
+      if (!stockTracking && (await tx.stockMovement.count({ where: { firmId, position: { itemId: id } } }) || await tx.stockReservation.count({ where: { firmId, status: 'ACTIVE', position: { itemId: id } } }) || await tx.purchaseOrderLine.count({ where: { firmId, itemId: id, order: { status: { notIn: ['CANCELLED', 'RECEIVED'] } } } }) || await tx.salesOrderLine.count({ where: { firmId, order: { status: { not: 'CANCELLED' } }, AND: [{ snapshot: { path: '$.itemId', equals: id } }, { snapshot: { path: '$.stockTracking', equals: true } }] } }))) throw new AppError('Stock tracking is retained for items with stock history or open commitments', 409);
+      const updated = await tx.item.update({ where: { id }, data: { stockTracking, updatedById: actorId }, include: itemDetailInclude });
+      await this.auditItem(AuditAction.UPDATE, updated, metadata, existing, tx); return serialiseItemDetail(updated);
+    });
+  }
+
+  async updateItemStatus(firmId: number, id: number, isActive: boolean, metadata: RequestMetadata) {
+    const existing = await this.getExistingItemRecord(firmId, id);
 
     if (existing.isActive === isActive) {
       return serialiseItemDetail(existing);
@@ -206,24 +248,27 @@ export class ItemsRepository {
     return serialiseItemDetail(updated);
   }
 
-  async deleteItem(id: number, metadata: RequestMetadata) {
-    const existing = await this.getExistingItemRecord(id);
+  async deleteItem(firmId: number, id: number, metadata: RequestMetadata) {
+    return withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      const existing = await tx.item.findFirst({ where: { id, firmId, deletedAt: null }, include: itemDetailInclude });
+      if (!existing) throw new AppError('Item not found', 404);
+      if (existing.stockTracking) throw new AppError('Tracked inventory items must be retained for traceability; deactivate the item instead', 409);
+      await tx.item.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          isActive: false,
+          updatedById: metadata.userId ?? null,
+        },
+      });
 
-    await this.db.item.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        isActive: false,
-        updatedById: metadata.userId ?? null,
-      },
+      await this.auditItem(AuditAction.DELETE, existing, metadata, undefined, tx);
     });
-
-    await this.auditItem(AuditAction.DELETE, existing, metadata);
   }
 
-  async restoreItem(id: number, metadata: RequestMetadata) {
+  async restoreItem(firmId: number, id: number, metadata: RequestMetadata) {
     const existing = await this.db.item.findFirst({
-      where: { id, deletedAt: { not: null } },
+      where: { id, firmId, deletedAt: { not: null } },
       include: itemDetailInclude,
     });
 
@@ -257,31 +302,38 @@ export class ItemsRepository {
     return serialiseItemDetail(restored);
   }
 
-  async uploadItemImage(id: number, file: Express.Multer.File, metadata: RequestMetadata) {
+  async uploadItemImage(firmId: number, id: number, file: Express.Multer.File, metadata: RequestMetadata) {
     const existing = await this.db.item.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, firmId, deletedAt: null },
       include: itemDetailInclude,
     });
 
     if (existing === null) {
-      await removeStoredItemImage(toItemRelativePath(file.filename));
+      await removeStoredItemImage(toItemRelativePath(firmId, file.filename, file.path));
       throw new AppError('Item not found', 404);
     }
 
-    const newRelativePath = toItemRelativePath(file.filename);
-    const oldRelativePath = existing.imagePath;
+    const newRelativePath = toItemRelativePath(firmId, file.filename, file.path);
+    let oldRelativePath: string | null = null;
+    let removePrevious = false;
 
     try {
-      const updated = await this.db.item.update({
-        where: { id },
-        data: {
-          imagePath: newRelativePath,
-          updatedById: metadata.userId ?? null,
-        },
-        include: itemDetailInclude,
+      const updated = await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+        const current = await tx.item.findFirst({ where: { id, firmId, deletedAt: null } });
+        if (current === null) throw new AppError('Item not found', 404);
+        oldRelativePath = current.imagePath;
+        await assertTransactionFeature(tx, firmId, 'items');
+        await prepareStorageUsage(tx, firmId);
+        const item = await tx.item.update({
+          where: { id },
+          data: { imagePath: newRelativePath, updatedById: metadata.userId ?? null },
+          include: itemDetailInclude,
+        });
+        removePrevious = await recordStorageReplacement(tx, firmId, BigInt(file.size), oldRelativePath, `image:${newRelativePath}`);
+        return item;
       });
 
-      if (oldRelativePath) {
+      if (removePrevious && oldRelativePath) {
         await removeStoredItemImage(oldRelativePath);
       }
 
@@ -300,25 +352,31 @@ export class ItemsRepository {
     }
   }
 
-  async deleteItemImage(id: number, metadata: RequestMetadata) {
-    const existing = await this.getExistingItemRecord(id);
+  async deleteItemImage(firmId: number, id: number, metadata: RequestMetadata) {
+    const existing = await this.getExistingItemRecord(firmId, id);
 
     if (existing.imagePath === null) {
       return serialiseItemDetail(existing);
     }
 
-    const oldRelativePath = existing.imagePath;
-
-    const updated = await this.db.item.update({
-      where: { id },
-      data: {
-        imagePath: null,
-        updatedById: metadata.userId ?? null,
-      },
-      include: itemDetailInclude,
+    let oldRelativePath: string | null = null;
+    let removePrevious = false;
+    const updated = await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      const current = await tx.item.findFirst({ where: { id, firmId, deletedAt: null }, include: itemDetailInclude });
+      if (current === null) throw new AppError('Item not found', 404);
+      if (current.imagePath === null) return current;
+      oldRelativePath = current.imagePath;
+      await prepareStorageUsage(tx, firmId);
+      const item = await tx.item.update({
+        where: { id },
+        data: { imagePath: null, updatedById: metadata.userId ?? null },
+        include: itemDetailInclude,
+      });
+      removePrevious = await recordStorageReplacement(tx, firmId, 0n, oldRelativePath, `image:delete:${id}:${current.updatedAt.toISOString()}`);
+      return item;
     });
 
-    await removeStoredItemImage(oldRelativePath);
+    if (removePrevious) await removeStoredItemImage(oldRelativePath);
 
     await createAuditLog(this.db, {
       metadata,
@@ -332,8 +390,9 @@ export class ItemsRepository {
     return serialiseItemDetail(updated);
   }
 
-  private async generateNextItemCode(db: PrismaClient | Prisma.TransactionClient): Promise<string> {
+  private async generateNextItemCode(db: PrismaClient | Prisma.TransactionClient, firmId: number): Promise<string> {
     const latestItem = await db.item.findFirst({
+      where: { firmId },
       select: { itemCode: true },
       orderBy: { id: 'desc' },
     });
@@ -348,6 +407,7 @@ export class ItemsRepository {
     }
 
     const recentItems = await db.item.findMany({
+      where: { firmId },
       select: { itemCode: true },
       take: 1000,
       orderBy: { id: 'desc' },
@@ -358,22 +418,22 @@ export class ItemsRepository {
     return formatItemCode(maxNum + 1);
   }
 
-  private async generateUniqueItemCodeWithRetry(): Promise<string> {
+  private async generateUniqueItemCodeWithRetry(firmId: number, db: PrismaClient | Prisma.TransactionClient = this.db): Promise<string> {
     let currentNum: number | null = null;
 
     for (let attempt = 0; attempt < MAX_ITEM_CODE_RETRIES; attempt += 1) {
       let candidate: string;
 
       if (currentNum === null) {
-        candidate = await this.generateNextItemCode(this.db);
+        candidate = await this.generateNextItemCode(db, firmId);
         currentNum = parseItemCodeFromMatch(candidate) ?? 1;
       } else {
         currentNum += 1;
         candidate = formatItemCode(currentNum);
       }
 
-      const existing = await this.db.item.findFirst({
-        where: { itemCode: candidate },
+      const existing = await db.item.findFirst({
+        where: { firmId, itemCode: candidate },
         select: { id: true },
       });
 
@@ -385,9 +445,9 @@ export class ItemsRepository {
     throw new AppError('Unable to generate a unique item code due to high concurrency. Please retry.', 409);
   }
 
-  private async getExistingItemRecord(id: number): Promise<ItemWithRelations> {
+  private async getExistingItemRecord(firmId: number, id: number): Promise<ItemWithRelations> {
     const item = await this.db.item.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, firmId, deletedAt: null },
       include: itemDetailInclude,
     });
 
@@ -398,10 +458,10 @@ export class ItemsRepository {
     return item;
   }
 
-  private async resolveAndValidateCategory(categoryId?: number): Promise<number> {
+  private async resolveAndValidateCategory(firmId: number, categoryId?: number, db: PrismaClient | Prisma.TransactionClient = this.db): Promise<number> {
     if (categoryId !== undefined) {
-      const category = await this.db.itemCategory.findFirst({
-        where: { id: categoryId, deletedAt: null },
+      const category = await db.itemCategory.findFirst({
+        where: { id: categoryId, firmId, deletedAt: null },
       });
 
       if (category === null || !category.isActive) {
@@ -411,8 +471,8 @@ export class ItemsRepository {
       return category.id;
     }
 
-    const defaultCategory = await this.db.itemCategory.findFirst({
-      where: { slug: UNCATEGORISED_SLUG, deletedAt: null },
+    const defaultCategory = await db.itemCategory.findFirst({
+      where: { firmId, slug: UNCATEGORISED_SLUG, deletedAt: null },
     });
 
     if (defaultCategory === null || !defaultCategory.isActive) {
@@ -422,9 +482,9 @@ export class ItemsRepository {
     return defaultCategory.id;
   }
 
-  private async validateMeasurementUnit(measurementUnitId: number): Promise<void> {
-    const unit = await this.db.measurementUnit.findFirst({
-      where: { id: measurementUnitId, deletedAt: null },
+  private async validateMeasurementUnit(firmId: number, measurementUnitId: number, db: PrismaClient | Prisma.TransactionClient = this.db): Promise<void> {
+    const unit = await db.measurementUnit.findFirst({
+      where: { id: measurementUnitId, firmId, deletedAt: null },
     });
 
     if (unit === null || !unit.isActive) {
@@ -437,10 +497,13 @@ export class ItemsRepository {
     item: Item,
     metadata: RequestMetadata,
     previous?: Item,
+    db: PrismaClient | Prisma.TransactionClient = this.db,
   ) {
     const newSummary: Record<string, unknown> = {
       itemCode: item.itemCode,
       name: item.name,
+      kind: item.kind,
+      stockTracking: item.stockTracking,
       categoryId: item.categoryId,
       measurementUnitId: item.measurementUnitId,
       defaultRate: item.defaultRate.toString(),
@@ -453,6 +516,8 @@ export class ItemsRepository {
       oldSummary = {
         itemCode: previous.itemCode,
         name: previous.name,
+        kind: previous.kind,
+        stockTracking: previous.stockTracking,
         categoryId: previous.categoryId,
         measurementUnitId: previous.measurementUnitId,
         defaultRate: previous.defaultRate.toString(),
@@ -461,11 +526,12 @@ export class ItemsRepository {
       };
     }
 
-    await createAuditLog(this.db, {
+    await createAuditLog(db, {
       metadata,
       entityType: 'Item',
       entityId: String(item.id),
       action,
+      policy: db === this.db ? 'BEST_EFFORT' : 'REQUIRED',
       oldValues: oldSummary as Prisma.InputJsonObject | undefined,
       newValues: newSummary as Prisma.InputJsonObject,
     });
@@ -494,3 +560,8 @@ function createItemSearchFilter(search: string): Prisma.ItemWhereInput {
 }
 
 export const itemsRepository = new ItemsRepository(prisma);
+export async function createItemForImport(tx: Prisma.TransactionClient, firmId: number, input: ItemCreateInput, metadata: RequestMetadata, sourceExternalId: string) {
+  const created = await itemsRepository.createItemRecord(tx, firmId, input, metadata, sourceExternalId);
+  const record = await tx.item.findUniqueOrThrow({ where: { id: created.id } });
+  return { id: record.id, updatedAt: record.updatedAt, fingerprint: requestHash(jsonObject(record)) };
+}

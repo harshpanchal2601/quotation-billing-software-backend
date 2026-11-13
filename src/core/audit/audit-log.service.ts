@@ -1,7 +1,9 @@
 import type { AuditAction, Prisma, PrismaClient } from '@prisma/client';
+import { logOperationalEvent } from '../observability/logger.js';
 
 export type RequestMetadata = {
   userId?: number;
+  firmId?: number;
   ipAddress?: string;
   userAgent?: string;
 };
@@ -13,6 +15,7 @@ export async function createAuditLog(
     entityType: string;
     entityId: string;
     action: AuditAction;
+    policy?: 'REQUIRED' | 'BEST_EFFORT';
     oldValues?: Prisma.InputJsonObject;
     newValues?: Prisma.InputJsonObject;
   },
@@ -20,6 +23,7 @@ export async function createAuditLog(
   try {
     await db.auditLog.create({
       data: {
+        firmId: input.metadata.firmId,
         userId: input.metadata.userId,
         entityType: input.entityType,
         entityId: input.entityId,
@@ -31,8 +35,8 @@ export async function createAuditLog(
       },
     });
   } catch (error) {
-    console.warn(`${input.entityType} audit log could not be created.`);
-    console.warn(error instanceof Error ? error.message : 'Unknown audit error');
+    if (input.policy === 'REQUIRED') throw error;
+    logOperationalEvent('warn', { event: 'audit.best_effort.failed' });
   }
 }
 

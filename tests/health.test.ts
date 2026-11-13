@@ -7,6 +7,10 @@ process.env.FRONTEND_URL = 'http://localhost:5173';
 process.env.DATABASE_URL = 'mysql://user:password@localhost:3306/buminex_quotation';
 process.env.JWT_ACCESS_SECRET = 'access-secret';
 process.env.JWT_REFRESH_SECRET = 'refresh-secret';
+process.env.OUTBOX_WORKER_ENABLED = 'false';
+
+const runtime = vi.hoisted(() => ({ isDraining: vi.fn(), workerReady: vi.fn() }));
+vi.mock('../src/core/observability/runtime.js', () => ({ runtimeState: runtime }));
 
 vi.mock('../src/core/database/prisma.js', () => ({
   prisma: {
@@ -20,7 +24,7 @@ vi.mock('../src/core/database/database-health.js', () => ({
 
 type RouteLayer = {
   route?: {
-    path: string;
+    path: string | string[];
     stack: Array<{
       handle: RequestHandler;
     }>;
@@ -34,7 +38,7 @@ type JsonResponse = {
 
 function getRouteHandler(path: string): RequestHandler {
   const router = healthRouter as unknown as { stack: RouteLayer[] };
-  const layer = router.stack.find((candidate) => candidate.route?.path === path);
+  const layer = router.stack.find((candidate) => candidate.route?.path === path || (Array.isArray(candidate.route?.path) && candidate.route.path.includes(path)));
   const handler = layer?.route?.stack[0]?.handle;
 
   if (handler === undefined) {
@@ -50,18 +54,18 @@ async function callHandler(handler: RequestHandler): Promise<JsonResponse> {
     body: undefined,
   };
 
-  const response = {
-    status: vi.fn((statusCode: number) => {
-      jsonResponse.statusCode = statusCode;
-      return response;
-    }),
-    json: vi.fn((body: unknown) => {
-      jsonResponse.body = body;
-      return response;
-    }),
-  } as unknown as Response;
-
   await new Promise<void>((resolve, reject) => {
+    const response = {
+      status: vi.fn((statusCode: number) => {
+        jsonResponse.statusCode = statusCode;
+        return response;
+      }),
+      json: vi.fn((body: unknown) => {
+        jsonResponse.body = body;
+        resolve();
+        return response;
+      }),
+    } as unknown as Response;
     const next: NextFunction = (error?: unknown) => {
       if (error) {
         reject(error);
@@ -71,14 +75,15 @@ async function callHandler(handler: RequestHandler): Promise<JsonResponse> {
       resolve();
     };
 
-    const result = handler({} as Request, response, next);
+    const result: unknown = handler({} as Request, response, next);
 
     if (result instanceof Promise) {
       result.then(() => resolve()).catch(reject);
       return;
     }
 
-    resolve();
+    // asyncHandler intentionally returns void. Wait for json()/next(), rather
+    // than treating that return as evidence the async route has completed.
   });
 
   return jsonResponse;
@@ -89,16 +94,18 @@ const { checkDatabaseHealth } = await import('../src/core/database/database-heal
 
 describe('health endpoints', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    runtime.isDraining.mockReturnValue(false);
+    runtime.workerReady.mockReturnValue(true);
   });
 
-  it('returns the original API health response', async () => {
+  it('returns the current API health response', async () => {
     const response = await callHandler(getRouteHandler('/'));
 
     expect(response.statusCode).toBe(200);
     expect(response.body).toEqual({
       success: true,
-      message: 'Buminex API is running',
+      message: 'ERP API is running',
       data: {
         status: 'healthy',
       },
@@ -133,5 +140,34 @@ describe('health endpoints', () => {
         status: 'unhealthy',
       },
     });
+  });
+
+  it('keeps liveness independent of a failed database and worker', async () => {
+    runtime.workerReady.mockReturnValue(false);
+    vi.mocked(checkDatabaseHealth).mockRejectedValue(new Error('Unavailable'));
+    expect((await callHandler(getRouteHandler('/live'))).statusCode).toBe(200);
+    expect(checkDatabaseHealth).not.toHaveBeenCalled();
+    expect((await callHandler(getRouteHandler('/ready'))).statusCode).toBe(503);
+  });
+
+  it('checks readiness again when shutdown starts during a database probe', async () => {
+    vi.mocked(checkDatabaseHealth).mockImplementationOnce(async () => { runtime.isDraining.mockReturnValue(true); });
+    const response = await callHandler(getRouteHandler('/ready'));
+    expect(response.statusCode).toBe(503);
+    expect(response.body).toEqual({ success: false, message: 'Service is not ready', data: { status: 'not_ready' } });
+  });
+
+  it('reports readiness without database or worker internals', async () => {
+    vi.mocked(checkDatabaseHealth).mockResolvedValueOnce(undefined);
+    expect((await callHandler(getRouteHandler('/ready'))).body).toEqual({ success: true, message: 'Service is ready', data: { status: 'ready' } });
+    runtime.isDraining.mockReturnValue(true);
+    expect((await callHandler(getRouteHandler('/ready'))).statusCode).toBe(503);
+  });
+
+  it('exposes only generic disabled or unavailable worker status', async () => {
+    expect((await callHandler(getRouteHandler('/worker'))).body).toEqual({ success: true, message: 'Worker is available', data: { status: 'disabled' } });
+    runtime.workerReady.mockReturnValue(false);
+    expect(await callHandler(getRouteHandler('/worker'))).toEqual({ statusCode: 503, body: { success: false, message: 'Worker is unavailable', data: { status: 'unhealthy' } } });
+    expect(checkDatabaseHealth).not.toHaveBeenCalled();
   });
 });

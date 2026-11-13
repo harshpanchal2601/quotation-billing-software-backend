@@ -1,0 +1,248 @@
+13 November 2026 — fresh firm5 desktop QA closeout completed
+The remaining independent approval/automation, reversal/cancellation and final
+reconciliation tasks are complete in actual desktop UI. Invoice18 was requested
+by Accounts13, reviewed by Admin9, explicitly issued, notified and settled.
+Receipt5 reversal retained refund20; replacement6 settled both invoices; credit0,
+stock400/reserved0/eight movements. Billed-receipt cancellation safely denied.
+Final frontend build/lint and106 focused checks PASS; read-only DB checks10/10.
+Full evidence and changed paths: newest ui-ux-remediation-delivery-report.txt and
+ui-ux-browser-review.txt. Earlier isolated integration/load/recovery evidence below
+is retained. No known failing case remains in these recorded local scenarios.
+Video is OWNER-DEFERRED; mobile/unverified providers remain owner-excluded.
+Production deployment, legacy upgrade and independent accounting/legal/security/
+operations/rollout acceptance remain separate and are not certified by local QA.
+
+
+13 November 2026 — isolated local acceptance executed (latest update)
+COMPLETED:160/160 real MySQL integration checks across11files;4/4 actual Chromium
+browser/composed/recovery scenarios;1/1 large-data reporting baseline;28/28 scoped
+unit/HTTP checks; backend typecheck and lint. Local performance p95:2515.40ms,
+40 reads,2 simultaneous tenants,100,000 invoices and1,000,000 movements PER tenant.
+This is a measured local baseline, not an approved production latency objective.
+
+Independent requester/reviewer logins, self-approval403, exact invoice approval,
+perform-once issuance, idempotent retry, foreign-firm404 and protected real-PDF
+access were exercised against the real frontend5173 and an isolated real API/DB.
+The same accepted quotation/approved invoice then reconciled partial/full
+receipts, one refunded5.00 despite retry, reversed10.00, credit5.00 and final
+adjusted/allocated15.00/outstanding0.00; original invoice20.00 remains immutable.
+One receipt was entered through the real browser form; later finance commands
+used real authenticated API requests from that browser, with UI result rechecks.
+
+Fresh apply of all20 migrations on13 unique disposable schemas was authorized.
+Application ledger was read only:20/20 source/applied/checksums match, no unfinished
+or rolled-back entry. No application migration or production data edit occurred.
+Recovery passed:104 tables/478 rows exact count/hash match,23 triggers preserved,
+restored immutability guard, final settlement and protected PDF/tenant denial.
+Export166.19ms, import875.29ms, export/import/verification1304.02ms on this
+small synthetic snapshot; these are not production RPO/RTO or scale guarantees.
+Actual isolated healthy-worker and unavailable-DB processes returned safe health
+responses and exited0 on SIGTERM (15ms/8ms). Existing3004 probes all returned200;
+that working process was not restarted or faulted. Disposable schemas removed.
+
+One production defect fixed: foreign supplier-bill source references previously
+hit a composite FK before ownership validation, returning500. The existing firm
+transaction now checks firm/supplier ownership first and safely returns404,
+without bill/line/audit effects. Published-plan fixture setup now adds child
+features/quotas before publication; immutable production triggers remain intact.
+
+Detailed commands, all changed paths, failure history and evidence limits are in
+ui-ux-remediation-delivery-report.txt and ui-ux-browser-review.txt. Private evidence:
+/Users/harshpanchal/Documents/Bhuminex-QA-Artifacts/2026-11-13-closeout-4661f7c4
+This update supersedes older blanket NOT RUN/pending claims only for these named
+scenarios. Exhaustive endpoint/variant matrices, original legacy-snapshot upgrade,
+independent accounting/legal/security acceptance, production SLO/DR/retention,
+monitoring/alert ownership, packaging and rollout remain unaccepted. Mobile and
+unverified external integrations remain owner-excluded. No deployment or whole-ERP
+production certification is claimed. No new known failure in the named local run.
+
+
+11 November 2026 — owner-confirmed India local-first scope
+The owner selected: Local ERP workflows first; keep unverified external
+integrations disabled. Provider activation is excluded from the first release,
+not an unfulfilled requirement to activate a gateway/SMTP/tax/LLM service now.
+
+Applied through the existing audited platform controls, without new environment
+flags, erased credentials, plan-version edits or a parallel authorization path:
+- quotations.email: globally hard disabled,16:27:29 Asia/Kolkata.
+- integrations.api: globally hard disabled,16:27:39.
+- integrations.webhooks: globally hard disabled,16:27:48.
+- ai.credits: globally hard disabled,16:28:06.
+Reason records the owner's India local-first decision and later provider
+acceptance requirement. Platform audit identifies administrator1 for all four.
+The changes affect all firms in this local installation. They are reversible
+through the existing controls, with a new explicit audited change reason.
+
+Reload proved all four persisted. Firm-admin Subscription & Usage independently
+showed Denied / Disabled by the platform administrator for all four; local
+assistant and report downloads remained Allowed / Included in your plan.
+The QA plan still contains33 selected features; its published revision and
+assignment were not edited.29 remain effectively allowed after these exclusions.
+
+Provider readiness: only the read-only diagnostic tab remains for this actor;
+API-key and webhook management tabs are absent. SMTP now Enabled No; payment and
+India e-invoice/e-way services Enabled No and unavailable. No outbound message,
+provider validation call, payment, tax submission, new credential or wider access
+was created. The shared provider table uses readable status/provider names and
+business guidance, while response status/provider identifiers remain unchanged.
+
+Important chronology correction: SMTP configuration was already present and
+quotation-email permission was previously allowed. Configuration alone did not
+mean email was disabled. Earlier broad statements that all integrations were
+off must be read with this later verified exclusion. SMTP secrets were preserved,
+not printed, copied into reports or modified. No .env edit was needed.
+
+This closes the owner scope decision and named exclusion checks only. Desktop
+variants, composed business/access/quota coverage, local accounting/document/
+legal review and operational recovery/load/security/rollout acceptance remain
+open. Mobile is owner-deferred. No release/deployment is accepted by this note.
+
+11 November 2026 — administration/settings evidence update
+Later named desktop checks now cover subscription feature/usage wording and
+ordering; users/roles labels and discard; compact audit detail/paging/order;
+billing configuration's read/write response fix; protected business/quotation
+settings; version-confirmed financial policies; and synthetic bank create/edit
+with the common compact row-action menu. The exact native-browser outcomes,
+modified files, validation and limits are recorded in the newest sections of
+ui-ux-browser-review.txt and ui-ux-remediation-delivery-report.txt.
+These advance desktop group5; the tracker remains4completed/3open workgroups.
+They do not certify whole-module, full ERP or Wave10/11 release acceptance.
+India confirmed, mobile deferred, all unverified live integrations remain off.
+
+11 November 2026 — current verification clarification
+The historical blanket NOT RUN statement is superseded for explicitly recorded
+checks and journeys. Frontend typecheck/lint/tests/build and backend typecheck/
+lint/affected unit tests are owner-approved and have executed. Current counts,
+logs, actual native-browser records and remaining limitations are recorded in
+ui-ux-remediation-delivery-report.txt and ui-ux-browser-review.txt.
+
+Actual local QA now includes controlled mixed-row item import/compensation,
+manufacturing completion/reversal from earlier evidence, source reports, real
+queued PDF processing/download, approved export removal and balanced billing
+journal mapping/publication/download. These do not establish every negative,
+concurrent, storage-quota or provider case in the matrix below.
+
+Read-only DB ledger verified20of20source migrations applied, all checksums match,
+no missing/unfinished/rolled-back entry. No migration command was run. This does
+not prove upgrade, backup, restore or production recovery. Whole Wave10/11
+acceptance remains OPEN; mobile is owner-deferred and live providers remain off.
+
+Historical matrix/check requirements follow:
+
+Wave 10 verification matrix
+Updated: 10 November 2026
+Status of EVERY executable check below: NOT RUN. Source coverage is not a pass.
+Reason: direct user prohibition on package, test/build/lint/format, migration,
+Git, Docker and deployment commands. No application/provider was exercised.
+
+1. Reports and source reconciliation
+Entry: reports.routes -> ReportsRepository -> existing domain report readers.
+Evidence sources: tests/wave10.reporting.test.ts, wave10.reports.test.ts,
+wave10.mysql.test.ts and frontend src/features/reports/reports.test.tsx.
+Required: reconcile issued/void/credit/debit sources, unreversed allocations,
+stock valuation and purchases per currency and period; unavailable source grants
+must not masquerade as zero; foreign/customer-owned scope must not leak totals.
+Saved views: direct foreign/other-actor IDs, pagination, version conflicts,
+required-audit failure, identical retry and revoked access.
+Remaining: production-shaped query plans, incremental reporting strategy and
+actual dashboard/browser reconciliation. None measured or certified.
+
+2. Direct export and private queued artifacts
+Evidence sources: tests/wave10.formats.test.ts, wave10.mysql.test.ts,
+outbox.test.ts; frontend reports.test.tsx. reports.formats owns the format map.
+Required: CSV formula protection/escaping/input limits; text-only exact XLSX;
+HTML escaping; source rights before snapshot and before output; private paths,
+actor/firm checks, hash/size integrity, idempotent request keys and storage quota.
+The MySQL source exercises a real queued CSV artifact, real private download and
+quota accounting with outbound services intercepted. A filesystem deletion fault
+is injected after commit: repeat DELETE must remove the retained file and leave
+exactly one quota release and deletion audit. Foreign DELETE remains unavailable.
+Outbox source exercises preparation reauthorization, rollback cleanup and fencing.
+MySQL sources also inject exhausted storage quota and required completion-audit
+failure, verify rolled-back usage/reference and removed temporary files, then
+retry the same job. Storage uses a private temporary test root. All are NOT RUN.
+Remaining: actual storage-byte quota exhaustion evidence, real Office viewers,
+Hindi/Gujarati PDF fonts, actual Puppeteer rendering and concurrent generation,
+process death between storage write and commit, orphan reconciliation rehearsal.
+
+3. Controlled customer/item imports
+Evidence: tests/wave10.formats.test.ts, wave10.mysql.test.ts;
+frontend src/features/imports/imports.test.tsx.
+Required: strict headers/row/byte limits, case-insensitive duplicate identifiers,
+same-actor command idempotency, foreign unit/category/batch/row IDs, concurrent
+commit version conflict, required audit rollback and infrastructure retry.
+Compensation requires the same full scalar fingerprint under source row lock;
+same-timestamp edits must be refused. It deactivates unchanged imported data,
+never deletes financial/stock history. Tracked-item compensation is refused.
+Remaining: complete browser workflow and real database concurrency evidence.
+
+4. Scoped external report API
+Evidence: tests/wave10.api-keys.test.ts, wave10.mysql.test.ts;
+frontend src/features/connections/connections.test.tsx and auth routing tests.
+Required: hashes only at rest, one-time secret presentation, fixed stored firm
+despite a foreign header, expiry/revocation/rotation, each scope independently,
+issuer identity/RBAC/plan recheck after computation, foreign management IDs,
+request budgets, no credentials in lists, audit or React Query caches.
+Remaining: actual proxy/cluster rate-limit behavior and credential recovery drill.
+Rate limits are process-local; no distributed enforcement is claimed.
+
+5. Outgoing signed webhooks
+Evidence: tests/wave10.webhooks.test.ts, wave10.mysql.test.ts, outbox.test.ts.
+Required: exact raw-byte signature, timestamp/replay window, delivery ID dedup
+contract, firm/version-bound encryption, retained-key decryption, old signing
+version on retries, destination/public IPv4 validation, disabled endpoint and
+revoked issuer/source access. Retry attempts and immutable metadata use outbox.
+The DB source intercepts transport; it is not a real receiver/TLS sandbox test.
+Remaining: real DNS/connection/timeout tests, receiver duplicate acceptance,
+TLS failure/redirect proof, crash-after-remote-acceptance and key rotation drill.
+
+6. Accounting mapping and journals
+Evidence: tests/wave10.accounting.test.ts; source schemas/repository/journal.
+Required: exact balanced issue/void events, credit inversion and signed rounding,
+immutable snapshots, mapping version, currency separation, stable source_event,
+malformed/unbalanced snapshots fail closed. Mapping publication is append-only.
+Remaining: full authenticated mapping/export DB lifecycle/audit/role matrix and
+downstream importer reconciliation. Receipt/purchase/expense/stock journal
+contracts and recognition policy are NOT IMPLEMENTED; no parallel GL exists.
+
+7. Localization
+Evidence: tests/wave10.localization.test.ts, wave08.mysql.test.ts;
+frontend shared/localization/presentation.test.ts and reports.test.tsx.
+Required: exact large/negative decimal display, UTC source dates, IANA display
+timezone, locale/language selection and frozen issued preferences after edits.
+Legal strings and raw CSV/XLSX values remain source contracts. Locale does not
+change currency, rates, tax treatment, document numbering or fiscal periods.
+Remaining: full application translation, quotation presentation, approved legal
+wording, actual fonts/screens/PDFs and all supported browser locale smoke tests.
+
+8. Manufacturing
+Evidence: tests/wave10.manufacturing.test.ts, wave10.mysql.test.ts;
+frontend src/features/manufacturing/manufacturing.test.tsx.
+Required: BOM version/source ownership, exact scaled quantities, shared stock
+ledger, component/output value conservation, concurrent identical completion,
+audit rollback, cancellation/reversal order and refusal after output consumption.
+Foreign BOM, component, unit, warehouse and order probes must all fail safely.
+No MRP, payroll, separate production ledger or inferred costing policy added.
+
+9. Provider and India launch boundaries
+India is the user-confirmed primary launch country. Gateway/tax activation has
+not been approved or verified by selecting that geography. Existing SMTP is
+present; Razorpay/IRP/e-way implementations and verified account mappings are
+NOT IMPLEMENTED. No external charge, email or tax submission ran here. Required
+IRN issuance refusal remains the existing safety boundary, not tax certification.
+
+10. Permission/plan and performance coverage
+MySQL source matrices include imports, integrations.api, integrations.webhooks,
+accounting.exports and reports.exports: authorized/denied role, missing/excluded
+plan, expired grants, global hard-off and suspended firm. Current source access
+is also checked during asynchronous execution and protected artifact release.
+Quota evidence is incomplete; the export exhaustion source above is NOT RUN.
+The opt-in wave10.performance.mysql.test.ts creates separate large A/B fixtures
+and reconciles distinguishable totals under concurrent source reads. It requires
+an explicit disposable URL and owner-defined latency budget; no p95 exists yet.
+
+Acceptance
+No row above is VERIFIED/PASS. The continuation report contains exact deferred
+commands and prerequisites. Wave 10 source gaps, DB/provider behavior, full UI,
+performance and migration/restore evidence prevent acceptance. Wave 11 hardening
+does not turn these source tests into runtime evidence.

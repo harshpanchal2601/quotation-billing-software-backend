@@ -3,7 +3,14 @@ import { AuditAction, Prisma, QuotationStatus, type PrismaClient } from '@prisma
 import { AppError } from '../../core/errors/AppError.js';
 import { createAuditLog, type RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
+import { listOrderBy } from '../../core/validation/list-sort.js';
+import { getOrCreateQuotationSettings } from '../settings/index.js';
+import { discountPercentage, emitAutomationEvent, enforceApproval } from '../automation/runtime.js';
+import { assertTransactionFeature, withFirmEntitlementTransaction } from '../entitlements/index.js';
+import { authorizeFirmJobActor } from '../auth/index.js';
+import { PERMISSIONS } from '../auth/permissions.js';
 import { calculateQuotationTotals } from './calculations/quotation-calculations.js';
+import { quotationPolicySnapshot } from './calculations/quotation-policy.js';
 import {
   isValidUntilBeforeQuotationDate,
   parseDateOnlyToUtcDate,
@@ -36,26 +43,28 @@ import type {
 export class QuotationsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async calculatePreview(input: CalculationPreviewInput) {
-    const validatedItems = await validateAndSnapshotQuotationItems(this.db, input.items);
+  async calculatePreview(firmId: number, input: CalculationPreviewInput) {
+    const validatedItems = await validateAndSnapshotQuotationItems(this.db, firmId, input.items);
     return calculateQuotationTotals({
       ...input,
       items: validatedItems,
     });
   }
 
-  async createQuotation(input: QuotationCreateInput, metadata: RequestMetadata, userId: number) {
+  async createQuotation(firmId: number, input: QuotationCreateInput, metadata: RequestMetadata, userId: number) {
     const companySnapshots = await deriveCompanySnapshots(
       this.db,
+      firmId,
       input.companyId,
       input.companyContactId,
       input.billingAddressId,
       input.shippingAddressId,
     );
 
-    const validatedItems = await validateAndSnapshotQuotationItems(this.db, input.items);
+    const validatedItems = await validateAndSnapshotQuotationItems(this.db, firmId, input.items);
 
     const calculated = calculateQuotationTotals({
+      currency: input.currency,
       taxMode: input.taxMode,
       quotationDiscountType: input.quotationDiscountType,
       quotationDiscountValue: input.quotationDiscountValue,
@@ -69,11 +78,15 @@ export class QuotationsRepository {
 
     validateValidUntilDate(quotationDate, validUntil);
 
+    // Initialise defaults before opening the write transaction so concurrent creates
+    // do not acquire a second pool connection while holding their transaction connection.
+    const settings = await getOrCreateQuotationSettings(firmId, this.db);
     const newQuotation = await this.db.$transaction(async (tx) => {
-      const quotationNumber = await generateUniqueQuotationNumber(tx, this.db, quotationDate);
+      const quotationNumber = await generateUniqueQuotationNumber(tx, settings.id, firmId, quotationDate);
 
       const created = await tx.quotation.create({
         data: {
+          firmId,
           quotationNumber,
           revisionNumber: 0,
           isLatestRevision: true,
@@ -95,6 +108,7 @@ export class QuotationsRepository {
           internalReference: input.internalReference ?? null,
           status: QuotationStatus.DRAFT,
           currency: input.currency || 'INR',
+          financialPolicySnapshot: quotationPolicySnapshot(input.currency || 'INR', input.taxMode ?? 'CGST_SGST'),
           taxMode: input.taxMode ?? 'CGST_SGST',
           subtotal: new Prisma.Decimal(calculated.subtotal),
           itemDiscountAmount: new Prisma.Decimal(calculated.itemDiscountAmount),
@@ -161,30 +175,31 @@ export class QuotationsRepository {
 
       await createQuotationVersion(tx, created.id, { created, items: itemCreateData }, userId);
 
+      await createAuditLog(tx, {
+        policy: 'REQUIRED',
+        metadata: { ...metadata, firmId, userId },
+        entityType: 'Quotation',
+        entityId: String(created.id),
+        action: AuditAction.CREATE,
+        newValues: {
+          quotationNumber: created.quotationNumber,
+          companyId: created.companyId,
+          grandTotal: created.grandTotal.toFixed(2),
+        },
+      });
+
       return tx.quotation.update({
         where: { id: created.id },
         data: { rootQuotationId: created.id },
       });
     });
 
-    await createAuditLog(this.db, {
-      metadata,
-      entityType: 'Quotation',
-      entityId: String(newQuotation.id),
-      action: AuditAction.CREATE,
-      newValues: {
-        quotationNumber: newQuotation.quotationNumber,
-        companyId: newQuotation.companyId,
-        grandTotal: newQuotation.grandTotal.toFixed(2),
-      },
-    });
-
-    return this.getQuotation(newQuotation.id);
+    return this.getQuotation(firmId, newQuotation.id);
   }
 
-  async getQuotation(id: number) {
+  async getQuotation(firmId: number, id: number) {
     const quotation = await this.db.quotation.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, firmId, deletedAt: null },
       include: {
         company: true,
         createdBy: true,
@@ -208,7 +223,7 @@ export class QuotationsRepository {
     const familyRootId = quotation.rootQuotationId ?? quotation.id;
     const latestRevision = quotation.isLatestRevision === false
       ? await this.db.quotation.findFirst({
-          where: { rootQuotationId: familyRootId, deletedAt: null },
+          where: { firmId, rootQuotationId: familyRootId, deletedAt: null },
           orderBy: { revisionNumber: 'desc' },
         })
       : quotation;
@@ -219,7 +234,7 @@ export class QuotationsRepository {
     });
   }
 
-  async listQuotations(query: QuotationListQuery) {
+  async listQuotations(firmId: number, query: QuotationListQuery) {
     const {
       page,
       limit,
@@ -241,6 +256,7 @@ export class QuotationsRepository {
     }
 
     const where: Prisma.QuotationWhereInput = {
+      firmId,
       deletedAt: null,
       isLatestRevision: true,
     };
@@ -290,7 +306,7 @@ export class QuotationsRepository {
         where,
         skip,
         take: limit,
-        orderBy: { [sortBy]: sortOrder },
+        orderBy: listOrderBy({ sortBy, sortOrder }, ['id', 'quotationNumber', 'quotationDate', 'validUntil', 'grandTotal', 'createdAt', 'updatedAt'], 'createdAt'),
         include: {
           company: true,
           createdBy: true,
@@ -317,13 +333,14 @@ export class QuotationsRepository {
   }
 
   async updateQuotation(
+    firmId: number,
     id: number,
     input: QuotationUpdateInput,
     metadata: RequestMetadata,
     userId: number,
   ) {
     const existing = await this.db.quotation.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, firmId, deletedAt: null },
       include: { items: true },
     });
 
@@ -342,6 +359,7 @@ export class QuotationsRepository {
     const companyId = input.companyId ?? existing.companyId;
     const companySnapshots = await deriveCompanySnapshots(
       this.db,
+      firmId,
       companyId,
       input.companyContactId !== undefined ? input.companyContactId : existing.companyContactId,
       input.billingAddressId !== undefined ? input.billingAddressId : existing.billingAddressId,
@@ -365,9 +383,10 @@ export class QuotationsRepository {
           sortOrder: itm.sortOrder,
         }));
 
-    const validatedItems = await validateAndSnapshotQuotationItems(this.db, itemsToProcess);
+    const validatedItems = await validateAndSnapshotQuotationItems(this.db, firmId, itemsToProcess);
 
     const calculated = calculateQuotationTotals({
+      currency: input.currency ?? existing.currency,
       taxMode: input.taxMode ?? existing.taxMode,
       quotationDiscountType: input.quotationDiscountType ?? existing.quotationDiscountType,
       quotationDiscountValue: input.quotationDiscountValue ?? existing.quotationDiscountValue.toFixed(2),
@@ -387,6 +406,17 @@ export class QuotationsRepository {
     validateValidUntilDate(quotationDate, validUntil);
 
     await this.db.$transaction(async (tx) => {
+      // Two draft edits can arrive within one database timestamp tick.
+      const updatedAt = new Date(Math.max(Date.now(), existing.updatedAt.getTime() + 1));
+      const claimed = await tx.quotation.updateMany({
+        where: { id: existing.id, firmId, deletedAt: null, isLatestRevision: true,
+          status: QuotationStatus.DRAFT, updatedAt: existing.updatedAt },
+        data: { updatedById: userId, updatedAt },
+      });
+      if (claimed.count !== 1) {
+        throw new AppError('Quotation changed concurrently. Refresh and try again.', 409);
+      }
+
       await createQuotationVersion(tx, existing.id, existing, userId);
 
       await tx.quotationItem.deleteMany({
@@ -396,6 +426,7 @@ export class QuotationsRepository {
       await tx.quotation.update({
         where: { id: existing.id },
         data: {
+          updatedAt,
           companyId,
           companyContactId: input.companyContactId !== undefined ? input.companyContactId : existing.companyContactId,
           billingAddressId: input.billingAddressId !== undefined ? input.billingAddressId : existing.billingAddressId,
@@ -413,6 +444,7 @@ export class QuotationsRepository {
           customerReference: input.customerReference !== undefined ? input.customerReference : existing.customerReference,
           internalReference: input.internalReference !== undefined ? input.internalReference : existing.internalReference,
           currency: input.currency ?? existing.currency,
+          financialPolicySnapshot: quotationPolicySnapshot(input.currency ?? existing.currency, input.taxMode ?? existing.taxMode),
           taxMode: input.taxMode ?? existing.taxMode,
           subtotal: new Prisma.Decimal(calculated.subtotal),
           itemDiscountAmount: new Prisma.Decimal(calculated.itemDiscountAmount),
@@ -466,25 +498,26 @@ export class QuotationsRepository {
       await tx.quotationItem.createMany({
         data: itemCreateData,
       });
+
+      await createAuditLog(tx, {
+        policy: 'REQUIRED',
+        metadata: { ...metadata, firmId, userId },
+        entityType: 'Quotation',
+        entityId: String(existing.id),
+        action: AuditAction.UPDATE,
+        newValues: {
+          quotationNumber: existing.quotationNumber,
+          grandTotal: calculated.grandTotal,
+        },
+      });
     });
 
-    await createAuditLog(this.db, {
-      metadata,
-      entityType: 'Quotation',
-      entityId: String(existing.id),
-      action: AuditAction.UPDATE,
-      newValues: {
-        quotationNumber: existing.quotationNumber,
-        grandTotal: calculated.grandTotal,
-      },
-    });
-
-    return this.getQuotation(existing.id);
+    return this.getQuotation(firmId, existing.id);
   }
 
-  async createQuotationRevision(id: number, metadata: RequestMetadata, userId: number) {
+  async createQuotationRevision(firmId: number, id: number, metadata: RequestMetadata, userId: number) {
     const source = await this.db.quotation.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, firmId, deletedAt: null },
       include: { items: { orderBy: [{ sortOrder: 'asc' }, { lineNumber: 'asc' }] } },
     });
 
@@ -505,7 +538,7 @@ export class QuotationsRepository {
     try {
       const newRevision = await this.db.$transaction(async (tx) => {
         const latest = await tx.quotation.findFirst({
-          where: { rootQuotationId: familyRootId, deletedAt: null },
+          where: { firmId, rootQuotationId: familyRootId, deletedAt: null },
           include: { items: { orderBy: [{ sortOrder: 'asc' }, { lineNumber: 'asc' }] } },
           orderBy: { revisionNumber: 'desc' },
         });
@@ -524,16 +557,21 @@ export class QuotationsRepository {
 
         const nextRevisionNumber = latest.revisionNumber + 1;
 
-        await tx.quotation.updateMany({
+        const claimed = await tx.quotation.updateMany({
           where: {
-            rootQuotationId: familyRootId,
+            id: latest.id, firmId, deletedAt: null,
+            status: latest.status, updatedAt: latest.updatedAt,
             isLatestRevision: true,
           },
           data: { isLatestRevision: false },
         });
+        if (claimed.count !== 1) {
+          throw new AppError('Quotation changed concurrently. Refresh and try again.', 409);
+        }
 
         const created = await tx.quotation.create({
           data: {
+            firmId,
             quotationNumber: latest.quotationNumber,
             revisionNumber: nextRevisionNumber,
             rootQuotationId: familyRootId,
@@ -557,6 +595,10 @@ export class QuotationsRepository {
             internalReference: latest.internalReference,
             status: QuotationStatus.DRAFT,
             currency: latest.currency,
+            financialPolicySnapshot: latest.financialPolicySnapshot ?? {
+              version: 1, calculator: 'quotation-legacy-unversioned', currency: latest.currency,
+              taxMode: latest.taxMode, taxRateSource: 'quotation-item-snapshots',
+            },
             taxMode: latest.taxMode,
             subtotal: latest.subtotal,
             itemDiscountAmount: latest.itemDiscountAmount,
@@ -635,23 +677,24 @@ export class QuotationsRepository {
           userId,
         );
 
+        await createAuditLog(tx, {
+          policy: 'REQUIRED',
+          metadata: { ...metadata, firmId, userId },
+          entityType: 'Quotation',
+          entityId: String(created.id),
+          action: AuditAction.CREATE,
+          newValues: {
+            quotationNumber: created.quotationNumber,
+            revisionNumber: created.revisionNumber,
+            sourceQuotationId: source.id,
+            sourceRevisionNumber: source.revisionNumber,
+          },
+        });
+
         return created;
       });
 
-      await createAuditLog(this.db, {
-        metadata,
-        entityType: 'Quotation',
-        entityId: String(newRevision.id),
-        action: AuditAction.CREATE,
-        newValues: {
-          quotationNumber: newRevision.quotationNumber,
-          revisionNumber: newRevision.revisionNumber,
-          sourceQuotationId: source.id,
-          sourceRevisionNumber: source.revisionNumber,
-        },
-      });
-
-      return this.getQuotation(newRevision.id);
+      return this.getQuotation(firmId, newRevision.id);
     } catch (error) {
       if (error instanceof AppError) throw error;
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -662,60 +705,53 @@ export class QuotationsRepository {
   }
 
   async updateQuotationStatus(
+    firmId: number,
     id: number,
     input: QuotationStatusUpdateInput,
     metadata: RequestMetadata,
     userId: number,
   ) {
-    const existing = await this.db.quotation.findFirst({
-      where: { id, deletedAt: null },
+    await withFirmEntitlementTransaction(this.db, firmId, async (tx) => {
+      await this.updateQuotationStatusInTransaction(tx, firmId, id, input, metadata, userId);
     });
+    return this.getQuotation(firmId, id);
+  }
 
-    if (!existing) {
-      throw new AppError('Quotation not found.', 404);
-    }
-
+  async updateQuotationStatusInTransaction(tx: Prisma.TransactionClient, firmId: number, id: number, input: QuotationStatusUpdateInput, metadata: RequestMetadata, userId: number) {
+    await authorizeFirmJobActor(tx, firmId, userId, PERMISSIONS.QUOTATIONS_STATUS);
+    await assertTransactionFeature(tx, firmId, 'quotations');
+    const existing = await tx.quotation.findFirst({
+      where: { id, firmId, deletedAt: null },
+    });
+    if (!existing) throw new AppError('Quotation not found.', 404);
     if (!existing.isLatestRevision) {
       throw new AppError('Only the latest quotation revision can change status.', 409);
     }
-
     validateStatusTransition(existing.status, input.status);
+    if (input.status === QuotationStatus.SENT || input.status === QuotationStatus.ACCEPTED && existing.sentAt === null) await enforceApproval(tx, firmId, userId, { action: 'QUOTATION_SEND', entityId: id, status: input.status, ...(input.comment === undefined ? {} : { comment: input.comment }) });
 
-    const timestampUpdates = getStatusTimestampUpdate(input.status);
-
-    const updated = await this.db.quotation.update({
-      where: { id: existing.id },
-      data: {
-        status: input.status,
-        updatedById: userId,
-        ...timestampUpdates,
-      },
+    const updated = await tx.quotation.updateMany({
+      where: { id, firmId, deletedAt: null, isLatestRevision: true,
+        status: existing.status, updatedAt: existing.updatedAt },
+      data: { status: input.status, updatedById: userId, ...getStatusTimestampUpdate(input.status) },
     });
-
-    await recordStatusHistory(
-      this.db,
-      existing.id,
-      existing.status,
-      input.status,
-      userId,
-      input.comment,
-    );
-
-    await createAuditLog(this.db, {
-      metadata,
-      entityType: 'Quotation',
-      entityId: String(existing.id),
-      action: AuditAction.STATUS_CHANGE,
-      oldValues: { status: existing.status },
-      newValues: { status: input.status },
+    if (updated.count !== 1) {
+      throw new AppError('Quotation changed concurrently. Refresh and try again.', 409);
+    }
+    await recordStatusHistory(tx, id, existing.status, input.status, userId, input.comment);
+    await createAuditLog(tx, {
+      policy: 'REQUIRED',
+      metadata: { ...metadata, firmId, userId },
+      entityType: 'Quotation', entityId: String(id), action: AuditAction.STATUS_CHANGE,
+      oldValues: { status: existing.status }, newValues: { status: input.status },
     });
-
-    return this.getQuotation(updated.id);
+    if (input.status === QuotationStatus.SENT) await emitAutomationEvent(tx, firmId, userId, `quotation:${id}:sent`, { trigger: 'quotation.sent', entity: 'QUOTATION', entityId: id, documentNumber: existing.quotationNumber, status: input.status, currency: existing.currency, total: existing.grandTotal.toString(), discountPercent: discountPercentage(existing.subtotal, existing.itemDiscountAmount.add(existing.quotationDiscountAmount)) });
+    return { id, status: input.status };
   }
 
-  async deleteQuotation(id: number, metadata: RequestMetadata) {
+  async deleteQuotation(firmId: number, id: number, metadata: RequestMetadata) {
     const existing = await this.db.quotation.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, firmId, deletedAt: null },
     });
 
     if (!existing) {
@@ -731,33 +767,35 @@ export class QuotationsRepository {
     }
 
     await this.db.$transaction(async (tx) => {
-      await tx.quotation.update({
-        where: { id: existing.id },
-        data: {
-          deletedAt: new Date(),
-          isLatestRevision: false,
-        },
+      const deleted = await tx.quotation.updateMany({
+        where: { id: existing.id, firmId, deletedAt: null, isLatestRevision: true,
+          status: QuotationStatus.DRAFT, updatedAt: existing.updatedAt },
+        data: { deletedAt: new Date(), isLatestRevision: false },
       });
+      if (deleted.count !== 1) {
+        throw new AppError('Quotation changed concurrently. Refresh and try again.', 409);
+      }
 
       if (existing.previousRevisionId) {
         await tx.quotation.update({
-          where: { id: existing.previousRevisionId },
+          where: { id: existing.previousRevisionId, firmId, deletedAt: null },
           data: { isLatestRevision: true },
         });
       }
-    });
-
-    await createAuditLog(this.db, {
-      metadata,
-      entityType: 'Quotation',
-      entityId: String(existing.id),
-      action: AuditAction.DELETE,
-      oldValues: { quotationNumber: existing.quotationNumber },
+      await createAuditLog(tx, {
+        policy: 'REQUIRED',
+        metadata: { ...metadata, firmId },
+        entityType: 'Quotation',
+        entityId: String(existing.id),
+        action: AuditAction.DELETE,
+        oldValues: { quotationNumber: existing.quotationNumber },
+      });
     });
   }
 }
 
 export const quotationsRepository = new QuotationsRepository(prisma);
+export const changeQuotationStatusInTransaction = quotationsRepository.updateQuotationStatusInTransaction.bind(quotationsRepository);
 
 function validateValidUntilDate(quotationDate: Date, validUntil: Date | null) {
   if (!validUntil) return;

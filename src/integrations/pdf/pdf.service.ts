@@ -2,6 +2,7 @@ import puppeteer, { type Browser } from 'puppeteer';
 
 import { pdfConfig } from '../../config/pdf.config.js';
 import { AppError } from '../../core/errors/AppError.js';
+import { logOperationalEvent } from '../../core/observability/logger.js';
 
 export const pdfService = {
   async generateBufferFromHtml(html: string): Promise<Buffer> {
@@ -40,7 +41,7 @@ export const pdfService = {
         throw error;
       }
 
-      console.error('PDF Error:', error);
+      logOperationalEvent('error', { event: 'pdf.failed' });
       throw error;
     } finally {
       if (browser) {

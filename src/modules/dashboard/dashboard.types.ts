@@ -8,6 +8,7 @@ export type DashboardPeriod =
   | 'CUSTOM';
 
 export type DashboardOverviewQuery = {
+  currency?: string;
   period?: DashboardPeriod;
   dateFrom?: string;
   dateTo?: string;
@@ -95,6 +96,7 @@ export type TopCustomerDto = {
 
 export type DashboardOverviewData = {
   currency: string;
+  currencyTotals: Array<{ currency: string; quotationCount: number; totalQuotationValue: string }>;
   range: DashboardDateRange;
   quotationMetrics: QuotationMetricsDto;
   masterDataMetrics: MasterDataMetricsDto;

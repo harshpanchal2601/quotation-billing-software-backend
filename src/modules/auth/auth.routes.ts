@@ -11,7 +11,7 @@ import {
 	INVALID_CREDENTIALS_MESSAGE,
 	REFRESH_TOKEN_COOKIE_NAME,
 } from './auth.constants.js';
-import { assertActiveUser, sanitiseUser } from './auth.helpers.js';
+import { assertActiveUser, assertFirmAccess, sanitiseUser } from './auth.helpers.js';
 import { authRepository } from './auth.repository.js';
 import { changePasswordSchema, loginSchema } from './auth.schema.js';
 import { clearAuthCookies, setAuthCookies } from './security/auth.cookies.js';
@@ -47,6 +47,7 @@ export async function login(req: Request, res: Response) {
 	}
 
 	assertActiveUser(user);
+	assertFirmAccess(user);
 
 	const passwordMatches = await bcrypt.compare(input.password, user.passwordHash);
 
@@ -63,7 +64,10 @@ export async function login(req: Request, res: Response) {
 
 	await authRepository.updateSessionRefreshTokenHash(session.id, hashRefreshToken(tokens.refreshToken), expiresAt);
 	await authRepository.updateLastLoginAt(user.id);
-	await authRepository.createAuditLog(user.id, AuditAction.LOGIN, metadata);
+	await authRepository.createAuditLog(user.id, AuditAction.LOGIN, {
+		...metadata,
+		firmId: user.firmId ?? undefined,
+	});
 
 	setAuthCookies(res, tokens);
 
@@ -92,6 +96,7 @@ export async function refresh(req: Request, res: Response) {
 	}
 
 	assertActiveUser(session.user);
+	assertFirmAccess(session.user);
 
 	if (session.refreshTokenHash !== hashRefreshToken(refreshToken)) {
 		throw new AppError(AUTHENTICATION_REQUIRED_MESSAGE, 401);
@@ -126,7 +131,10 @@ export async function logout(req: Request, res: Response) {
 
 			if (session !== null && session.userId === Number(payload.sub)) {
 				await authRepository.revokeSession(session.id);
-				await authRepository.createAuditLog(session.userId, AuditAction.LOGOUT, metadata);
+				await authRepository.createAuditLog(session.userId, AuditAction.LOGOUT, {
+					...metadata,
+					firmId: session.user.firmId ?? undefined,
+				});
 			}
 		} catch {
 			// Preserve logout idempotency.
@@ -163,6 +171,7 @@ export async function changePassword(req: Request, res: Response) {
 	}
 
 	assertActiveUser(user);
+	assertFirmAccess(user);
 
 	const currentPasswordMatches = await bcrypt.compare(input.currentPassword, user.passwordHash);
 
@@ -180,7 +189,10 @@ export async function changePassword(req: Request, res: Response) {
 
 	await authRepository.updatePassword(user.id, passwordHash);
 	await authRepository.revokeActiveSessions(user.id);
-	await authRepository.createAuditLog(user.id, AuditAction.PASSWORD_CHANGE, metadata);
+	await authRepository.createAuditLog(user.id, AuditAction.PASSWORD_CHANGE, {
+		...metadata,
+		firmId: user.firmId ?? undefined,
+	});
 	clearAuthCookies(res);
 
 	return sendSuccess(res, 200, 'Password changed successfully. Please log in again.', null);

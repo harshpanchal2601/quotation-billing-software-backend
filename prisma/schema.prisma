@@ -11,10 +11,44 @@ enum UserRole {
   ADMIN
 }
 
+// Transitional account classification for the multi-firm rollout. The legacy
+// UserRole field remains until all application authorization has moved to the
+// account type and permission model.
+enum AccountType {
+  SUPER_ADMIN
+  FIRM_ADMIN
+  FIRM_USER
+}
+
+enum FirmStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 enum UserStatus {
   ACTIVE
   INACTIVE
   LOCKED
+}
+
+enum CustomerPaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  EXTERNAL_CONFIRMED
+}
+
+enum BillingScheduleStatus {
+  PAUSED
+  ACTIVE
+  CANCELLED
+  COMPLETED
+}
+
+enum BillingScheduleRunStatus {
+  QUEUED
+  DRAFT_CREATED
+  CANCELLED
 }
 
 enum AddressType {
@@ -27,6 +61,11 @@ enum ItemSourceType {
   MANUAL
   WEBSITE_IMPORT
   CSV_IMPORT
+}
+
+enum ItemKind {
+  GOODS
+  SERVICE
 }
 
 enum QuotationStatus {
@@ -44,6 +83,19 @@ enum TaxMode {
   CGST_SGST
   IGST
   NONE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  VOID
+}
+
+enum BillingDocumentKind {
+  INVOICE
+  PROFORMA
+  CREDIT_NOTE
+  DEBIT_NOTE
 }
 
 enum DiscountType {
@@ -112,19 +164,780 @@ enum AuditAction {
   IMPORT
 }
 
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  DEAD
+  RECONCILE
+}
+
+model DocumentSequence {
+  id           Int      @id @default(autoincrement())
+  firmId       Int      @map("firm_id")
+  documentType String   @map("document_type") @db.VarChar(32)
+  period       String   @db.VarChar(32)
+  nextValue    BigInt   @default(1) @map("next_value")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  firm         Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict)
+
+  @@unique([firmId, documentType, period])
+  @@map("document_sequences")
+}
+
+model FirmBusinessPolicy {
+  id        Int      @id @default(autoincrement())
+  firmId    Int      @map("firm_id")
+  version   Int
+  policy    Json
+  actorId   Int      @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  firm      Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict)
+
+  @@unique([firmId, version])
+  @@map("firm_business_policies")
+}
+
+model OutboxEvent {
+  id             String       @id @db.VarChar(36)
+  firmId         Int          @map("firm_id")
+  actorId        Int          @map("actor_id")
+  kind           String       @db.VarChar(100)
+  sourceEventId  String       @map("source_event_id") @db.VarChar(191)
+  correlationId  String?      @map("correlation_id") @db.VarChar(191)
+  idempotencyKey String       @map("idempotency_key") @db.VarChar(191)
+  payload        Json
+  status         OutboxStatus @default(PENDING)
+  attempts       Int          @default(0)
+  maxAttempts    Int          @default(5) @map("max_attempts")
+  availableAt    DateTime     @default(now()) @map("available_at")
+  lockedUntil    DateTime?    @map("locked_until")
+  lockToken      String?      @map("lock_token") @db.VarChar(36)
+  completedAt    DateTime?    @map("completed_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  firm           Firm         @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  jobAttempts    JobAttempt[]
+  notifications NotificationDelivery[]
+  workflowRun WorkflowRun?
+  webhookDelivery WebhookDelivery?
+  reportExportJob ReportExportJob?
+
+  @@unique([firmId, idempotencyKey])
+  @@unique([id, firmId])
+  @@index([status, availableAt])
+  @@index([status, lockedUntil])
+  @@index([firmId, correlationId], map: "outbox_firm_correlation_idx")
+  @@map("outbox_events")
+}
+
+model JobAttempt {
+  id           Int         @id @default(autoincrement())
+  eventId      String      @map("event_id") @db.VarChar(36)
+  attempt      Int
+  workerId     String      @map("worker_id") @db.VarChar(100)
+  startedAt    DateTime    @default(now()) @map("started_at")
+  finishedAt   DateTime?   @map("finished_at")
+  outcome      String?     @db.VarChar(32)
+  errorCode    String?     @map("error_code") @db.VarChar(100)
+  event        OutboxEvent @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  @@unique([eventId, attempt])
+  @@map("job_attempts")
+}
+
+model NotificationPreference {
+  id        Int     @id @default(autoincrement())
+  firmId    Int     @map("firm_id")
+  channel   String  @db.VarChar(20)
+  enabled   Boolean @default(true)
+  firm      Firm    @relation(fields: [firmId], references: [id], onDelete: Restrict)
+
+  @@unique([firmId, channel])
+  @@map("notification_preferences")
+}
+
+model NotificationDelivery {
+  id          Int         @id @default(autoincrement())
+  firmId      Int         @map("firm_id")
+  eventId     String      @map("event_id") @db.VarChar(36)
+  recipientId Int         @map("recipient_id")
+  title       String      @db.VarChar(191)
+  body        String      @db.Text
+  createdAt   DateTime    @default(now()) @map("created_at")
+  firm        Firm        @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  event       OutboxEvent @relation(fields: [eventId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([eventId, recipientId])
+  @@index([firmId, recipientId, createdAt])
+  @@map("notification_deliveries")
+}
+
+// Wave 06 uses the existing Company and Item masters. No customer copy exists.
+model Lead {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  name String @db.VarChar(191)
+  email String? @db.VarChar(191)
+  phone String? @db.VarChar(30)
+  source String? @db.VarChar(191)
+  status String @default("NEW") @db.VarChar(20)
+  companyId Int? @map("company_id")
+  ownerId Int @map("owner_id")
+  createdById Int @map("created_by_id")
+  version Int @default(1)
+  conversionKey String? @map("conversion_key") @db.VarChar(100)
+  conversionHash String? @map("conversion_hash") @db.Char(64)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  company Company? @relation(fields: [companyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  owner User @relation("LeadOwner", fields: [ownerId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy User @relation("LeadCreator", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  opportunities Opportunity[]
+  tasks SalesTask[]
+  activities SalesActivity[]
+  @@unique([id, firmId])
+  @@unique([firmId, conversionKey])
+  @@index([firmId, ownerId, id])
+  @@index([companyId, firmId])
+  @@map("leads")
+}
+
+model Opportunity {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  title String @db.VarChar(191)
+  stage String @db.VarChar(30)
+  probability Int
+  value Decimal @db.Decimal(24,3)
+  currency String @db.VarChar(3)
+  ownerId Int @map("owner_id")
+  createdById Int @map("created_by_id")
+  expectedClose DateTime? @map("expected_close") @db.Date
+  companyId Int? @map("company_id")
+  leadId Int? @map("lead_id")
+  quotationId Int? @map("quotation_id")
+  source String? @db.VarChar(191)
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  company Company? @relation(fields: [companyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  lead Lead? @relation(fields: [leadId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  quotation Quotation? @relation(fields: [quotationId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  owner User @relation("OpportunityOwner", fields: [ownerId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy User @relation("OpportunityCreator", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  tasks SalesTask[]
+  activities SalesActivity[]
+  @@unique([id, firmId])
+  @@index([firmId, stage, id])
+  @@index([firmId, ownerId, id])
+  @@index([firmId, createdAt, id], map: "opportunities_reporting_period_idx")
+  @@index([firmId, ownerId, createdAt, id], map: "opportunities_reporting_owner_idx")
+  @@index([firmId, createdById, createdAt, id], map: "opportunities_reporting_creator_idx")
+  @@index([companyId, firmId])
+  @@map("opportunities")
+}
+
+model SalesTask {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  title String @db.VarChar(191)
+  notes String? @db.Text
+  status String @default("OPEN") @db.VarChar(20)
+  assignedToId Int @map("assigned_to_id")
+  createdById Int @map("created_by_id")
+  dueAt DateTime @map("due_at")
+  reminderAt DateTime? @map("reminder_at")
+  companyId Int? @map("company_id")
+  leadId Int? @map("lead_id")
+  opportunityId Int? @map("opportunity_id")
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  company Company? @relation(fields: [companyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  lead Lead? @relation(fields: [leadId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  opportunity Opportunity? @relation(fields: [opportunityId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  assignee User @relation("TaskAssignee", fields: [assignedToId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy User @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  activities SalesActivity[]
+  @@unique([id, firmId])
+  @@index([firmId, assignedToId, status, dueAt])
+  @@index([companyId, firmId])
+  @@map("sales_tasks")
+}
+
+model SalesActivity {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  companyId Int? @map("company_id")
+  leadId Int? @map("lead_id")
+  opportunityId Int? @map("opportunity_id")
+  taskId Int? @map("task_id")
+  kind String @db.VarChar(30)
+  subject String @db.VarChar(191)
+  notes String? @db.Text
+  details Json?
+  createdById Int @map("created_by_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  company Company? @relation(fields: [companyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  lead Lead? @relation(fields: [leadId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  opportunity Opportunity? @relation(fields: [opportunityId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  task SalesTask? @relation(fields: [taskId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  @@index([firmId, companyId, id])
+  @@index([leadId, firmId])
+  @@map("sales_activities")
+}
+
+model SalesOrder {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  companyId Int @map("company_id")
+  sourceQuotationId Int @map("source_quotation_id")
+  orderNumber String @map("order_number") @db.VarChar(50)
+  status String @default("OPEN") @db.VarChar(30)
+  version Int @default(1)
+  currency String @db.VarChar(3)
+  snapshot Json
+  snapshotHash String @map("snapshot_hash") @db.Char(64)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  createdById Int @map("created_by_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  company Company @relation(fields: [companyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  sourceQuotation Quotation @relation(fields: [sourceQuotationId, firmId, companyId], references: [id, firmId, companyId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lines SalesOrderLine[]
+  fulfillments Fulfillment[]
+  history SalesOrderHistory[]
+  invoices Invoice[]
+  portalGrants PortalGrant[]
+  @@unique([id, firmId])
+  @@unique([id, firmId, companyId])
+  @@unique([firmId, sourceQuotationId])
+  @@unique([firmId, idempotencyKey])
+  @@unique([firmId, orderNumber])
+  @@index([firmId, status, id])
+  @@index([companyId, firmId])
+  @@map("sales_orders")
+}
+
+model SalesOrderLine {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  salesOrderId Int @map("sales_order_id")
+  lineNumber Int @map("line_number")
+  quantity Decimal @db.Decimal(18,3)
+  snapshot Json
+  order SalesOrder @relation(fields: [salesOrderId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  fulfillmentLines FulfillmentLine[]
+  invoiceLines SalesOrderInvoiceLine[]
+  stockReservations StockReservation[]
+  @@unique([id, firmId, salesOrderId])
+  @@unique([salesOrderId, lineNumber])
+  @@map("sales_order_lines")
+}
+
+// Inventory quantities are projections of immutable postings. Every writer uses
+// the existing firm transaction lock, including sales fulfillment commands.
+model Warehouse {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  code String @db.VarChar(50)
+  name String @db.VarChar(191)
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  positions StockPosition[]
+  receipts GoodsReceipt[]
+  workOrders WorkOrder[]
+  @@unique([id, firmId])
+  @@unique([firmId, code])
+  @@map("warehouses")
+}
+
+model StockPosition {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  warehouseId Int @map("warehouse_id")
+  itemId Int @map("item_id")
+  currency String @db.VarChar(3)
+  onHand Decimal @default(0) @map("on_hand") @db.Decimal(18,3)
+  reserved Decimal @default(0) @db.Decimal(18,3)
+  value Decimal @default(0) @db.Decimal(30,6)
+  reorderLevel Decimal @default(0) @map("reorder_level") @db.Decimal(18,3)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  warehouse Warehouse @relation(fields: [warehouseId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  item Item @relation(fields: [itemId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  movements StockMovement[]
+  reservations StockReservation[]
+  @@unique([id, firmId])
+  @@unique([firmId, warehouseId, itemId])
+  @@index([itemId, firmId])
+  @@index([warehouseId, firmId])
+  @@map("stock_positions")
+}
+
+model StockMovement {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  positionId Int @map("position_id")
+  sourceType String @map("source_type") @db.VarChar(30)
+  sourceId Int @map("source_id")
+  sourceLineId Int @map("source_line_id")
+  eventType String @map("event_type") @db.VarChar(30)
+  quantity Decimal @db.Decimal(18,3)
+  value Decimal @db.Decimal(30,6)
+  originalMovementId Int? @map("original_movement_id")
+  workOrderId Int? @map("work_order_id")
+  reason String @db.VarChar(2000)
+  actorId Int @map("actor_id")
+  postedAt DateTime @default(now()) @map("posted_at")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  position StockPosition @relation(fields: [positionId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  original StockMovement? @relation("StockCorrection", fields: [originalMovementId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  corrections StockMovement[] @relation("StockCorrection")
+  workOrder WorkOrder? @relation(fields: [workOrderId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "stock_movements_work_order_owner_fkey")
+  @@unique([id, firmId])
+  @@unique([firmId, sourceType, sourceId, sourceLineId, eventType], map: "stock_movement_source_event_key")
+  @@index([positionId, firmId, postedAt, id], map: "stock_movement_position_period_idx")
+  @@index([firmId, postedAt, positionId], map: "stock_movement_reporting_period_idx")
+  @@index([originalMovementId, firmId])
+  @@index([workOrderId, firmId])
+  @@map("stock_movements")
+}
+
+model StockReservation {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  positionId Int @map("position_id")
+  salesOrderId Int @map("sales_order_id")
+  salesOrderLineId Int @map("sales_order_line_id")
+  quantity Decimal @db.Decimal(18,3)
+  remaining Decimal @db.Decimal(18,3)
+  status String @default("ACTIVE") @db.VarChar(20)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  actorId Int @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  releaseReason String? @map("release_reason") @db.VarChar(2000)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  position StockPosition @relation(fields: [positionId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  orderLine SalesOrderLine @relation(fields: [salesOrderLineId, firmId, salesOrderId], references: [id, firmId, salesOrderId], onDelete: Restrict, onUpdate: Restrict, map: "stock_reservation_order_line_fkey")
+  @@unique([firmId, idempotencyKey])
+  @@index([positionId, firmId, status])
+  @@index([firmId, salesOrderId, salesOrderLineId, status], map: "stock_reservation_order_idx")
+  @@map("stock_reservations")
+}
+
+model StockOperation {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  kind String @db.VarChar(30)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  payload Json
+  actorId Int @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  @@unique([firmId, idempotencyKey])
+  @@index([firmId, kind, id])
+  @@map("stock_operations")
+}
+
+model PurchaseOrder {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  supplierId Int @map("supplier_id")
+  orderNumber String @map("order_number") @db.VarChar(50)
+  status String @default("DRAFT") @db.VarChar(30)
+  version Int @default(1)
+  expectedDate DateTime? @map("expected_date") @db.Date
+  currency String @db.VarChar(3)
+  supplierSnapshot Json @map("supplier_snapshot")
+  financialSnapshot Json @map("financial_snapshot")
+  total Decimal @db.Decimal(24,3)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  actorId Int @map("actor_id")
+  cancellationReason String? @map("cancellation_reason") @db.VarChar(2000)
+  createdAt DateTime @default(now()) @map("created_at")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  supplier Company @relation(fields: [supplierId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  lines PurchaseOrderLine[]
+  receipts GoodsReceipt[]
+  @@unique([id, firmId])
+  @@unique([firmId, orderNumber])
+  @@unique([firmId, idempotencyKey])
+  @@index([supplierId, firmId])
+  @@index([firmId, status, id])
+  @@index([firmId, createdAt, id], map: "purchase_order_reporting_period_idx")
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  purchaseOrderId Int @map("purchase_order_id")
+  itemId Int @map("item_id")
+  lineNumber Int @map("line_number")
+  quantity Decimal @db.Decimal(18,3)
+  receivedQuantity Decimal @default(0) @map("received_quantity") @db.Decimal(18,3)
+  unitCost Decimal @map("unit_cost") @db.Decimal(24,3)
+  snapshot Json
+  order PurchaseOrder @relation(fields: [purchaseOrderId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  item Item @relation(fields: [itemId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  receiptLines GoodsReceiptLine[]
+  billLines SupplierBillLine[]
+  @@unique([id, firmId])
+  @@unique([purchaseOrderId, lineNumber])
+  @@index([itemId, firmId])
+  @@map("purchase_order_lines")
+}
+
+model GoodsReceipt {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  purchaseOrderId Int @map("purchase_order_id")
+  warehouseId Int? @map("warehouse_id")
+  reference String @db.VarChar(191)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  actorId Int @map("actor_id")
+  cancelledAt DateTime? @map("cancelled_at")
+  cancellationReason String? @map("cancellation_reason") @db.VarChar(2000)
+  createdAt DateTime @default(now()) @map("created_at")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  order PurchaseOrder @relation(fields: [purchaseOrderId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  warehouse Warehouse? @relation(fields: [warehouseId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  lines GoodsReceiptLine[]
+  @@unique([id, firmId])
+  @@unique([firmId, idempotencyKey])
+  @@index([purchaseOrderId, firmId])
+  @@index([warehouseId, firmId])
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptLine {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  goodsReceiptId Int @map("goods_receipt_id")
+  purchaseOrderLineId Int @map("purchase_order_line_id")
+  quantity Decimal @db.Decimal(18,3)
+  returnedQuantity Decimal @default(0) @map("returned_quantity") @db.Decimal(18,3)
+  receipt GoodsReceipt @relation(fields: [goodsReceiptId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  orderLine PurchaseOrderLine @relation(fields: [purchaseOrderLineId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  billLines SupplierBillLine[]
+  returns GoodsReceiptReturn[]
+  @@unique([id, firmId])
+  @@unique([goodsReceiptId, purchaseOrderLineId])
+  @@index([purchaseOrderLineId, firmId])
+  @@map("goods_receipt_lines")
+}
+
+model GoodsReceiptReturn {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  receiptLineId Int @map("receipt_line_id")
+  quantity Decimal @db.Decimal(18,3)
+  reason String @db.VarChar(2000)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  actorId Int @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  line GoodsReceiptLine @relation(fields: [receiptLineId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([firmId, idempotencyKey])
+  @@index([receiptLineId, firmId])
+  @@index([firmId, id])
+  @@map("goods_receipt_returns")
+}
+
+model SupplierBill {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  supplierId Int @map("supplier_id")
+  supplierReference String @map("supplier_reference") @db.VarChar(100)
+  status String @default("DRAFT") @db.VarChar(20)
+  version Int @default(1)
+  billDate DateTime @map("bill_date") @db.Date
+  dueDate DateTime? @map("due_date") @db.Date
+  currency String @db.VarChar(3)
+  supplierSnapshot Json @map("supplier_snapshot")
+  financialSnapshot Json @map("financial_snapshot")
+  total Decimal @db.Decimal(24,3)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  actorId Int @map("actor_id")
+  voidReason String? @map("void_reason") @db.VarChar(2000)
+  createdAt DateTime @default(now()) @map("created_at")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  supplier Company @relation(fields: [supplierId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  lines SupplierBillLine[]
+  @@unique([id, firmId])
+  @@unique([firmId, idempotencyKey])
+  @@unique([firmId, supplierId, supplierReference], map: "supplier_bill_reference_key")
+  @@index([supplierId, firmId])
+  @@index([firmId, status, id])
+  @@index([firmId, billDate, id], map: "supplier_bill_reporting_period_idx")
+  @@map("supplier_bills")
+}
+
+model SupplierBillLine {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  supplierBillId Int @map("supplier_bill_id")
+  purchaseOrderLineId Int? @map("purchase_order_line_id")
+  goodsReceiptLineId Int? @map("goods_receipt_line_id")
+  lineNumber Int @map("line_number")
+  quantity Decimal @db.Decimal(18,3)
+  snapshot Json
+  bill SupplierBill @relation(fields: [supplierBillId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  orderLine PurchaseOrderLine? @relation(fields: [purchaseOrderLineId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  receiptLine GoodsReceiptLine? @relation(fields: [goodsReceiptLineId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([supplierBillId, lineNumber])
+  @@index([purchaseOrderLineId, firmId])
+  @@index([goodsReceiptLineId, firmId])
+  @@map("supplier_bill_lines")
+}
+
+model Expense {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  supplierId Int? @map("supplier_id")
+  category String @db.VarChar(100)
+  reference String @db.VarChar(191)
+  expenseDate DateTime @map("expense_date") @db.Date
+  currency String @db.VarChar(3)
+  total Decimal @db.Decimal(24,3)
+  snapshot Json
+  status String @default("POSTED") @db.VarChar(20)
+  voidReason String? @map("void_reason") @db.VarChar(2000)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  actorId Int @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  supplier Company? @relation(fields: [supplierId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([firmId, idempotencyKey])
+  @@index([supplierId, firmId])
+  @@index([firmId, expenseDate, id])
+  @@map("expenses")
+}
+
+model Fulfillment {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  salesOrderId Int @map("sales_order_id")
+  reference String @db.VarChar(191)
+  occurredAt DateTime @map("occurred_at")
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  createdById Int @map("created_by_id")
+  cancelledAt DateTime? @map("cancelled_at")
+  cancellationReason String? @map("cancellation_reason") @db.Text
+  cancelledById Int? @map("cancelled_by_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  order SalesOrder @relation(fields: [salesOrderId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy User @relation("FulfillmentCreator", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  cancelledBy User? @relation("FulfillmentCanceller", fields: [cancelledById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lines FulfillmentLine[]
+  @@unique([id, firmId, salesOrderId])
+  @@unique([firmId, idempotencyKey])
+  @@index([firmId, salesOrderId, id])
+  @@map("fulfillments")
+}
+
+model FulfillmentLine {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  salesOrderId Int @map("sales_order_id")
+  fulfillmentId Int @map("fulfillment_id")
+  salesOrderLineId Int @map("sales_order_line_id")
+  quantity Decimal @db.Decimal(18,3)
+  fulfillment Fulfillment @relation(fields: [fulfillmentId, firmId, salesOrderId], references: [id, firmId, salesOrderId], onDelete: Restrict, onUpdate: Restrict)
+  orderLine SalesOrderLine @relation(fields: [salesOrderLineId, firmId, salesOrderId], references: [id, firmId, salesOrderId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([fulfillmentId, salesOrderLineId])
+  @@index([firmId, salesOrderLineId])
+  @@map("fulfillment_lines")
+}
+
+model SalesOrderInvoiceLine {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  salesOrderId Int @map("sales_order_id")
+  salesOrderLineId Int @map("sales_order_line_id")
+  invoiceId Int @map("invoice_id")
+  quantity Decimal @db.Decimal(18,3)
+  orderLine SalesOrderLine @relation(fields: [salesOrderLineId, firmId, salesOrderId], references: [id, firmId, salesOrderId], onDelete: Restrict, onUpdate: Restrict)
+  invoice Invoice @relation(fields: [invoiceId, firmId, salesOrderId], references: [id, firmId, sourceSalesOrderId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([invoiceId, salesOrderLineId])
+  @@index([firmId, salesOrderId])
+  @@map("sales_order_invoice_lines")
+}
+
+model SalesOrderHistory {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  salesOrderId Int @map("sales_order_id")
+  version Int
+  status String @db.VarChar(30)
+  actorId Int @map("actor_id")
+  reason String @db.VarChar(2000)
+  createdAt DateTime @default(now()) @map("created_at")
+  order SalesOrder @relation(fields: [salesOrderId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([salesOrderId, version])
+  @@map("sales_order_history")
+}
+
+model PortalIdentity {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  companyId Int @map("company_id")
+  contactId Int @map("contact_id")
+  email String @db.VarChar(191)
+  name String @db.VarChar(191)
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  company Company @relation(fields: [companyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  contact CompanyContact @relation(fields: [contactId, companyId], references: [id, companyId], onDelete: Restrict, onUpdate: Restrict)
+  invitations PortalInvitation[]
+  sessions PortalSession[]
+  grants PortalGrant[]
+  acceptances DocumentAcceptance[]
+  @@unique([id, firmId, companyId])
+  @@unique([firmId, contactId])
+  @@map("portal_identities")
+}
+
+model PortalInvitation {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  companyId Int @map("company_id")
+  identityId Int @map("identity_id")
+  tokenHash String @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdById Int @map("created_by_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  identity PortalIdentity @relation(fields: [identityId, firmId, companyId], references: [id, firmId, companyId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sessions PortalSession[]
+  @@unique([id, firmId, companyId, identityId])
+  @@index([firmId, identityId])
+  @@map("portal_invitations")
+}
+
+model PortalSession {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  companyId Int @map("company_id")
+  identityId Int @map("identity_id")
+  invitationId Int @map("invitation_id")
+  tokenHash String @unique @map("token_hash") @db.Char(64)
+  csrfHash String @map("csrf_hash") @db.Char(64)
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  identity PortalIdentity @relation(fields: [identityId, firmId, companyId], references: [id, firmId, companyId], onDelete: Restrict, onUpdate: Restrict)
+  invitation PortalInvitation @relation(fields: [invitationId, firmId, companyId, identityId], references: [id, firmId, companyId, identityId], onDelete: Restrict, onUpdate: Restrict)
+  acceptances DocumentAcceptance[]
+  @@unique([id, firmId, companyId, identityId])
+  @@index([firmId, identityId])
+  @@map("portal_sessions")
+}
+
+model PortalGrant {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  companyId Int @map("company_id")
+  identityId Int @map("identity_id")
+  quotationId Int? @map("quotation_id")
+  invoiceId Int? @map("invoice_id")
+  salesOrderId Int? @map("sales_order_id")
+  snapshot Json
+  snapshotHash String @map("snapshot_hash") @db.Char(64)
+  allowDecision Boolean @default(false) @map("allow_decision")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdById Int @map("created_by_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  identity PortalIdentity @relation(fields: [identityId, firmId, companyId], references: [id, firmId, companyId], onDelete: Restrict, onUpdate: Restrict)
+  quotation Quotation? @relation(fields: [quotationId, firmId, companyId], references: [id, firmId, companyId], onDelete: Restrict, onUpdate: Restrict)
+  invoice Invoice? @relation(fields: [invoiceId, firmId, companyId], references: [id, firmId, companyId], onDelete: Restrict, onUpdate: Restrict)
+  salesOrder SalesOrder? @relation(fields: [salesOrderId, firmId, companyId], references: [id, firmId, companyId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  acceptances DocumentAcceptance[]
+  @@unique([id, firmId, companyId])
+  @@unique([id, firmId, companyId, identityId])
+  @@index([firmId, identityId, id])
+  @@map("portal_grants")
+}
+
+model DocumentAcceptance {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  companyId Int @map("company_id")
+  quotationId Int @map("quotation_id")
+  revisionNumber Int @map("revision_number")
+  grantId Int @map("grant_id")
+  identityId Int @map("identity_id")
+  sessionId Int @map("session_id")
+  decision String @db.VarChar(20)
+  snapshotHash String @map("snapshot_hash") @db.Char(64)
+  actorName String @map("actor_name") @db.VarChar(191)
+  actorEmail String @map("actor_email") @db.VarChar(191)
+  consent String @db.Text
+  ipAddress String? @map("ip_address") @db.VarChar(191)
+  userAgent String? @map("user_agent") @db.Text
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  createdAt DateTime @default(now()) @map("created_at")
+  quotation Quotation @relation(fields: [quotationId, firmId, companyId], references: [id, firmId, companyId], onDelete: Restrict, onUpdate: Restrict)
+  grant PortalGrant @relation(fields: [grantId, firmId, companyId, identityId], references: [id, firmId, companyId, identityId], onDelete: Restrict, onUpdate: Restrict)
+  identity PortalIdentity @relation(fields: [identityId, firmId, companyId], references: [id, firmId, companyId], onDelete: Restrict, onUpdate: Restrict)
+  session PortalSession @relation(fields: [sessionId, firmId, companyId, identityId], references: [id, firmId, companyId, identityId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([firmId, quotationId])
+  @@unique([firmId, idempotencyKey])
+  @@map("document_acceptances")
+}
+
 model User {
   id                Int                      @id @default(autoincrement())
+  firmId            Int?                     @map("firm_id")
+  firmRoleId        Int?                     @map("firm_role_id")
   name              String                   @db.VarChar(191)
   email             String                   @unique @db.VarChar(191)
   username          String                   @unique @db.VarChar(191)
   passwordHash      String                   @map("password_hash") @db.VarChar(191)
   role              UserRole                 @default(ADMIN)
+  accountType       AccountType              @default(FIRM_ADMIN) @map("account_type")
   status            UserStatus               @default(ACTIVE)
+  mustChangePassword Boolean                  @default(false) @map("must_change_password")
   lastLoginAt       DateTime?                @map("last_login_at")
   passwordChangedAt DateTime?                @map("password_changed_at")
   createdAt         DateTime                 @default(now()) @map("created_at")
   updatedAt         DateTime                 @updatedAt @map("updated_at")
   deletedAt         DateTime?                @map("deleted_at")
+  firm              Firm?                    @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  firmRole          FirmRole?                @relation(fields: [firmRoleId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
   authSessions      AuthSession[]
   companiesCreated  Company[]                @relation("CompanyCreatedBy")
   companiesUpdated  Company[]                @relation("CompanyUpdatedBy")
@@ -138,11 +951,395 @@ model User {
   documents         GeneratedDocument[]      @relation("GeneratedDocumentGeneratedBy")
   communications    QuotationCommunication[] @relation("QuotationCommunicationSender")
   importBatches     ImportBatch[]            @relation("ImportBatchStartedBy")
+  savedReportViews  SavedReportView[]
+  apiKeys ApiKey[]
+  accountingMappings AccountingMappingVersion[]
+  reportExportJobs ReportExportJob[]
+  webhookEndpoints WebhookEndpoint[]
+  bomsCreated BillOfMaterials[]
+  workOrdersCreated WorkOrder[]
   auditLogs         AuditLog[]
 
+  invoicesCreated   Invoice[]              @relation("InvoiceCreatedBy")
+  invoicesUpdated   Invoice[]              @relation("InvoiceUpdatedBy")
+  invoiceChanges    InvoiceStatusHistory[]
+  billingDocuments  InvoiceDocument[]
+  customerPayments  CustomerPayment[]
+  paymentAllocations PaymentAllocation[]
+  paymentReversals  PaymentReversal[]
+  customerRefunds   CustomerRefund[]
+  billingSchedules  BillingSchedule[]
+  billingScheduleVersions BillingScheduleVersion[] @relation("BillingScheduleVersionCreator")
+  billingScheduleApprovals BillingScheduleVersion[] @relation("BillingScheduleVersionApprover")
+  leadsOwned Lead[] @relation("LeadOwner")
+  leadsCreated Lead[] @relation("LeadCreator")
+  opportunitiesOwned Opportunity[] @relation("OpportunityOwner")
+  opportunitiesCreated Opportunity[] @relation("OpportunityCreator")
+  tasksAssigned SalesTask[] @relation("TaskAssignee")
+  tasksCreated SalesTask[] @relation("TaskCreator")
+  salesActivities SalesActivity[]
+  salesOrders SalesOrder[]
+  fulfillments Fulfillment[] @relation("FulfillmentCreator")
+  fulfillmentsCancelled Fulfillment[] @relation("FulfillmentCanceller")
+  salesOrderHistory SalesOrderHistory[]
+  portalInvitations PortalInvitation[]
+  portalGrants PortalGrant[]
+
+  stockMovements StockMovement[]
+  stockReservations StockReservation[]
+  stockOperations StockOperation[]
+  purchaseOrders PurchaseOrder[]
+  goodsReceipts GoodsReceipt[]
+  supplierBills SupplierBill[]
+  expenses Expense[]
+
+  goodsReceiptReturns GoodsReceiptReturn[]
+
+  automationPublications AutomationDefinitionVersion[]
+  automationPreferences AutomationRecipientPreference[]
+  workflowRuns WorkflowRun[]
+  approvalRequests ApprovalRequest[]
+  approvalDecisions ApprovalDecision[]
+  customFieldValueVersions CustomFieldValueVersion[]
+  assistantConversations AssistantConversation[]
+  assistantSettings AssistantSetting[]
+
+  @@index([firmId])
+  @@unique([id, firmId])
+  @@index([firmRoleId])
+  @@index([firmRoleId, firmId])
+  @@index([accountType])
   @@index([status])
   @@index([deletedAt])
   @@map("users")
+}
+
+model Firm {
+  id                Int               @id @default(autoincrement())
+  name              String            @db.VarChar(191)
+  slug              String            @unique @db.VarChar(100)
+  status            FirmStatus        @default(ACTIVE)
+  // Legacy provisioning baseline only. Runtime limits come from entitlements.
+  userLimit         Int               @default(4) @map("user_limit")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  deletedAt         DateTime?         @map("deleted_at")
+  users             User[]
+  roles             FirmRole[]
+  businessProfile   BusinessProfile?
+  companies         Company[]
+  itemCategories    ItemCategory[]
+  measurementUnits  MeasurementUnit[]
+  items             Item[]
+  quotations        Quotation[]
+  invoices          Invoice[]
+  invoiceSetting    InvoiceSetting?
+  customerPayments  CustomerPayment[]
+  billingSchedules  BillingSchedule[]
+  termsTemplates    TermsTemplate[]
+  importBatches     ImportBatch[]
+  savedReportViews  SavedReportView[]
+  apiKeys ApiKey[]
+  accountingMappings AccountingMappingVersion[]
+  reportExportJobs ReportExportJob[]
+  webhookEndpoints WebhookEndpoint[]
+  webhookDeliveries WebhookDelivery[]
+  billsOfMaterials BillOfMaterials[]
+  bomComponents BomComponent[]
+  workOrders WorkOrder[]
+  auditLogs         AuditLog[]
+
+  subscriptions     FirmSubscription[]
+  featureOverrides  FirmFeatureOverride[]
+  usageCounters     UsageCounter[]
+  platformCharges   PlatformCharge[]
+  documentSequences DocumentSequence[]
+  outboxEvents      OutboxEvent[]
+  businessPolicies  FirmBusinessPolicy[]
+  notificationPreferences NotificationPreference[]
+  notificationDeliveries NotificationDelivery[]
+  leads Lead[]
+  opportunities Opportunity[]
+  salesTasks SalesTask[]
+  salesActivities SalesActivity[]
+  salesOrders SalesOrder[]
+  portalIdentities PortalIdentity[]
+  warehouses Warehouse[]
+  stockPositions StockPosition[]
+  stockMovements StockMovement[]
+  stockReservations StockReservation[]
+  stockOperations StockOperation[]
+  purchaseOrders PurchaseOrder[]
+  goodsReceipts GoodsReceipt[]
+  supplierBills SupplierBill[]
+  expenses Expense[]
+
+  goodsReceiptReturns GoodsReceiptReturn[]
+
+  automationDefinitions AutomationDefinitionVersion[]
+  workflowRuns WorkflowRun[]
+  approvalRequests ApprovalRequest[]
+  customFieldValues CustomFieldValueVersion[]
+  automationPreferences AutomationRecipientPreference[]
+
+  assistantSetting AssistantSetting?
+  assistantConversations AssistantConversation[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("firms")
+}
+
+// Published definitions are append-only. Rollback publishes another version.
+model AssistantSetting {
+  firmId Int @id @map("firm_id")
+  version Int @default(1)
+  llmEnabled Boolean @default(false) @map("llm_enabled")
+  dailyLlmRequests Int? @map("daily_llm_requests")
+  retainContentDays Int? @map("retain_content_days")
+  updatedById Int @map("updated_by_id")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "assistant_setting_firm_fk")
+  administrator User @relation(fields: [updatedById, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "assistant_setting_actor_fk")
+  @@index([updatedById, firmId], map: "assistant_setting_actor_idx")
+  @@map("assistant_settings")
+}
+
+model AssistantConversation {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "assistant_conversation_firm_fk")
+  actor User @relation(fields: [actorId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "assistant_conversation_actor_fk")
+  messages AssistantMessage[]
+  proposals AssistantActionProposal[]
+  @@unique([id, firmId, actorId], map: "assistant_conversation_owner_key")
+  @@index([firmId, actorId, deletedAt, createdAt], map: "assistant_conversation_history_idx")
+  @@map("assistant_conversations")
+}
+
+// A message is one idempotent request/reply exchange. Content is opt-in;
+// minimal request, usage and action evidence survives content erasure.
+model AssistantMessage {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  conversationId String @map("conversation_id") @db.VarChar(36)
+  requestId String @map("request_id") @db.VarChar(36)
+  requestHash String @map("request_hash") @db.Char(64)
+  mode String @db.VarChar(10)
+  provider String @db.VarChar(40)
+  model String? @db.VarChar(100)
+  tool String? @db.VarChar(40)
+  status String @default("PENDING") @db.VarChar(20)
+  errorCode String? @map("error_code") @db.VarChar(60)
+  inputText String? @map("input_text") @db.VarChar(4000)
+  response Json?
+  contentExpiresAt DateTime? @map("content_expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  conversation AssistantConversation @relation(fields: [conversationId, firmId, actorId], references: [id, firmId, actorId], onDelete: Restrict, onUpdate: Restrict, map: "assistant_message_conversation_fk")
+  @@unique([firmId, actorId, requestId], map: "assistant_message_request_key")
+  @@index([conversationId, firmId, actorId], map: "assistant_message_conversation_idx")
+  @@index([firmId, provider, createdAt], map: "assistant_message_usage_idx")
+  @@index([firmId, createdAt], map: "assistant_message_rate_idx")
+  @@index([contentExpiresAt], map: "assistant_message_retention_idx")
+  @@map("assistant_messages")
+}
+
+model AssistantActionProposal {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  conversationId String @map("conversation_id") @db.VarChar(36)
+  mode String @db.VarChar(10)
+  command Json
+  evidence Json
+  fingerprint String @db.Char(64)
+  nonceHash String @map("nonce_hash") @db.Char(64)
+  status String @default("PENDING") @db.VarChar(20)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  conversation AssistantConversation @relation(fields: [conversationId, firmId, actorId], references: [id, firmId, actorId], onDelete: Restrict, onUpdate: Restrict, map: "assistant_proposal_conversation_fk")
+  execution AssistantExecution?
+  @@unique([id, firmId, actorId], map: "assistant_proposal_owner_key")
+  @@index([conversationId, firmId, actorId], map: "assistant_proposal_conversation_idx")
+  @@index([firmId, actorId, status, createdAt], map: "assistant_proposal_history_idx")
+  @@map("assistant_action_proposals")
+}
+
+model AssistantExecution {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  proposalId String @unique(map: "assistant_execution_proposal_key") @map("proposal_id") @db.VarChar(36)
+  result Json
+  createdAt DateTime @default(now()) @map("created_at")
+  proposal AssistantActionProposal @relation(fields: [proposalId, firmId, actorId], references: [id, firmId, actorId], onDelete: Restrict, onUpdate: Restrict, map: "assistant_execution_proposal_fk")
+  @@unique([proposalId, firmId, actorId], map: "assistant_execution_owner_key")
+  @@index([firmId, actorId, createdAt], map: "assistant_execution_history_idx")
+  @@map("assistant_executions")
+}
+
+model AutomationDefinitionVersion {
+  id            Int      @id @default(autoincrement())
+  firmId        Int      @map("firm_id")
+  kind          String   @db.VarChar(20)
+  key           String   @db.VarChar(64)
+  version       Int
+  definition    Json
+  publishedById Int      @map("published_by_id")
+  publishedAt   DateTime @default(now()) @map("published_at")
+  firm          Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "automation_version_firm_fk")
+  publisher     User     @relation(fields: [publishedById, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "automation_version_publisher_fk")
+  runs          WorkflowRun[]
+  approvals     ApprovalRequest[]
+  values        CustomFieldValueVersion[]
+
+  @@unique([id, firmId], map: "automation_version_id_firm_key")
+  @@unique([firmId, kind, key, version], map: "automation_version_identity_key")
+  @@index([publishedById, firmId], map: "automation_publisher_idx")
+  @@map("automation_definition_versions")
+}
+
+model WorkflowRun {
+  id            String   @id @db.VarChar(36)
+  firmId        Int      @map("firm_id")
+  definitionId  Int      @map("definition_id")
+  sourceEventId String   @map("source_event_id") @db.VarChar(191)
+  actorId       Int      @map("actor_id")
+  event         Json
+  outboxId      String   @map("outbox_id") @db.VarChar(36)
+  status        String   @default("PENDING") @db.VarChar(20)
+  reason        String?  @db.VarChar(100)
+  expiresAt     DateTime @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  completedAt   DateTime? @map("completed_at")
+  firm          Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "workflow_run_firm_fk")
+  definition    AutomationDefinitionVersion @relation(fields: [definitionId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "workflow_run_definition_fk")
+  outbox        OutboxEvent @relation(fields: [outboxId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "workflow_run_outbox_fk")
+  actor         User @relation(fields: [actorId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "workflow_run_actor_fk")
+  actions       WorkflowActionResult[]
+
+  @@unique([id, firmId], map: "workflow_run_id_firm_key")
+  @@unique([firmId, definitionId, sourceEventId], map: "workflow_run_event_key")
+  @@index([firmId, createdAt], map: "workflow_runs_firm_created_idx")
+  @@index([definitionId, firmId], map: "workflow_run_definition_idx")
+  @@unique([outboxId, firmId], map: "workflow_runs_outbox_firm_key")
+  @@index([actorId, firmId], map: "workflow_run_actor_idx")
+  @@map("workflow_runs")
+}
+
+model WorkflowActionResult {
+  id          Int      @id @default(autoincrement())
+  firmId      Int      @map("firm_id")
+  runId       String   @map("run_id") @db.VarChar(36)
+  step        String   @db.VarChar(32)
+  outcome     String   @db.VarChar(32)
+  createdAt   DateTime @default(now()) @map("created_at")
+  run         WorkflowRun @relation(fields: [runId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "workflow_action_run_fk")
+
+  @@unique([runId, step])
+  @@index([runId, firmId])
+  @@map("workflow_action_results")
+}
+
+model ApprovalRequest {
+  id           String   @id @db.VarChar(36)
+  firmId       Int      @map("firm_id")
+  policyId     Int      @map("policy_id")
+  requesterId  Int      @map("requester_id")
+  fingerprint  String   @db.Char(64)
+  command      Json
+  evidence     Json
+  status       String   @default("PENDING") @db.VarChar(20)
+  expiresAt    DateTime @map("expires_at")
+  consumedAt   DateTime? @map("consumed_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  firm         Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "approval_request_firm_fk")
+  policy       AutomationDefinitionVersion @relation(fields: [policyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "approval_request_policy_fk")
+  requester    User @relation(fields: [requesterId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "approval_request_actor_fk")
+  decisions    ApprovalDecision[]
+
+  @@unique([id, firmId])
+  @@index([firmId, requesterId, fingerprint, status], map: "approval_request_fingerprint_idx")
+  @@index([policyId, firmId], map: "approval_request_policy_idx")
+  @@index([requesterId, firmId], map: "approval_request_actor_idx")
+  @@map("approval_requests")
+}
+
+model ApprovalDecision {
+  id          Int      @id @default(autoincrement())
+  firmId      Int      @map("firm_id")
+  requestId   String   @map("request_id") @db.VarChar(36)
+  actorId     Int      @map("actor_id")
+  decision    String   @db.VarChar(20)
+  reason      String   @db.VarChar(2000)
+  createdAt   DateTime @default(now()) @map("created_at")
+  request     ApprovalRequest @relation(fields: [requestId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "approval_decision_request_fk")
+  actor       User @relation(fields: [actorId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "approval_decision_actor_fk")
+
+  @@index([requestId, firmId])
+  @@index([actorId, firmId], map: "approval_decision_actor_idx")
+  @@map("approval_decisions")
+}
+
+model CustomFieldValueVersion {
+  id           Int      @id @default(autoincrement())
+  firmId       Int      @map("firm_id")
+  entity       String   @db.VarChar(20)
+  entityId     Int      @map("entity_id")
+  definitionId Int?     @map("definition_id")
+  schemaSnapshot Json?  @map("schema_snapshot")
+  version      Int
+  values       Json
+  actorId      Int      @map("actor_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  firm         Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "custom_field_value_firm_fk")
+  definition   AutomationDefinitionVersion? @relation(fields: [definitionId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "custom_field_value_definition_fk")
+  actor        User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "custom_field_value_actor_fk")
+
+  @@unique([firmId, entity, entityId, version], map: "custom_field_value_identity_key")
+  @@index([definitionId, firmId], map: "custom_field_value_definition_idx")
+  @@index([actorId, firmId], map: "custom_field_value_actor_idx")
+  @@map("custom_field_value_versions")
+}
+
+model AutomationRecipientPreference {
+  id                Int      @id @default(autoincrement())
+  firmId            Int      @map("firm_id")
+  userId            Int      @map("user_id")
+  enabled           Boolean  @default(false)
+  utcOffsetMinutes  Int      @default(0) @map("utc_offset_minutes")
+  quietStartMinute  Int?     @map("quiet_start_minute")
+  quietEndMinute    Int?     @map("quiet_end_minute")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  firm              Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict, map: "automation_preference_firm_fk")
+  user              User     @relation(fields: [userId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "automation_preference_user_fk")
+
+  @@unique([firmId, userId])
+  @@index([userId, firmId])
+  @@map("automation_recipient_preferences")
+}
+
+model FirmRole {
+  id          Int       @id @default(autoincrement())
+  firmId      Int       @map("firm_id")
+  name        String    @db.VarChar(100)
+  description String?   @db.VarChar(500)
+  permissions Json
+  isSystem    Boolean   @default(false) @map("is_system")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  firm        Firm      @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  users       User[]
+
+  @@unique([firmId, name])
+  @@unique([id, firmId])
+  @@index([firmId, deletedAt])
+  @@map("firm_roles")
 }
 
 model AuthSession {
@@ -164,6 +1361,7 @@ model AuthSession {
 
 model BusinessProfile {
   id               Int               @id @default(autoincrement())
+  firmId           Int               @unique @map("firm_id")
   legalName        String            @map("legal_name") @db.VarChar(191)
   displayName      String            @map("display_name") @db.VarChar(191)
   gstin            String?           @db.VarChar(20)
@@ -190,6 +1388,7 @@ model BusinessProfile {
   updatedAt        DateTime          @updatedAt @map("updated_at")
   bankDetails      BankDetail[]
   quotationSetting QuotationSetting?
+  firm             Firm              @relation(fields: [firmId], references: [id], onDelete: Restrict)
 
   @@map("business_profiles")
 }
@@ -218,7 +1417,7 @@ model BankDetail {
 model QuotationSetting {
   id                        Int               @id @default(autoincrement())
   businessProfileId         Int               @unique @map("business_profile_id")
-  quotationPrefix           String            @default("BUMINEX") @map("quotation_prefix") @db.VarChar(50)
+  quotationPrefix           String            @default("ERP") @map("quotation_prefix") @db.VarChar(50)
   financialYearFormat       String            @default("YYYY-YY") @map("financial_year_format") @db.VarChar(20)
   nextSequenceNumber        Int               @default(1) @map("next_sequence_number")
   sequenceResetRule         SequenceResetRule @default(FINANCIAL_YEAR) @map("sequence_reset_rule")
@@ -243,7 +1442,8 @@ model QuotationSetting {
 
 model Company {
   id          Int              @id @default(autoincrement())
-  companyCode String           @unique @map("company_code") @db.VarChar(50)
+  firmId      Int              @map("firm_id")
+  companyCode String           @map("company_code") @db.VarChar(50)
   name        String           @db.VarChar(191)
   legalName   String?          @map("legal_name") @db.VarChar(191)
   gstin       String?          @db.VarChar(20)
@@ -251,6 +1451,7 @@ model Company {
   website     String?          @db.VarChar(191)
   notes       String?          @db.Text
   isActive    Boolean          @default(true) @map("is_active")
+  isSupplier  Boolean          @default(false) @map("is_supplier")
   createdById Int?             @map("created_by_id")
   updatedById Int?             @map("updated_by_id")
   createdAt   DateTime         @default(now()) @map("created_at")
@@ -258,11 +1459,26 @@ model Company {
   deletedAt   DateTime?        @map("deleted_at")
   createdBy   User?            @relation("CompanyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy   User?            @relation("CompanyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  firm        Firm             @relation(fields: [firmId], references: [id], onDelete: Restrict)
   contacts    CompanyContact[]
   addresses   CompanyAddress[]
   quotations  Quotation[]
+  invoices    Invoice[]
+  customerPayments CustomerPayment[]
+  billingSchedules BillingSchedule[]
+  leads Lead[]
+  opportunities Opportunity[]
+  salesTasks SalesTask[]
+  salesActivities SalesActivity[]
+  salesOrders SalesOrder[]
+  portalIdentities PortalIdentity[]
+  purchaseOrders PurchaseOrder[]
+  supplierBills SupplierBill[]
+  expenses Expense[]
 
-  @@index([name])
+  @@unique([firmId, companyCode])
+  @@unique([id, firmId])
+  @@index([firmId, name])
   @@index([gstin])
   @@index([isActive])
   @@index([deletedAt])
@@ -283,7 +1499,9 @@ model CompanyContact {
   deletedAt      DateTime?   @map("deleted_at")
   company        Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   quotations     Quotation[]
+  portalIdentities PortalIdentity[]
 
+  @@unique([id, companyId])
   @@index([companyId])
   @@map("company_contacts")
 }
@@ -313,38 +1531,51 @@ model CompanyAddress {
 
 model ItemCategory {
   id          Int       @id @default(autoincrement())
-  name        String    @unique @db.VarChar(191)
-  slug        String    @unique @db.VarChar(191)
+  firmId      Int       @map("firm_id")
+  name        String    @db.VarChar(191)
+  slug        String    @db.VarChar(191)
   description String?   @db.Text
   isActive    Boolean   @default(true) @map("is_active")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
   items       Item[]
+  firm        Firm      @relation(fields: [firmId], references: [id], onDelete: Restrict)
 
+  @@unique([firmId, name])
+  @@unique([firmId, slug])
+  @@index([firmId])
   @@index([deletedAt])
   @@map("item_categories")
 }
 
 model MeasurementUnit {
   id           Int       @id @default(autoincrement())
-  name         String    @unique @db.VarChar(191)
-  symbol       String    @unique @db.VarChar(50)
+  firmId       Int       @map("firm_id")
+  name         String    @db.VarChar(191)
+  symbol       String    @db.VarChar(50)
   allowDecimal Boolean   @default(true) @map("allow_decimal")
   isActive     Boolean   @default(true) @map("is_active")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
   items        Item[]
+  firm         Firm      @relation(fields: [firmId], references: [id], onDelete: Restrict)
 
+  @@unique([firmId, name])
+  @@unique([firmId, symbol])
+  @@index([firmId])
   @@map("measurement_units")
 }
 
 model Item {
   id                  Int             @id @default(autoincrement())
-  itemCode            String          @unique @map("item_code") @db.VarChar(50)
+  firmId              Int             @map("firm_id")
+  itemCode            String          @map("item_code") @db.VarChar(50)
   categoryId          Int?            @map("category_id")
   name                String          @db.VarChar(191)
+  kind                ItemKind        @default(GOODS)
+  stockTracking       Boolean         @default(false) @map("stock_tracking")
   shortDescription    String?         @map("short_description") @db.Text
   detailedDescription String?         @map("detailed_description") @db.LongText
   specifications      Json?
@@ -366,9 +1597,17 @@ model Item {
   measurementUnit     MeasurementUnit @relation(fields: [measurementUnitId], references: [id], onDelete: Restrict)
   createdBy           User?           @relation("ItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy           User?           @relation("ItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  firm                Firm            @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  manufacturingOutputs BillOfMaterials[]
+  manufacturingComponents BomComponent[]
   quotationItems      QuotationItem[]
+  invoiceLines        InvoiceLine[]
+  stockPositions      StockPosition[]
+  purchaseOrderLines  PurchaseOrderLine[]
 
-  @@index([name])
+  @@unique([firmId, itemCode])
+  @@unique([id, firmId])
+  @@index([firmId, name])
   @@index([categoryId])
   @@index([measurementUnitId])
   @@index([sourceType])
@@ -377,8 +1616,309 @@ model Item {
   @@map("items")
 }
 
+model Invoice {
+  id                      Int           @id @default(autoincrement())
+  firmId                  Int           @map("firm_id")
+  companyId               Int           @map("company_id")
+  status                  InvoiceStatus @default(DRAFT)
+  kind                    BillingDocumentKind @default(INVOICE)
+  documentNumber          String?       @map("document_number") @db.VarChar(16)
+  period                  String?       @db.VarChar(32)
+  version                 Int           @default(1)
+  invoiceDate             DateTime      @map("invoice_date") @db.Date
+  dueDate                 DateTime?     @map("due_date") @db.Date
+  customerReference       String?       @map("customer_reference") @db.VarChar(191)
+  paymentTerms            String?       @map("payment_terms") @db.Text
+  notes                   String?       @db.Text
+  currency                String        @db.VarChar(3)
+  buyerSnapshot           Json          @map("buyer_snapshot")
+  sellerSnapshot          Json?         @map("seller_snapshot")
+  bankSnapshot            Json?         @map("bank_snapshot")
+  customFieldSchema       Json          @map("custom_field_schema")
+  customFieldValues       Json          @map("custom_field_values")
+  presentationSnapshot    Json          @map("presentation_snapshot")
+  issueSnapshot           Json?         @map("issue_snapshot")
+  supplySnapshot          Json          @map("supply_snapshot")
+  sourceSnapshot          Json?         @map("source_snapshot")
+  sourceQuotationId       Int?          @map("source_quotation_id")
+  sourceProformaId        Int?          @map("source_proforma_id")
+  sourceInvoiceId         Int?          @map("source_invoice_id")
+  adjustmentReason        String?       @map("adjustment_reason") @db.Text
+  issuedAt                DateTime?     @map("issued_at")
+  voidedAt                DateTime?     @map("voided_at")
+  voidReason              String?       @map("void_reason") @db.Text
+  financialPolicySnapshot Json          @map("financial_policy_snapshot")
+  subtotal                Decimal       @db.Decimal(24, 3)
+  discountAmount          Decimal       @map("discount_amount") @db.Decimal(24, 3)
+  taxableAmount           Decimal       @map("taxable_amount") @db.Decimal(24, 3)
+  taxAmount               Decimal       @map("tax_amount") @db.Decimal(24, 3)
+  roundOffAmount          Decimal       @map("round_off_amount") @db.Decimal(24, 3)
+  grandTotal              Decimal       @map("grand_total") @db.Decimal(24, 3)
+  idempotencyKey          String        @map("idempotency_key") @db.VarChar(100)
+  requestHash             String        @map("request_hash") @db.Char(64)
+  createdById             Int           @map("created_by_id")
+  updatedById             Int           @map("updated_by_id")
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt @map("updated_at")
+  firm                    Firm          @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  company                 Company       @relation(fields: [companyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy               User          @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy               User          @relation("InvoiceUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  lines                   InvoiceLine[]
+  statusHistory           InvoiceStatusHistory[]
+  documents               InvoiceDocument[]
+  sourceQuotation         Quotation?    @relation(fields: [sourceQuotationId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  sourceProforma          Invoice?      @relation("ProformaConversion", fields: [sourceProformaId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  convertedInvoices       Invoice[]     @relation("ProformaConversion")
+  sourceInvoice           Invoice?      @relation("InvoiceAdjustments", fields: [sourceInvoiceId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  adjustments             Invoice[]     @relation("InvoiceAdjustments")
+  paymentAllocations      PaymentAllocation[]
+  billingScheduleRun      BillingScheduleRun?
+  sourceSalesOrderId      Int? @map("source_sales_order_id")
+  sourceSalesOrder        SalesOrder? @relation(fields: [sourceSalesOrderId, firmId, companyId], references: [id, firmId, companyId], onDelete: Restrict, onUpdate: Restrict)
+  orderAllocations        SalesOrderInvoiceLine[]
+  portalGrants            PortalGrant[]
+
+  @@unique([id, firmId])
+  @@unique([id, firmId, companyId, currency], map: "invoices_id_firm_company_currency_key")
+  @@unique([id, firmId, companyId])
+  @@unique([id, firmId, sourceSalesOrderId])
+  @@index([firmId, sourceSalesOrderId, status])
+  @@unique([firmId, idempotencyKey])
+  @@unique([firmId, documentNumber])
+  @@unique([firmId, sourceQuotationId])
+  @@unique([firmId, sourceProformaId])
+  @@index([sourceInvoiceId, firmId])
+  @@index([firmId, invoiceDate, id])
+  @@index([firmId, status, createdAt, id])
+  @@index([companyId, firmId])
+  @@map("invoices")
+}
+
+// Tenant customer receipts are intentionally separate from platform PaymentEvent.
+model CustomerPayment {
+  id             Int       @id @default(autoincrement())
+  firmId         Int       @map("firm_id")
+  companyId      Int       @map("company_id")
+  currency       String    @db.VarChar(3)
+  amount         Decimal   @db.Decimal(24, 3)
+  method         CustomerPaymentMethod
+  reference      String?   @db.VarChar(191)
+  receivedDate   DateTime  @map("received_date") @db.Date
+  idempotencyKey String    @map("idempotency_key") @db.VarChar(100)
+  requestHash    String    @map("request_hash") @db.Char(64)
+  createdById    Int       @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  firm           Firm      @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  company        Company   @relation(fields: [companyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  allocations    PaymentAllocation[]
+  reversal       PaymentReversal?
+  refunds        CustomerRefund[]
+
+  @@unique([id, firmId])
+  @@unique([id, firmId, companyId, currency], map: "customer_payments_id_firm_company_currency_key")
+  @@unique([firmId, idempotencyKey])
+  @@index([firmId, companyId, currency, id])
+  @@index([firmId, receivedDate, id])
+  @@map("customer_payments")
+}
+
+model PaymentAllocation {
+  id          Int       @id @default(autoincrement())
+  firmId      Int       @map("firm_id")
+  companyId   Int       @map("company_id")
+  currency    String    @db.VarChar(3)
+  paymentId   Int       @map("payment_id")
+  invoiceId   Int       @map("invoice_id")
+  amount      Decimal   @db.Decimal(24, 3)
+  requestKey  String    @map("request_key") @db.VarChar(100)
+  requestHash String    @map("request_hash") @db.Char(64)
+  createdById Int       @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  payment     CustomerPayment @relation(fields: [paymentId, firmId, companyId, currency], references: [id, firmId, companyId, currency], onDelete: Restrict, onUpdate: Restrict)
+  invoice     Invoice   @relation(fields: [invoiceId, firmId, companyId, currency], references: [id, firmId, companyId, currency], onDelete: Restrict, onUpdate: Restrict)
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([paymentId, requestKey, invoiceId])
+  @@index([firmId, invoiceId])
+  @@index([firmId, paymentId])
+  @@index([invoiceId, firmId, companyId, currency], map: "payment_allocations_invoice_owner_idx")
+  @@index([paymentId, firmId, companyId, currency], map: "payment_allocations_payment_owner_idx")
+  @@map("payment_allocations")
+}
+
+model PaymentReversal {
+  id             Int       @id @default(autoincrement())
+  firmId         Int       @map("firm_id")
+  paymentId      Int       @unique @map("payment_id")
+  amount         Decimal   @db.Decimal(24, 3)
+  reason         String    @db.Text
+  idempotencyKey String    @map("idempotency_key") @db.VarChar(100)
+  requestHash    String    @map("request_hash") @db.Char(64)
+  createdById    Int       @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  payment        CustomerPayment @relation(fields: [paymentId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([firmId, idempotencyKey])
+  @@unique([paymentId, firmId])
+  @@map("payment_reversals")
+}
+
+model CustomerRefund {
+  id             Int       @id @default(autoincrement())
+  firmId         Int       @map("firm_id")
+  paymentId      Int       @map("payment_id")
+  amount         Decimal   @db.Decimal(24, 3)
+  paidDate       DateTime  @map("paid_date") @db.Date
+  reference      String    @db.VarChar(191)
+  reason         String    @db.Text
+  idempotencyKey String    @map("idempotency_key") @db.VarChar(100)
+  requestHash    String    @map("request_hash") @db.Char(64)
+  createdById    Int       @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  payment        CustomerPayment @relation(fields: [paymentId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([firmId, idempotencyKey])
+  @@index([paymentId, firmId])
+  @@index([firmId, paymentId])
+  @@map("customer_refunds")
+}
+
+model BillingSchedule {
+  id             Int       @id @default(autoincrement())
+  firmId         Int       @map("firm_id")
+  companyId      Int       @map("company_id")
+  name           String    @db.VarChar(191)
+  status         BillingScheduleStatus @default(PAUSED)
+  version        Int       @default(1)
+  nextPeriod     DateTime  @map("next_period") @db.Date
+  idempotencyKey String    @map("idempotency_key") @db.VarChar(100)
+  requestHash    String    @map("request_hash") @db.Char(64)
+  createdById    Int       @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  firm           Firm      @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  company        Company   @relation(fields: [companyId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  versions       BillingScheduleVersion[]
+  runs           BillingScheduleRun[]
+
+  @@unique([id, firmId])
+  @@unique([firmId, idempotencyKey])
+  @@index([firmId, companyId])
+  @@index([status, nextPeriod, id])
+  @@map("billing_schedules")
+}
+
+model BillingScheduleVersion {
+  id          Int       @id @default(autoincrement())
+  firmId      Int       @map("firm_id")
+  scheduleId  Int       @map("schedule_id")
+  version     Int
+  config      Json
+  preview     Json
+  approvedAt  DateTime? @map("approved_at")
+  approvedById Int?     @map("approved_by_id")
+  createdById Int       @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  schedule    BillingSchedule @relation(fields: [scheduleId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy   User      @relation("BillingScheduleVersionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy  User?     @relation("BillingScheduleVersionApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+  runs        BillingScheduleRun[]
+
+  @@unique([scheduleId, firmId, version])
+  @@map("billing_schedule_versions")
+}
+
+model BillingScheduleRun {
+  id          Int       @id @default(autoincrement())
+  firmId      Int       @map("firm_id")
+  scheduleId  Int       @map("schedule_id")
+  version     Int
+  period      DateTime  @db.Date
+  status      BillingScheduleRunStatus @default(QUEUED)
+  retryCount  Int       @default(0) @map("retry_count")
+  invoiceId   Int?      @unique @map("invoice_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+  schedule    BillingSchedule @relation(fields: [scheduleId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  revision    BillingScheduleVersion @relation(fields: [scheduleId, firmId, version], references: [scheduleId, firmId, version], onDelete: Restrict, onUpdate: Restrict)
+  invoice     Invoice?  @relation(fields: [invoiceId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([scheduleId, period])
+  @@index([firmId, createdAt, id])
+  @@index([scheduleId, firmId, version])
+  @@unique([invoiceId, firmId])
+  @@map("billing_schedule_runs")
+}
+
+model InvoiceSetting {
+  id        Int      @id @default(autoincrement())
+  firmId    Int      @unique @map("firm_id")
+  version   Int      @default(1)
+  config    Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  firm      Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict)
+
+  @@map("invoice_settings")
+}
+
+model InvoiceDocument {
+  id            Int      @id @default(autoincrement())
+  firmId        Int      @map("firm_id")
+  invoiceId     Int      @map("invoice_id")
+  versionNumber Int      @map("version_number")
+  filePath      String   @map("file_path") @db.VarChar(191)
+  fileHash      String   @map("file_hash") @db.Char(64)
+  fileSize      Int      @map("file_size")
+  generatedById Int      @map("generated_by_id")
+  generatedAt   DateTime @default(now()) @map("generated_at")
+  invoice       Invoice  @relation(fields: [invoiceId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  generatedBy   User     @relation(fields: [generatedById], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, versionNumber])
+  @@index([firmId, generatedAt])
+  @@map("invoice_documents")
+}
+
+model InvoiceLine {
+  id         Int     @id @default(autoincrement())
+  firmId     Int     @map("firm_id")
+  invoiceId  Int     @map("invoice_id")
+  itemId     Int?    @map("item_id")
+  lineNumber Int     @map("line_number")
+  snapshot   Json
+  invoice    Invoice @relation(fields: [invoiceId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  item       Item?   @relation(fields: [itemId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([invoiceId, lineNumber])
+  @@index([itemId, firmId])
+  @@map("invoice_lines")
+}
+
+model InvoiceStatusHistory {
+  id          Int           @id @default(autoincrement())
+  firmId      Int           @map("firm_id")
+  invoiceId   Int           @map("invoice_id")
+  version     Int
+  fromStatus  InvoiceStatus? @map("from_status")
+  toStatus    InvoiceStatus  @map("to_status")
+  changedById Int           @map("changed_by_id")
+  changedAt   DateTime      @default(now()) @map("changed_at")
+  invoice     Invoice       @relation(fields: [invoiceId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  changedBy   User          @relation(fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, version])
+  @@index([firmId, changedAt])
+  @@map("invoice_status_history")
+}
+
 model Quotation {
   id                      Int                      @id @default(autoincrement())
+  firmId                  Int                      @map("firm_id")
   quotationNumber         String                   @map("quotation_number") @db.VarChar(50)
   revisionNumber          Int                      @default(0) @map("revision_number")
   rootQuotationId         Int?                     @map("root_quotation_id")
@@ -402,6 +1942,8 @@ model Quotation {
   internalReference       String?                  @map("internal_reference") @db.VarChar(191)
   status                  QuotationStatus          @default(DRAFT)
   currency                String                   @default("INR") @db.VarChar(3)
+  financialPolicySnapshot Json?                    @map("financial_policy_snapshot")
+  automationPresentationSnapshot Json?             @map("automation_presentation_snapshot")
   taxMode                 TaxMode                  @default(CGST_SGST) @map("tax_mode")
   subtotal                Decimal                  @default(0.00) @db.Decimal(15, 2)
   itemDiscountAmount      Decimal                  @default(0.00) @map("item_discount_amount") @db.Decimal(15, 2)
@@ -443,6 +1985,7 @@ model Quotation {
   shippingAddress         CompanyAddress?          @relation("QuotationShippingAddress", fields: [shippingAddressId], references: [id], onDelete: SetNull)
   createdBy               User                     @relation("QuotationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy               User?                    @relation("QuotationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  firm                    Firm                     @relation(fields: [firmId], references: [id], onDelete: Restrict)
   rootQuotation           Quotation?               @relation("QuotationRoot", fields: [rootQuotationId], references: [id], onDelete: Restrict)
   revisionFamily          Quotation[]              @relation("QuotationRoot")
   previousRevision        Quotation?               @relation("QuotationPrevious", fields: [previousRevisionId], references: [id], onDelete: Restrict)
@@ -453,10 +1996,17 @@ model Quotation {
   attachments             QuotationAttachment[]
   generatedDocuments      GeneratedDocument[]
   communications          QuotationCommunication[]
+  invoices                Invoice[]
+  salesOrders             SalesOrder[]
+  opportunities           Opportunity[]
+  portalGrants            PortalGrant[]
+  acceptances             DocumentAcceptance[]
 
-  @@unique([quotationNumber, revisionNumber])
-  @@unique([rootQuotationId, revisionNumber])
-  @@index([quotationDate])
+  @@unique([firmId, quotationNumber, revisionNumber])
+  @@unique([id, firmId])
+  @@unique([firmId, rootQuotationId, revisionNumber])
+  @@unique([id, firmId, companyId])
+  @@index([firmId, quotationDate])
   @@index([status])
   @@index([companyId])
   @@index([createdById])
@@ -503,10 +2053,11 @@ model QuotationStatusHistory {
   fromStatus  QuotationStatus? @map("from_status")
   toStatus    QuotationStatus  @map("to_status")
   comment     String?          @db.Text
-  changedById Int              @map("changed_by_id")
+  changedById Int?             @map("changed_by_id")
+  portalActorName String?      @map("portal_actor_name") @db.VarChar(191)
   changedAt   DateTime         @default(now()) @map("changed_at")
   quotation   Quotation        @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  changedBy   User             @relation("QuotationStatusChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+  changedBy   User?            @relation("QuotationStatusChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
 
   @@index([quotationId])
   @@index([changedById])
@@ -552,6 +2103,7 @@ model GeneratedDocument {
   documentType   DocumentType             @default(QUOTATION_PDF) @map("document_type")
   filePath       String                   @map("file_path") @db.VarChar(500)
   fileHash       String?                  @map("file_hash") @db.VarChar(191)
+  sourceSnapshotHash String?               @map("source_snapshot_hash") @db.Char(64)
   generatedById  Int                      @map("generated_by_id")
   generatedAt    DateTime                 @default(now()) @map("generated_at")
   quotation      Quotation                @relation(fields: [quotationId], references: [id], onDelete: Cascade)
@@ -600,6 +2152,7 @@ model QuotationCommunication {
 
 model TermsTemplate {
   id        Int       @id @default(autoincrement())
+  firmId    Int       @map("firm_id")
   name      String    @db.VarChar(191)
   termType  TermType  @map("term_type")
   content   String    @db.LongText
@@ -608,15 +2161,214 @@ model TermsTemplate {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
+  firm      Firm      @relation(fields: [firmId], references: [id], onDelete: Restrict)
 
-  @@index([termType])
+  @@index([firmId, termType])
   @@map("terms_templates")
+}
+
+model BillOfMaterials {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  code String @db.VarChar(50)
+  name String @db.VarChar(191)
+  revision Int
+  outputItemId Int @map("output_item_id")
+  outputQuantity Decimal @map("output_quantity") @db.Decimal(18,3)
+  outputUnitId Int @map("output_unit_id")
+  outputName String @map("output_name") @db.VarChar(191)
+  outputUnit String @map("output_unit") @db.VarChar(50)
+  actorId Int @map("actor_id")
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  outputItem Item @relation(fields: [outputItemId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "bills_of_materials_output_owner_fkey")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  components BomComponent[]
+  workOrders WorkOrder[]
+  @@unique([id, firmId])
+  @@unique([firmId, code, revision])
+  @@unique([firmId, idempotencyKey])
+  @@index([outputItemId, firmId])
+  @@map("bills_of_materials")
+}
+
+model BomComponent {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  bomId Int @map("bom_id")
+  itemId Int @map("item_id")
+  quantity Decimal @db.Decimal(18,3)
+  unitId Int @map("unit_id")
+  name String @db.VarChar(191)
+  unit String @db.VarChar(50)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  bom BillOfMaterials @relation(fields: [bomId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "bom_components_bom_owner_fkey")
+  item Item @relation(fields: [itemId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "bom_components_item_owner_fkey")
+  @@unique([bomId, itemId])
+  @@index([bomId, firmId])
+  @@index([itemId, firmId])
+  @@map("bom_components")
+}
+
+model WorkOrder {
+  id Int @id @default(autoincrement())
+  firmId Int @map("firm_id")
+  bomId Int @map("bom_id")
+  warehouseId Int @map("warehouse_id")
+  quantity Decimal @db.Decimal(18,3)
+  currency String @db.VarChar(3)
+  status String @default("DRAFT") @db.VarChar(20)
+  version Int @default(1)
+  snapshot Json
+  actorId Int @map("actor_id")
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  completionKey String? @map("completion_key") @db.VarChar(100)
+  completionHash String? @map("completion_hash") @db.Char(64)
+  cancellationKey String? @map("cancellation_key") @db.VarChar(100)
+  cancellationHash String? @map("cancellation_hash") @db.Char(64)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  bom BillOfMaterials @relation(fields: [bomId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "work_orders_bom_owner_fkey")
+  warehouse Warehouse @relation(fields: [warehouseId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict, map: "work_orders_warehouse_owner_fkey")
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  movements StockMovement[]
+  @@unique([id, firmId])
+  @@unique([firmId, idempotencyKey])
+  @@unique([firmId, completionKey])
+  @@unique([firmId, cancellationKey])
+  @@index([bomId, firmId])
+  @@index([warehouseId, firmId])
+  @@index([firmId, status, id])
+  @@map("work_orders")
+}
+
+model SavedReportView {
+  id            String   @id @db.VarChar(36)
+  firmId        Int      @map("firm_id")
+  actorId       Int      @map("actor_id")
+  name          String   @db.VarChar(100)
+  version       Int      @default(1)
+  filterVersion Int      @default(1) @map("filter_version")
+  filters       Json
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  firm          Firm     @relation(fields: [firmId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor         User     @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([id, firmId])
+  @@unique([firmId, actorId, name])
+  @@index([firmId, actorId, updatedAt, id])
+  @@map("saved_report_views")
+}
+
+model ReportExportJob {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  requestKey String @map("request_key") @db.VarChar(100)
+  requestHash String @map("request_hash") @db.Char(64)
+  format String @db.VarChar(8)
+  filters Json
+  eventId String @map("event_id") @db.VarChar(36)
+  reportSnapshot Json? @map("report_snapshot")
+  filePath String? @map("file_path") @db.VarChar(191)
+  fileHash String? @map("file_hash") @db.Char(64)
+  fileSize Int? @map("file_size")
+  createdAt DateTime @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+  deletedAt DateTime? @map("deleted_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  event OutboxEvent @relation(fields: [eventId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([firmId, actorId, requestKey])
+  @@unique([eventId, firmId])
+  @@index([firmId, actorId, createdAt])
+  @@map("report_export_jobs")
+}
+
+model AccountingMappingVersion {
+  firmId Int @map("firm_id")
+  version Int
+  mapping Json
+  actorId Int @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@id([firmId, version])
+  @@map("accounting_mapping_versions")
+}
+
+model ApiKey {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  name String @db.VarChar(100)
+  tokenHash String @unique @map("token_hash") @db.Char(64)
+  scopes Json
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([firmId, createdAt])
+  @@map("api_keys")
+}
+
+model WebhookEndpoint {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  actorId Int @map("actor_id")
+  name String @db.VarChar(100)
+  url String @db.VarChar(1000)
+  enabled Boolean @default(false)
+  secretVersion Int @default(1) @map("secret_version")
+  encryptedSecret String @map("encrypted_secret") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  deliveries WebhookDelivery[]
+
+  @@unique([id, firmId])
+  @@index([firmId, enabled])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id String @id @db.VarChar(36)
+  firmId Int @map("firm_id")
+  endpointId String @map("endpoint_id") @db.VarChar(36)
+  outboxEventId String @map("outbox_event_id") @db.VarChar(36)
+  sourceEventId String @map("source_event_id") @db.VarChar(36)
+  secretVersion Int @map("secret_version")
+  encryptedSecret String @map("encrypted_secret") @db.Text
+  body String @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  endpoint WebhookEndpoint @relation(fields: [endpointId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+  event OutboxEvent @relation(fields: [outboxEventId, firmId], references: [id, firmId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([endpointId, sourceEventId])
+  @@unique([outboxEventId, firmId])
+  @@index([endpointId, firmId])
+  @@index([firmId, createdAt])
+  @@map("webhook_deliveries")
 }
 
 model ImportBatch {
   id                Int               @id @default(autoincrement())
+  firmId            Int               @map("firm_id")
   sourceType        ItemSourceType    @map("source_type")
   sourceUrl         String?           @map("source_url") @db.VarChar(500)
+  target            String?           @db.VarChar(20)
+  contentHash       String?           @map("content_hash") @db.Char(64)
+  version           Int               @default(1)
   status            ImportBatchStatus @default(PENDING)
   totalRecords      Int               @default(0) @map("total_records")
   successfulRecords Int               @default(0) @map("successful_records")
@@ -626,9 +2378,12 @@ model ImportBatch {
   completedAt       DateTime?         @map("completed_at")
   errorSummary      String?           @map("error_summary") @db.Text
   startedBy         User              @relation("ImportBatchStartedBy", fields: [startedById], references: [id], onDelete: Restrict)
+  firm              Firm              @relation(fields: [firmId], references: [id], onDelete: Restrict)
   rows              ImportRow[]
 
-  @@index([status])
+  @@index([firmId, status])
+  @@unique([firmId, startedById, target, contentHash], map: "import_batches_firm_actor_target_hash_key")
+  @@index([firmId, target, startedAt], map: "import_batches_firm_target_started_idx")
   @@map("import_batches")
 }
 
@@ -640,17 +2395,24 @@ model ImportRow {
   processedData    Json?           @map("processed_data")
   status           ImportRowStatus @default(PENDING)
   errorMessage     String?         @map("error_message") @db.Text
+  targetId         Int?            @map("target_id")
+  importedAt       DateTime?       @map("imported_at")
+  targetUpdatedAt  DateTime?       @map("target_updated_at")
+  targetFingerprint String?        @map("target_fingerprint") @db.Char(64)
+  compensatedAt    DateTime?       @map("compensated_at")
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
   importBatch      ImportBatch     @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
 
   @@index([importBatchId])
+  @@index([sourceIdentifier, status, importBatchId], map: "import_rows_source_status_batch_idx")
   @@index([status])
   @@map("import_rows")
 }
 
 model AuditLog {
   id         Int         @id @default(autoincrement())
+  firmId     Int?        @map("firm_id")
   userId     Int?        @map("user_id")
   entityType String      @map("entity_type") @db.VarChar(100)
   entityId   String      @map("entity_id") @db.VarChar(191)
@@ -661,10 +2423,188 @@ model AuditLog {
   userAgent  String?     @map("user_agent") @db.Text
   createdAt  DateTime    @default(now()) @map("created_at")
   user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  firm       Firm?       @relation(fields: [firmId], references: [id], onDelete: SetNull)
 
+  @@index([firmId, createdAt])
   @@index([entityType, entityId])
   @@index([userId])
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+model PlatformFeatureSwitch {
+  key          String   @id @db.VarChar(100)
+  hardDisabled Boolean  @map("hard_disabled")
+  reason       String   @db.VarChar(500)
+  authorId     Int      @map("author_id")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_feature_switches")
+}
+
+model Plan {
+  id         Int           @id @default(autoincrement())
+  slug       String        @unique @db.VarChar(100)
+  name       String        @db.VarChar(191)
+  isLegacy   Boolean       @default(false) @map("is_legacy")
+  archivedAt DateTime?     @map("archived_at")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  versions   PlanVersion[]
+
+  @@map("platform_plans")
+}
+
+model PlanVersion {
+  id            Int                      @id @default(autoincrement())
+  planId        Int                      @map("plan_id")
+  revision      Int
+  policy        Json?
+  price         Decimal?                 @db.Decimal(18, 2)
+  currency      String?                  @db.Char(3)
+  publishedAt   DateTime?                 @map("published_at")
+  createdById   Int                       @map("created_by_id")
+  createdAt     DateTime                  @default(now()) @map("created_at")
+  plan          Plan                     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  features      PlanFeatureEntitlement[]
+  quotas        PlanQuota[]
+  subscriptions FirmSubscription[]
+
+  @@unique([planId, revision])
+  @@index([planId, publishedAt])
+  @@map("platform_plan_versions")
+}
+
+model PlanFeatureEntitlement {
+  planVersionId Int         @map("plan_version_id")
+  featureKey    String      @map("feature_key") @db.VarChar(100)
+  planVersion   PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+
+  @@id([planVersionId, featureKey])
+  @@map("platform_plan_features")
+}
+
+model PlanQuota {
+  planVersionId Int         @map("plan_version_id")
+  resource      String      @db.VarChar(30)
+  limit         BigInt?
+  planVersion   PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+
+  @@id([planVersionId, resource])
+  @@map("platform_plan_quotas")
+}
+
+model FirmSubscription {
+  id                  Int         @id @default(autoincrement())
+  firmId              Int         @map("firm_id")
+  planVersionId       Int         @map("plan_version_id")
+  status              String      @db.VarChar(20)
+  effectiveFrom       DateTime    @map("effective_from")
+  effectiveUntil      DateTime?   @map("effective_until")
+  trialEndsAt         DateTime?   @map("trial_ends_at")
+  graceEndsAt         DateTime?   @map("grace_ends_at")
+  currentPeriodEndsAt DateTime?   @map("current_period_ends_at")
+  renewalAt           DateTime?   @map("renewal_at")
+  reason              String      @db.VarChar(500)
+  authorId            Int         @map("author_id")
+  createdAt           DateTime    @default(now()) @map("created_at")
+  firm                Firm        @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  planVersion         PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([firmId, effectiveFrom])
+  @@index([firmId, effectiveFrom, effectiveUntil])
+  @@map("firm_subscriptions")
+}
+
+model FirmFeatureOverride {
+  id        Int       @id @default(autoincrement())
+  firmId    Int       @map("firm_id")
+  target    String    @db.VarChar(120)
+  effect    String    @db.VarChar(10)
+  limit     BigInt?
+  reason    String    @db.VarChar(500)
+  authorId  Int       @map("author_id")
+  startsAt  DateTime  @map("starts_at")
+  expiresAt DateTime? @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  firm      Firm      @relation(fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@unique([firmId, target, startsAt])
+  @@index([firmId, startsAt])
+  @@map("firm_feature_overrides")
+}
+
+model UsageCounter {
+  firmId    Int      @map("firm_id")
+  resource  String   @db.VarChar(30)
+  used      BigInt   @default(0)
+  pendingDelta BigInt @default(0) @map("pending_delta")
+  ready     Boolean  @default(true)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  firm      Firm     @relation(fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@id([firmId, resource])
+  @@map("firm_usage_counters")
+}
+
+// Scalar tenant/actor snapshots intentionally survive fixture/identity deletion.
+// These ledgers are append-only; firm-facing reads always filter firmId.
+model UsageEvent {
+  id        Int      @id @default(autoincrement())
+  firmId    Int      @map("firm_id")
+  resource  String   @db.VarChar(30)
+  eventId   String   @map("event_id") @db.VarChar(191)
+  delta     BigInt
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([firmId, resource, eventId])
+  @@index([firmId, createdAt])
+  @@map("firm_usage_events")
+}
+
+model SubscriptionEvent {
+  id        Int      @id @default(autoincrement())
+  firmId    Int?     @map("firm_id")
+  authorId  Int      @map("author_id")
+  kind      String   @db.VarChar(100)
+  payload   Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([firmId, createdAt])
+  @@index([kind, createdAt])
+  @@map("platform_subscription_events")
+}
+
+model PlatformCharge {
+  id             Int            @id @default(autoincrement())
+  firmId         Int            @map("firm_id")
+  idempotencyKey String         @unique @map("idempotency_key") @db.VarChar(191)
+  amount         Decimal        @db.Decimal(18, 2)
+  currency       String         @db.Char(3)
+  reason         String         @db.VarChar(500)
+  authorId       Int            @map("author_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  firm           Firm           @relation(fields: [firmId], references: [id], onDelete: Restrict)
+  payments       PaymentEvent[]
+
+  @@index([firmId, createdAt])
+  @@map("platform_charges")
+}
+
+model PaymentEvent {
+  id             Int            @id @default(autoincrement())
+  chargeId       Int            @map("charge_id")
+  idempotencyKey String         @unique @map("idempotency_key") @db.VarChar(191)
+  kind           String         @db.VarChar(20)
+  amount         Decimal        @db.Decimal(18, 2)
+  reference      String         @db.VarChar(191)
+  reason         String         @db.VarChar(500)
+  authorId       Int            @map("author_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  charge         PlatformCharge @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+
+  @@index([chargeId, createdAt])
+  @@map("platform_payment_events")
 }

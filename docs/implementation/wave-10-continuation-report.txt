@@ -1,0 +1,386 @@
+11 November 2026 — owner-confirmed India local-first scope
+The owner selected: Local ERP workflows first; keep unverified external
+integrations disabled. Provider activation is excluded from the first release,
+not an unfulfilled requirement to activate a gateway/SMTP/tax/LLM service now.
+
+Applied through the existing audited platform controls, without new environment
+flags, erased credentials, plan-version edits or a parallel authorization path:
+- quotations.email: globally hard disabled,16:27:29 Asia/Kolkata.
+- integrations.api: globally hard disabled,16:27:39.
+- integrations.webhooks: globally hard disabled,16:27:48.
+- ai.credits: globally hard disabled,16:28:06.
+Reason records the owner's India local-first decision and later provider
+acceptance requirement. Platform audit identifies administrator1 for all four.
+The changes affect all firms in this local installation. They are reversible
+through the existing controls, with a new explicit audited change reason.
+
+Reload proved all four persisted. Firm-admin Subscription & Usage independently
+showed Denied / Disabled by the platform administrator for all four; local
+assistant and report downloads remained Allowed / Included in your plan.
+The QA plan still contains33 selected features; its published revision and
+assignment were not edited.29 remain effectively allowed after these exclusions.
+
+Provider readiness: only the read-only diagnostic tab remains for this actor;
+API-key and webhook management tabs are absent. SMTP now Enabled No; payment and
+India e-invoice/e-way services Enabled No and unavailable. No outbound message,
+provider validation call, payment, tax submission, new credential or wider access
+was created. The shared provider table uses readable status/provider names and
+business guidance, while response status/provider identifiers remain unchanged.
+
+Important chronology correction: SMTP configuration was already present and
+quotation-email permission was previously allowed. Configuration alone did not
+mean email was disabled. Earlier broad statements that all integrations were
+off must be read with this later verified exclusion. SMTP secrets were preserved,
+not printed, copied into reports or modified. No .env edit was needed.
+
+This closes the owner scope decision and named exclusion checks only. Desktop
+variants, composed business/access/quota coverage, local accounting/document/
+legal review and operational recovery/load/security/rollout acceptance remain
+open. Mobile is owner-deferred. No release/deployment is accepted by this note.
+
+11 November 2026 — administration/settings evidence update
+Later named desktop checks now cover subscription feature/usage wording and
+ordering; users/roles labels and discard; compact audit detail/paging/order;
+billing configuration's read/write response fix; protected business/quotation
+settings; version-confirmed financial policies; and synthetic bank create/edit
+with the common compact row-action menu. The exact native-browser outcomes,
+modified files, validation and limits are recorded in the newest sections of
+ui-ux-browser-review.txt and ui-ux-remediation-delivery-report.txt.
+These advance desktop group5; the tracker remains4completed/3open workgroups.
+They do not certify whole-module, full ERP or Wave10/11 release acceptance.
+India confirmed, mobile deferred, all unverified live integrations remain off.
+
+11 November 2026 — latest incremental evidence
+Current desktop evidence is in ui-ux-browser-review.txt and the newest section
+of ui-ux-remediation-delivery-report.txt. Recurring worker generation, simulated
+payment refund/cancellation, long proforma PDF, portal invitation/view/revocation,
+controlled mixed import/undo, queued report PDF/download/removal and QA accounting
+mapping/balanced journal download have named real local browser evidence.
+Read-only migration ledger:20source/20applied,allSHA-256checksums match,no missing
+or unfinished/rolled-back entries. No migration command was executed. Whole
+release/role/tenant/quota/provider/load/upgrade/restore acceptance remains OPEN.
+India confirmed; mobile deferred; live external providers remain disabled.
+Older per-batch pending claims are historical where current evidence supersedes.
+
+Wave 10 continuation delivery report
+Date: 9 November 2026
+Updated: 10 November 2026. India is the user-confirmed primary launch country.
+Status: SOURCE IMPLEMENTATION EXTENDED. WAVE 10 IS NOT COMPLETE OR ACCEPTED.
+
+The continuation adds controlled customer/item CSV imports, direct XLSX/PDF and
+private queued report exports, scoped report API credentials, signed webhook
+delivery, versioned billing journal mapping and partial localization. Provider
+activation and all runtime acceptance remain blocked. The original delivery
+report below this report's scope remains historical evidence, not the current
+feature inventory. The requested sequence is Wave 10 acceptance before Wave 11
+acceptance. Safe Wave 11 infrastructure hardening is now source implemented, with
+its own report; it does not waive the incomplete scope or runtime prerequisites.
+
+A. Baseline inventory and repository metadata
+
+Already present and reused: source financial report readers, private saved views,
+CSV, manufacturing through the sole stock ledger, firm/session/RBAC, entitlements,
+required audit, exact Decimal/currency rules, firm transactions, outbox leases,
+company/item writers, versioned business policies, immutable issue snapshots,
+existing SMTP, Puppeteer and private filesystem storage. ImportBatch/ImportRow
+already existed and now own the controlled CSV lifecycle.
+
+Read directly from metadata without executing Git:
+backend branch feat/wave11; HEAD 7126b9972e12f1853b301e6738a7dfb6be0670fa
+frontend branch feat/wave11; HEAD d1d0d73cc44e15b426b83e95067a52bc82742490
+No status/diff/commit command ran. These IDs do not assert clean working trees.
+The initial report's earlier IDs are historical, not current metadata.
+
+Architecture references were read from docs/architecture/backend/
+BACKEND-MODULE-RULES.md and BACKEND-DEPENDENCY-BOUNDARIES.md, plus both architecture
+test sources. Implementation followed the actual route/repository/domain flow.
+Wave 10 DOCX scope was read as task evidence; its command instructions did not
+override the direct AGENTS.md restrictions. No package/lock file was changed.
+
+B. Plan versus executed changes and complete continuation file inventory
+
+The first batch extended report formats and import lineage through existing
+domain writers. The next batches added narrow API/webhook management and delivery,
+accounting mapping, issue-time presentation and durable private export jobs.
+Review added scalar-record fingerprints under row locks for compensation, retained
+decryption keys for rotation and a reversible outbox preparation hook. Source
+tests and the contracts/evidence documents were added. New payment/tax adapters
+were not guessed from provider selection alone. No business ledger was duplicated.
+
+Paths below are relative to the named repository. A/E means added/edited in this
+continuation, not a claim about Git status. Each row names the affected source and
+the existing abstraction it reuses.
+
+Backend path | Change | Why and logic / reuse
+.env.example | E | Opt-in worker, webhook allowlist and current/previous encryption-key placeholders; existing env convention
+prisma/schema.prisma | E | Import lifecycle metadata, API keys, webhook endpoints/deliveries, immutable account mapping versions and report artifact jobs; existing Firm/User/outbox relations
+prisma/migrations/20261109130000_wave10_import_lifecycle/migration.sql | A | Nullable legacy-compatible import target/hash and source provenance/fingerprint metadata
+prisma/migrations/20261109140000_wave10_scoped_integrations/migration.sql | A | Key hashes, encrypted endpoint secrets, same-firm durable delivery FKs and unique event identities
+prisma/migrations/20261109150000_wave10_accounting_mappings/migration.sql | A | Append-only firm/version account mapping metadata
+prisma/migrations/20261109160000_wave10_export_jobs/migration.sql | A | Private actor/firm artifact lineage and same-firm outbox ownership
+src/bootstrap/registerRoutes.ts | E | Register existing-style public router exports for imports, credentials, webhooks, external reports, accounting and export jobs
+src/bootstrap/outbox-worker.ts | E | Register report export and webhook handlers in the existing worker
+src/config/env.ts | E | Validate opt-in destination allowlist and canonical current/previous encryption keys without printing values
+src/core/serialization/csv.ts | A | Bounded strict CSV parsing and shared formula-safe serialization
+src/core/serialization/zip.ts | A | Deterministic bounded ZIP entries for Office XML without a new dependency
+src/core/localization/presentation.ts | A | Shared validated presentation preferences and exact BigInt/date formatting
+src/core/outbox/outbox.types.ts | E | Optional reversible preparation/cleanup contract; existing handler execution stays compatible
+src/core/outbox/outbox.repository.ts | E | Authorize before preparation and before committing, clean failed artifacts after transaction outcome; preserve retry/lease policies
+src/modules/auth/permissions.ts | E | Add import, credential, webhook and accounting grants and appropriate implied reporting views
+src/modules/companies/index.ts | E | Narrow schema, transactional import writer and compensation exports
+src/modules/companies/import-create.repository.ts | A | Reuse company transaction writer and fingerprint the resulting scalar record
+src/modules/companies/import-compensation.repository.ts | A | Lock, fingerprint-check and deactivate an unchanged imported customer with required audit
+src/modules/items/index.ts | E | Narrow schema, transactional import writer and compensation exports
+src/modules/items/items.repository.ts | E | Share the existing item creation logic with transaction-bound imports and source lineage; retain manual caller shape
+src/modules/items/import-compensation.repository.ts | A | Lock/fingerprint-check imported untracked items before audited deactivation
+src/modules/entitlements/feature-registry.ts | E | Explicit opt-in imports, integrations.api, integrations.webhooks and accounting.exports with dependencies and permission mappings
+src/modules/entitlements/entitlements.repository.ts | E | Include retained report artifacts in existing storage reconciliation; legal-document counting unchanged
+src/modules/imports/index.ts | A | Explicit router-only module export
+src/modules/imports/imports.schema.ts | A | Strict target, preview, paging and optimistic command contracts
+src/modules/imports/imports.normalization.ts | A | Documented CSV headers and existing company/item schemas; no inferred stock or supplier writes
+src/modules/imports/imports.repository.ts | A | Private previews, duplicate/reference checks, per-row atomic commits, counters, retry-safe provenance and compensation
+src/modules/imports/imports.routes.ts | A | Existing auth/firm/origin/plan/RBAC patterns and bounded request budget
+src/modules/connections/index.ts | A | Narrow management, diagnostics, external API and worker exports
+src/modules/connections/events.ts | A | Producer-only public boundary avoiding a report/router import cycle
+src/modules/connections/connections.schema.ts | A | Narrow versioned scope and management input contracts
+src/modules/connections/api-keys.repository.ts | A | Random hash-only tokens, private metadata, atomic rotation/revocation and current issuer/plan checks
+src/modules/connections/webhooks.repository.ts | A | Encrypted rotating signing secrets, metadata-only firm events, outbox retries and sanitized delivery history
+src/modules/connections/provider-status.repository.ts | A | Honest SMTP access/configuration state and unavailable gateway/tax capabilities; no activation stub
+src/modules/connections/connections.routes.ts | A | Cookie-authenticated private management and diagnostics with existing tenant/RBAC/origin guards
+src/modules/connections/external-api.routes.ts | A | Bearer-only read/export endpoints; credential-bound firm, narrow scopes and post-computation revalidation
+src/integrations/webhooks/index.ts | A | Narrow provider mechanics export
+src/integrations/webhooks/secrets.ts | A | AES-GCM firm/version binding, retained decryption keys and HMAC signing/verification primitives
+src/integrations/webhooks/transport.ts | A | Exact HTTPS allowlist, public IPv4 validation/pinning, no redirects and bounded network work
+src/modules/reports/index.ts | E | Explicit reports, accounting, export job and worker boundaries
+src/modules/reports/reports.schema.ts | E | Optional locale/language/display timezone in applied and saved filters
+src/modules/reports/reports.types.ts | E | Optional frozen report presentation metadata; existing report fields retained
+src/modules/reports/reports.contract.ts | A | Validate persisted aggregate snapshots and preparation results
+src/modules/reports/reports.csv.ts | E | Reuse shared safe CSV and expose canonical source rows for XLSX
+src/modules/reports/reports.formats.ts | A | Text-only XLSX and escaped source PDF through the existing PDF provider
+src/modules/reports/reports.repository.ts | E | Shared export formats, size/metric budgets, source-access rechecks, generation audit and metadata event production
+src/modules/reports/reports.routes.ts | E | Guard XLSX/PDF download routes alongside existing CSV
+src/modules/reports/accounting.schema.ts | A | Explicit bounded account mapping/version/date contracts
+src/modules/reports/accounting.journal.ts | A | Exact balanced issue/void projection, credit signs, source event IDs and reconciliation refusal
+src/modules/reports/accounting.repository.ts | A | Immutable mapping publication and hash-audited source export; no GL balances
+src/modules/reports/accounting.routes.ts | A | Guarded mapping and journal download routes with request budgets
+src/modules/reports/export-jobs.schema.ts | A | Strict idempotent queue commands, format and private paging
+src/modules/reports/export-jobs.repository.ts | A | Existing outbox/private storage/quota/audit composition, safe preparation/commit, current-access downloads and removal
+src/modules/reports/export-jobs.routes.ts | A | Private job creation/list/download/removal HTTP boundary
+src/modules/invoices/index.ts | E | Narrow billing-owned journal source reader export
+src/modules/invoices/journal-sources.repository.ts | A | Authorized bounded issue/void source reads from immutable billing data
+src/modules/invoices/invoices.repository.ts | E | Freeze optional presentation and policy version into new issue snapshots
+src/modules/invoices/documents/invoice-document.template.ts | E | Render frozen locale/date formatting; legacy snapshots retain raw rendering and legal wording
+src/modules/settings/business-policy/business-policy.schema.ts | E | Extend the existing versioned policy with optional presentation settings
+tests/env.test.ts | E | Disabled defaults, canonical key/allowlist validation and safe configuration errors
+tests/outbox.test.ts | E | Preparation reauthorization and artifact cleanup on success/audit rollback
+tests/helpers/two-firm-fixture.ts | E | Clean new private metadata in FK order within existing disposable-fixture boundaries
+tests/wave10.reports.test.ts | E | Isolate event producer dependency for focused report tests
+tests/wave10.mysql.test.ts | E | Require all six migrations; add authenticated imports, credentials, webhooks, artifacts, version/race, audit and authorization matrices
+tests/wave08.mysql.test.ts | E | Verify issued presentation snapshots survive later policy changes alongside existing immutable-template integration
+tests/wave10.formats.test.ts | A | CSV structural/input budgets, exact Office text and escaped PDF content
+tests/wave10.api-keys.test.ts | A | Scope, expiry, revocation, fixed firm and current issuer/plan checks
+tests/wave10.webhooks.test.ts | A | Raw-byte HMAC, replay-window, tenant/version encryption, rotation and destination restrictions
+tests/wave10.accounting.test.ts | A | Balanced rounding, credit/void reversal, event boundaries and malformed-source refusal
+tests/wave10.localization.test.ts | A | Exact grouping, negative fractions, date boundaries, timezone and policy compatibility
+tests/wave10.performance.mysql.test.ts | A | Explicit opt-in large two-firm DB fixture with owner-supplied latency gate and reconciliation
+docs/implementation/wave-10-delivery-report.txt | E | Mark initial content historical and point to the current continuation report
+docs/implementation/wave-10-continuation-report.txt | A | Current A-G inventory, completion limits and validation status
+docs/implementation/wave-10-integration-contracts.txt | A | Concrete API/data/provider/rotation contracts and release exclusions
+docs/implementation/wave-10-verification-matrix.txt | A | Reviewable source evidence and deferred runtime gates
+docs/implementation/wave-11-entry-status.txt | A | Record prerequisite blockers and preserve the requested wave order
+
+Frontend path | Change | Why and logic / reuse
+src/shared/routing/paths.ts | E | Import and connection paths in the shared registry
+src/shared/localization/presentation.ts | A | Exact presentation helpers independent of app/features
+src/shared/localization/presentation.test.ts | A | High-precision grouping and timestamp boundary sources
+src/features/auth/model/permissions.ts | E | Mirror backend grants
+src/features/auth/model/auth-routing.ts | E | Reachable landing candidates for import/integration-only staff
+src/features/auth/model/auth-routing.test.ts | E | New candidates while preserving platform and existing landing priorities
+src/app/router/routeConfig.tsx | E | Permission/entitlement-aware import and connection navigation
+src/app/router/router.tsx | E | Lazy feature pages through existing access guards
+src/features/imports/index.ts | A | Explicit page export
+src/features/imports/imports.api.ts | A | Typed private preview/commit/compensation requests through the firm-safe client
+src/features/imports/ImportsPage.tsx | A | Actor/firm-keyed preview, row status/provenance, explicit commit and safe deactivation
+src/features/imports/imports.test.tsx | A | Preview-before-commit, server versions, missing source rights and context-change isolation
+src/features/connections/index.ts | A | Explicit page export
+src/features/connections/connections.api.ts | A | Typed credential, endpoint, diagnostic and delivery metadata requests
+src/features/connections/ConnectionsPage.tsx | A | Role-aware setup/readiness, one-time secrets outside result caches, revocation/rotation and delivery history
+src/features/connections/connections.test.tsx | A | One-time secret handling, disabled setup and firm/actor changes
+src/features/reports/reports.api.ts | E | Blob downloads for CSV/XLSX/PDF through existing scoped client
+src/features/reports/reports.types.ts | E | Optional report presentation contract
+src/features/reports/ReportsPage.tsx | E | Applied presentation/filter controls and format, accounting and private job integration
+src/features/reports/ReportSections.tsx | E | Exact selected-locale presentation and translated report/table headings
+src/features/reports/reports.localization.ts | A | English/Hindi/Gujarati report-heading vocabulary
+src/features/reports/AccountingExportPanel.tsx | A | Explicit versioned account mapping and source journal download
+src/features/reports/ExportJobsPanel.tsx | A | Idempotent queueing, bounded progress polling, private downloads and removal
+src/features/reports/reports.test.tsx | E | Format-aware export expectation and isolate the separately scoped job panel
+src/features/settings/api/business-policy.api.ts | E | Mirror optional presentation in the existing policy contract
+src/features/settings/components/BusinessPolicyPanel.tsx | E | Publish presentation preferences through existing audited policy versions
+
+C. Database migration, backfill and rollback summary
+
+Four additive migration files were written, none executed. Existing Wave 10
+reporting/manufacturing migrations were retained. Import target/hash/fingerprint
+fields are nullable for legacy rows; the new lifecycle deliberately excludes
+unclassified legacy batches. New rows retain source IDs and fingerprints rather
+than rewriting company/item history. Composite event/firm FKs and uniqueness
+enforce tenant-consistent outbox ownership. Account mappings are immutable by
+firm/version. Artifact command keys are unique by firm/actor/request key.
+
+No financial backfill, invoice number reset, stock movement rewrite, usage reset,
+schema generation or production DB mutation occurred. New features are opt-in;
+migrations do not grant commercial entitlements or activate endpoints/providers.
+Prisma generation/validation and SQL application remain NOT RUN.
+
+Prefer a forward fix. A reviewed rollback must stop new enqueue/worker dispatch,
+retain additive tables, outbox events, source identities and issued snapshots,
+and preserve storage references/usage. Older workers do not know new job kinds
+and must not consume their queue. Older strict business-policy readers reject
+the new optional presentation field: publish an audited compatibility policy
+with compatible code before any older-reader rollback, or use a forward fix.
+Do not regenerate localized historical PDFs with an incompatible old renderer.
+No destructive down SQL or ambiguous financial-record migration was supplied.
+
+D. API, domain, feature/RBAC and ownership mapping
+
+Complete continuation contracts: wave-10-integration-contracts.txt.
+/imports -> ImportBatch/ImportRow -> imports.manage + imports, plus source
+company/item management and plan access. Ownership: firm and creating actor.
+/api-keys -> ApiKey -> api-keys.manage + integrations.api, plus selected report
+scopes and current issuer/source access. Ownership: fixed firm and issuing actor.
+/external/v1/reports/* -> existing report readers -> Bearer scope and all current
+report/source rights. Body/header firm selection cannot change credential scope.
+/webhooks -> WebhookEndpoint/Delivery -> webhooks.manage + integrations.webhooks;
+jobs additionally recheck exporting actor/report rights and enabled destination.
+/exports -> ReportExportJob + existing OutboxEvent -> reports.export +
+reports.exports; private downloads additionally recheck every available source.
+/accounting-exports -> immutable mapping + billing-owned sources ->
+accounting.export/accounting.manage + accounting.exports and source view rights.
+/integrations -> existing config diagnostics -> firm.profile.manage + firm.core.
+Presentation -> existing FirmBusinessPolicy versions and Invoice.issueSnapshot;
+no new domain, exchange-rate engine or mutable financial headline store.
+
+New permissions are mirrored in the frontend; feature mappings are centralized
+in the existing backend registry. Protected navigation is not authorization.
+The producer-only connections/events.ts boundary avoids a router import cycle.
+
+E. Features mapped to specification sections 2 and 11
+
+Section 2 item | State
+1 Cross-module dashboards | Existing source-based reports retained, additional export access rechecks/budgets; reconciliation tests NOT RUN.
+2 Export/import center | SOURCE IMPLEMENTED for CSV/XLSX/PDF, private queued artifacts, customer/item CSV preview/commit/provenance and non-destructive compensation; runtime/Office/browser verification NOT RUN.
+3 API/webhooks | SOURCE IMPLEMENTED for read-only report scopes, hash-only credentials, revoke/rotate, metadata event signing/retries/secret rotation and durable delivery history; DB/network/receiver acceptance NOT RUN.
+4 Accounting exports | PARTIAL SOURCE IMPLEMENTATION: versioned balanced billing issue/void journals. Receipt, purchase, expense and stock journal mappings NOT IMPLEMENTED. No GL or recognition policy guessed.
+5 Payments/providers | BLOCKED / NOT IMPLEMENTED for Razorpay gateway and durable payment callbacks. Existing SMTP reused and honest diagnostics added. No mapped sandbox/account agreement or verified provider setup established.
+6 Localization | PARTIAL SOURCE IMPLEMENTATION: report heading languages and exact locale/timestamp presentation; issue-time preference snapshots and historical rendering. Full application translation, localized legal wording, and quotation presentation expansion NOT IMPLEMENTED.
+7 India compliance | BLOCKED / NOT IMPLEMENTED. No certified tax submission, IRN or e-way adapter claimed. Existing issuance refusal for required IRN remains intact.
+8 Manufacturing | Existing initial implementation retained through the sole stock ledger; dedicated runtime acceptance remains NOT RUN.
+9 Performance | Source aggregation/indexes/request budgets retained; metric/file limits and external-render preparation added. High-volume fixture source added. Load results/query plans NOT RUN. Incremental materialized reporting NOT IMPLEMENTED; profile and reconciliation evidence are needed before selecting invalidation rules.
+
+Section 11 acceptance | Evidence state
+Financial dashboards reconcile/currencies/periods | Test sources exist; NOT VERIFIED AT RUNTIME.
+External integrations configured/authorized/auditable | Source guards, disabled defaults and required audit exist; provider acceptance BLOCKED.
+Tenant-safe API/webhook/import/export behavior | Unit/DB/browser test sources written; all NOT RUN.
+Localization preserves legal snapshots | Current code reads frozen issue preferences and retains raw financial values; regression sources written, NOT RUN; broader localization remains PARTIAL.
+Manufacturing shares inventory ledger | Existing source architecture retained; prior and new regression suites NOT RUN.
+Unverified provider compliance excluded | No live gateway/tax activation or false compliance claim added. Provider capabilities explicitly unavailable.
+
+These classifications are not acceptance. The wave is incomplete while required
+source scope and runtime evidence remain pending. Wave 11 infrastructure source
+work is recorded in wave-11-delivery-report.txt; system/release acceptance is
+still gated on the earlier waves, including this one.
+
+F. Validation, exact deferred commands and evidence
+
+Executed: read-only rg/cat/sed/textutil inspection; repository metadata reads;
+source/document edits; manual caller/callee and constraint review; official
+Razorpay contract browsing. No application, compiler, test runner, DB/provider,
+browser, dependency scanner or load tool was executed. No check is claimed passed.
+
+All commands below are recorded for a later explicitly authorized phase, NOT RUN:
+backend: npm run prisma:generate
+backend: npm run prisma:validate
+backend: npm run typecheck
+backend: npm run lint
+backend: npm test
+backend: npm run build
+frontend: npm run typecheck
+frontend: npm run lint
+frontend: npm test
+frontend: npm run build
+backend focused: npm test -- tests/env.test.ts tests/outbox.test.ts tests/wave10.formats.test.ts tests/wave10.api-keys.test.ts tests/wave10.webhooks.test.ts tests/wave10.accounting.test.ts tests/wave10.localization.test.ts tests/wave10.reports.test.ts tests/wave10.reporting.test.ts tests/wave10.manufacturing.test.ts
+backend DB: npm test -- tests/wave10.mysql.test.ts tests/wave08.mysql.test.ts tests/wave04.mysql.test.ts
+backend architecture: npm test -- tests/architecture/dependency-boundaries.test.ts
+frontend focused: npm test -- src/features/imports/imports.test.tsx src/features/connections/connections.test.tsx src/features/reports/reports.test.tsx src/shared/localization/presentation.test.ts src/features/auth/model/auth-routing.test.ts src/architecture-boundaries.test.ts
+backend performance: npm test -- tests/wave10.performance.mysql.test.ts
+
+Primary NOT RUN reason: direct user restrictions on npm/pnpm/yarn, build, test,
+lint, format, install, migrations, Git, Docker and deployment. Parent workspace
+dependency type files were inspected, but installed versions and generated
+Prisma client currency were not established by execution. Source additions need
+an up-to-date generated Prisma client before compilation.
+
+DB evidence prerequisites: dedicated local WAVE10_TEST_DATABASE_URL named
+wave10_test_<suffix>, migrated through all six Wave 10 migrations; Wave 08/04
+suites retain their own dedicated URLs. Tests neither apply migrations nor fall
+back to the app DATABASE_URL. The webhook DB test intercepts outbound transport;
+it is transactional/signature/retry test source, not a real receiver sandbox pass.
+
+Performance evidence prerequisites: explicit WAVE10_PERF_ENABLED=1, dedicated
+local WAVE10_PERF_DATABASE_URL named wave10_test_perf_<suffix>, current migrations,
+and owner-approved WAVE10_PERF_REPORT_BUDGET_MS. It creates 100000 invoices and
+1000000 movements in each of two isolated fixture firms, measures concurrent
+source reads and records p95 while checking different currency/valuation totals.
+No fixture creation or performance measurement occurred here.
+
+The verification matrix records negative tenant/role/plan/override/suspension,
+audit, replay, concurrency, precision, quota and regression coverage without
+substituting source tests for integration evidence. Browser/Office opening,
+real PDF font/rendering/concurrency, storage quota exhaustion, real receiver TLS,
+provider sandbox, migration rehearsal and restore remain NOT VERIFIED.
+
+G. Risks, decisions and go/no-go
+
+Recommendation: NO-GO for Wave 10 acceptance, live provider activation, production
+release or Wave 11 acceptance. Safe source hardening can continue without claiming
+these prerequisites passed.
+
+Known risks and assumptions:
+- Source is uncompiled and unexecuted; runtime correctness, compatibility and
+  migration validity have not been certified.
+- Remaining accounting/localization/incremental reporting scope is explicit in E.
+- Public API is intentionally restricted to report reads/exports; it is not a
+  general write API or marketplace. Webhooks currently publish export metadata.
+- Outgoing webhook receivers must implement durable deduplication and accept
+  retained signing versions. DNS/network sandbox behavior is unverified.
+- Rate budgets and worker concurrency are per process; aggregate replica budgets
+  and operational service objectives require Wave 11 evidence and owner decisions.
+- PDF uses the existing provider. Installed browser/fonts, legal-script display,
+  failure deadlines and concurrency have not been measured.
+- Attempt-file cleanup can leave unreferenced files after process loss. References
+  and uncertain commits must be reconciled before removal; no retention policy
+  was invented. Quota accounting follows committed managed references.
+- New JSON presentation fields require compatible readers on rollback. Historical
+  financial quantities/currencies, numbering, issue and stock sources are retained.
+- No claim of provider compliance, tax certification, ISO/SOC or production readiness.
+
+Pending external prerequisites: non-secret merchant/account-to-firm mapping and
+agreement owner; deployment-managed sandbox credentials/callback configuration;
+verified regulatory applicability/provider contract. Never paste credentials or
+customer records into the report or chat. Previous scope/provider choices are
+retained and do not need reapproval; actual verification cannot be invented.
+
+Validation summary: tenant ownership, required audit, source writers, immutable
+snapshots and existing architectural boundaries were reviewed in source. New
+shared consumers were updated and test sources added. No duplicate stock/GL
+ledger was introduced. Backward compatibility is intended and must be verified
+with the deferred compiler, DB and UI gates before acceptance.
+
+Follow-up recommendations: obtain the deferred runtime evidence, resolve the
+explicit remaining scope and establish sandbox contracts before beginning Wave
+11 release acceptance. Safe infrastructure source hardening is now separately
+reported. Do not use an empty or mocked provider success as evidence.
+
+Commands not executed: npm/pnpm/yarn, nx, build, test, lint, format, install,
+migrations, Git, Docker and deployment. No production DB or external financial,
+tax, customer email or webhook operation was performed.

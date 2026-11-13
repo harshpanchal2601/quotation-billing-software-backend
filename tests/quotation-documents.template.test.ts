@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
-import { storageConfig } from '../src/config/storage.config';
+import { firmPublicAssetDirectory, storageConfig } from '../src/config/storage.config';
 import { getBrandingFileDataUrl } from '../src/modules/quotations/documents/quotation-documents.repository';
 import {
   escapeHtml,
@@ -128,6 +128,12 @@ describe('quotation PDF template and document security', () => {
 
     const html = renderQuotationHtmlTemplate(mockViewModel);
     expect(html).toContain('USD 1180.00');
+  });
+
+  it('formats stored Decimal values without a floating-point conversion', () => {
+    expect(formatCurrencyPdf('9999999999999.99', 'INR')).toBe('INR 9999999999999.99');
+    expect(formatCurrencyPdf('1.005', 'USD')).toBe('USD 1.01');
+    expect(formatCurrencyPdf('invalid', 'USD')).toBe('USD 0.00');
   });
 
   it('escapes special character ampersands in contact names and bank details', () => {
@@ -264,11 +270,31 @@ describe('quotation PDF template and document security', () => {
     await fs.writeFile(path.join(storageConfig.root, relativePath), Buffer.from('signature-fixture'));
 
     try {
-      const signatureDataUrl = await getBrandingFileDataUrl('signature', relativePath);
-      const stampDataUrl = await getBrandingFileDataUrl('stamp', relativePath);
+      const signatureDataUrl = await getBrandingFileDataUrl(7, 'signature', relativePath);
+      const stampDataUrl = await getBrandingFileDataUrl(7, 'stamp', relativePath);
 
       expect(signatureDataUrl).toBe(`data:image/png;base64,${Buffer.from('signature-fixture').toString('base64')}`);
       expect(stampDataUrl).toBeNull();
+    } finally {
+      await fs.unlink(path.join(storageConfig.root, relativePath)).catch(() => {});
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('loads firm-scoped branding and rejects another firm asset path', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const filename = `logo-test-${Date.now()}.png`;
+    const firmDirectory = firmPublicAssetDirectory(7, 'logos');
+    const relativePath = path.join(firmDirectory, filename);
+    await fs.mkdir(path.join(storageConfig.root, firmDirectory), { recursive: true });
+    await fs.writeFile(path.join(storageConfig.root, relativePath), Buffer.from('logo-fixture'));
+
+    try {
+      const logoDataUrl = await getBrandingFileDataUrl(7, 'logo', relativePath);
+      const crossFirmLogo = await getBrandingFileDataUrl(8, 'logo', relativePath);
+
+      expect(logoDataUrl).toBe(`data:image/png;base64,${Buffer.from('logo-fixture').toString('base64')}`);
+      expect(crossFirmLogo).toBeNull();
     } finally {
       await fs.unlink(path.join(storageConfig.root, relativePath)).catch(() => {});
       warnSpy.mockRestore();
@@ -279,11 +305,13 @@ describe('quotation PDF template and document security', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      const missingSignature = await getBrandingFileDataUrl('signature', 'signatures/missing-signature.png');
-      const unsafeSignature = await getBrandingFileDataUrl('signature', '../outside-storage.png');
+      const missingSignature = await getBrandingFileDataUrl(7, 'signature', 'signatures/missing-signature.png');
+      const unsafeSignature = await getBrandingFileDataUrl(7, 'signature', '../outside-storage.png');
+      const disguisedTraversal = await getBrandingFileDataUrl(7, 'signature', 'signatures/../outside-storage.png');
 
       expect(missingSignature).toBeNull();
       expect(unsafeSignature).toBeNull();
+      expect(disguisedTraversal).toBeNull();
     } finally {
       warnSpy.mockRestore();
     }

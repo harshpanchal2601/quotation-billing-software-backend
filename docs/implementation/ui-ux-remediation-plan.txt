@@ -1,0 +1,386 @@
+13 November 2026 — final remaining desktop tasks COMPLETED
+1. COMPLETED: independent invoice request/review/explicit issue and real local
+   workflow/in-app notification delivery in fresh QA firm5.
+2. COMPLETED: receipt reversal with earlier refund retained, reopened balance and
+   replacement receipt; unused PO/expense cancellation; billed-receipt denial;
+   cancellation reasons and explicit action wording in shared purchasing views.
+3. COMPLETED: actual desktop rechecks, final reconciliation and evidence closeout.
+   Both invoices Paid/due0; credit0; stock400/reserved0/eight movements unchanged.
+   Final FE build/lint and106 focused checks PASS; read-only DB crosscheck10/10.
+
+Remaining tasks in this agreed local desktop closeout: NONE.
+VIDEO DEFERRED by owner; do not start it until requested later. Mobile and
+unverified external-provider activation remain owner-excluded. Production rollout
+and independent accounting/legal/security/operations acceptance are separate.
+Detailed changed files, positive/negative browser cases, current record IDs,
+validation logs and limits are at the top of the delivery report/browser journal.
+This entry supersedes older pending statements for these three tasks below.
+
+
+13 November 2026 — role/password and unauthorized-page tasks COMPLETED
+All six owner password changes and saved credentials verified. Actual browser
+sign-ins completed for Admin, Sales, Purchasing, Warehouse, Accounts and Read Only.
+Allowed role writes saved through UI;17 actual unauthorized API cases passed.
+Read Only business views exposed no write controls. Shared Access denied page,
+workspace recovery, direct browser API routing and sign-out verified in browser.
+Fixed stale post-login reset return path without weakening the reset requirement.
+Frontend build/lint and routing/UI9 passed; backend type/lint/HTTP8 passed.
+These named tasks are complete. Earlier password-handoff requests are superseded.
+
+Remaining fresh-product work: independent approval/automation execution, remaining
+reversal/undo variants, final acceptance consolidation, then English explainer
+video. Mobile and unverified external integrations remain owner-excluded.
+Detailed files, records, behavior, validation and limits are in the newest browser
+journal/delivery report. No whole-product completion is claimed from role checks.
+
+
+13 November 2026 — expanded fresh QA milestone and owner handoff
+COMPLETED in actual desktop UI: supplier bill/expense, named CRM lead/opportunity/
+task, date validation, reports/direct+queued exports/accounting, service catalogue
+selection, proforma conversion/recurring generation+pause, debit/credit settlement,
+all three unissued draft cancellation scopes, imports/undo, physical stock return,
+portal invite/view-only share/sign-out/replay denial/revocation, quotation revision,
+supporting attachment save-close/download and quotation/invoice/report PDF layouts.
+Fixed catalogue supply classification and attachment success-close/repeat-submit
+root causes; draft cancellation uses existing permissions/history/transactions.
+Current checks: FE build/lint, billing36+attachment6; BE type/lint/billing26;
+real isolated MySQL04+06 suites31/31, both owned schemas removed/absence verified.
+No full-product acceptance is claimed from those selected checks.
+
+HANDOFF READY: six Incognito sign-in tabs filled with current credentials in order
+Admin, Sales, Purchasing, Warehouse, Accounts, Read Only. Owner requested this
+handoff and will enter new passwords/save root QA-Access.md. Complete one account
+at a time; shared-window cookies mean they must not be treated as six concurrent
+independent signed-in sessions. No password reset was bypassed.
+
+NEXT: actual six-account login and role allow/deny/direct-access matrix; firm-admin
+Assistant/Automation and independent approval/reversal variants; final acceptance
+record followed by the English explainer video. Detailed record IDs, chronology,
+source files, limitations and private archive are at the top of the browser
+journal/delivery report. Mobile/external providers remain excluded.
+
+
+13 November 2026 — fresh full-product end-to-end QA requested
+Status: IN PROGRESS; previous193selected passes are historical prerequisites,
+not completion of this fresh final QA. Video production follows QA.
+1. Platform admin registers one clearly synthetic firm and assigns the existing
+   full local-feature plan. Record reusable QA access privately outside source.
+2. Firm admin first-login/password reset; create Sales, Purchasing, Accounts,
+   Warehouse and Read-only roles/users with separate permissions. Verify login,
+   reset lifecycle, allowed actions and direct unauthorized route/API denials.
+3. Master data and settings: company/customer/supplier/contact/address, units,
+   categories, goods/service items, warehouses, profile/billing/document fields.
+4. Connected journeys: CRM -> quotation/revision/acceptance -> sales order ->
+   purchase order/approval/partial receipt -> inventory/reservation/fulfillment ->
+   invoice/independent approval -> receipt/allocation/credit/refund/reversal.
+5. Manufacturing, recurring billing, portal, imports/undo, reports/accounting/PDF,
+   local assistant and automation, tenant/role/quota/status boundaries. Keep
+   unverified outbound providers disabled and business data synthetic.
+6. Per-scenario evidence: actual UI inputs/result/record identity, expected vs
+   observed behavior, positive/negative/retry/stale-state and absence of denied
+   side effects. Failures get a traced root-cause fix and focused revalidation.
+7. Final selected engineering checks, consolidated evidence/remaining blockers;
+   then explainer script/storyboard/video based only on verified functionality.
+Desktop remains current scope. Do not mark all-product QA passed from test files
+or earlier runs. Do not include credentials, private records or test failures in
+public video footage. No real message/payment/tax submission is authorized.
+
+
+13 November 2026 — local acceptance completion notice
+COMPLETED local1: all11MySQL suites160/160, valid immutable-plan fixtures and
+foreign supplier-bill ownership denial before writes; application ledger20/20.
+COMPLETED local2: actual independent approval, one issuance/idempotent retry,
+foreign firm denial and quotation-to-invoice-to-payments/credit/refund/reversal
+journey, with record creation and save/close/toast/result inspection in Chromium.
+COMPLETED local3: large-data baseline, current-schema DB/files recovery, real
+process health/failure/shutdown and removal of owned disposable databases.
+Details/results/source paths are in the latest remediation delivery report.
+
+Desktop closeout A/B/C remains complete. This advances the named local cases
+inside groups6/7; those broad groups remain OPEN for exhaustive route/variant
+coverage, original legacy-data upgrade, independent accounting/legal/security,
+production service/recovery/retention targets, alert ownership, packaging and
+rollout acceptance. These are not a claim that more cosmetic work is required.
+No unrecorded allERP or production acceptance is granted. Mobile/external-provider
+activation remain owner-deferred/excluded. Older blanket unrun claims below are
+historical where superseded by this dated evidence.
+
+
+13 November 2026 — focused desktop closeout completed
+This entry supersedes the older 4-completed/3-open tracker for the named desktop
+priorities. It does not supersede the evidence limits of the release matrix.
+
+COMPLETED A: Latest-field review, history and document table spacing.
+- Stable review snapshot, shared save/cancel/discard handling, no-op protection,
+  single submission, explicit removed-field confirmation and persistent feedback.
+- Backend checks reviewed settings and effective field keys within the existing
+  firm transaction; failed conditional updates cannot append false history.
+- Shared numbered history table with server-side ordering and explicit lookahead
+  pagination, including correct short-page and exact-50-entry final-page counts. Document breadcrumbs now identify invoices, proformas and notes.
+- Actual QA note2: Draft version4, reference saved, INR10 total unchanged.
+  Browser failure injection returned409, retained edits and left version4 intact.
+
+COMPLETED B: CRM timeline and platform audit/preview priorities.
+- Wider lead timeline, readable change values, no empty-to-empty history noise.
+  Actual note creation, dirty guard, save/close/toast and independent reload;
+  three CRM tabs and timeline subject ordering checked in the browser.
+- Platform audit uses the common detail dialog/table, server-side ordering and
+  row numbers21–27 on the actual second page. Read-only revision preview has
+  separate feedback and does not report a save or enable published-plan writes.
+- Approval inbox/notification presentation inspected with the firm administrator;
+  no approval requests existed. Independent approval/execution is NOT passed.
+- Items rechecked13Nov: compact readable rows, no one-letter name wrapping.
+
+COMPLETED C: Focused engineering checks and evidence handoff.
+56 frontend checks passed in two non-overlapping selections (51 +5);
+41 backend checks passed. Frontend TypeScript/Vite build, frontend/backend lint
+and backend typecheck passed. Full-suite results from older batches remain
+historical; this is not a claim that the full current ERP suite was rerun.
+No new production file, dependency, API client or migration was introduced.
+
+Current work groups:5 completed /2 open, with group5 limited to the named desktop
+closeout above. The two remaining groups are RELEASE ACCEPTANCE, not an estimate
+for further cosmetic changes:
+6 OPEN: Complete composed journeys and tenant/role/plan/quota matrix, including
+  independent approval/expiry/execution and disposable-database integration.
+  Reviewer8 still has its first-login gate; no password gate was bypassed.
+7 OPEN: Local-release accounting/document/legal acceptance and operational
+  security/load/backup-restore/recovery/monitoring/rollout evidence and owners.
+Mobile and external-provider activation remain excluded by the owner's scope.
+No full ERP/Wave10/Wave11 production acceptance or deployment is claimed.
+See the newest delivery report and browser journal for exact files and logs.
+
+
+Current completion notice — 11 November 2026
+Tracker:4 completed work groups /3 open work groups. Latest completed subtasks:
+settings lifecycle, compact bank actions, provider wording, shared colour inputs
+and audited India/local-first integration exclusions; unit/category guarded
+create/save/list/detail journeys; stable purchasing search, compact editors,
+complete item/description, new order draft and actual two-order sorting;
+shared billing additional-information summary/editor and real note save/close;
+natural-height shared detail cards/long-text disclosure with current invoice,
+proforma, credit-note and older quotation browser rechecks.
+Latest FE lint/TypeScript-Vite build passed after shared detail changes;
+shared layout6checks and quotation-detail5focused checks passed; affected8files/58checks passed
+before the final billing-detail change, then its7focused checks passed. Later
+combined invoice runs retain older editor timing failures; full67/366 coverage
+is historical. Exact logs/limits are in the current delivery report.
+Named browser outcomes and exact remaining acceptance are in the delivery report
+and browser journal. These checks do not close the3 open groups or accept release.
+
+11 November 2026 — owner-confirmed India local-first scope
+The owner selected: Local ERP workflows first; keep unverified external
+integrations disabled. Provider activation is excluded from the first release,
+not an unfulfilled requirement to activate a gateway/SMTP/tax/LLM service now.
+
+Applied through the existing audited platform controls, without new environment
+flags, erased credentials, plan-version edits or a parallel authorization path:
+- quotations.email: globally hard disabled,16:27:29 Asia/Kolkata.
+- integrations.api: globally hard disabled,16:27:39.
+- integrations.webhooks: globally hard disabled,16:27:48.
+- ai.credits: globally hard disabled,16:28:06.
+Reason records the owner's India local-first decision and later provider
+acceptance requirement. Platform audit identifies administrator1 for all four.
+The changes affect all firms in this local installation. They are reversible
+through the existing controls, with a new explicit audited change reason.
+
+Reload proved all four persisted. Firm-admin Subscription & Usage independently
+showed Denied / Disabled by the platform administrator for all four; local
+assistant and report downloads remained Allowed / Included in your plan.
+The QA plan still contains33 selected features; its published revision and
+assignment were not edited.29 remain effectively allowed after these exclusions.
+
+Provider readiness: only the read-only diagnostic tab remains for this actor;
+API-key and webhook management tabs are absent. SMTP now Enabled No; payment and
+India e-invoice/e-way services Enabled No and unavailable. No outbound message,
+provider validation call, payment, tax submission, new credential or wider access
+was created. The shared provider table uses readable status/provider names and
+business guidance, while response status/provider identifiers remain unchanged.
+
+Important chronology correction: SMTP configuration was already present and
+quotation-email permission was previously allowed. Configuration alone did not
+mean email was disabled. Earlier broad statements that all integrations were
+off must be read with this later verified exclusion. SMTP secrets were preserved,
+not printed, copied into reports or modified. No .env edit was needed.
+
+This closes the owner scope decision and named exclusion checks only. Desktop
+variants, composed business/access/quota coverage, local accounting/document/
+legal review and operational recovery/load/security/rollout acceptance remain
+open. Mobile is owner-deferred. No release/deployment is accepted by this note.
+
+11 November 2026 — current closeout tracker (desktop only)
+Status: 4 completed work groups / 3 open work groups. These are scoped work
+packages, not a percentage of production readiness or full module acceptance.
+COMPLETED 1: Assistant desktop/settings correction and the named local search,
+  draft handoff, cancellation and private-history journeys recorded below.
+COMPLETED 2: Invoice selected-customer hydration, order conversion and save/list
+  correction, including the specific linked-record browser checks below.
+COMPLETED 3: Recurring schedule, simulated receipt refund/cancellation and long
+  proforma PDF journeys described in the current browser evidence.
+COMPLETED 4: Portal staff/customer table correction, exact invoice sharing,
+  ordering/history and contact revocation journey described in current evidence.
+IN PROGRESS 5: Remaining desktop administration/settings and workflow review.
+  Completed subtasks: controlled item import/rejection/commit/undo, report source
+  comparison, queued PDF generation/download, approved old-export removal and
+  accounting mapping/publication/download/discard; subscription wording/order;
+  user/role labels/discard; audit list/detail/paging/order; billing settings;
+  business/financial/quotation settings and synthetic bank create/edit/layout;
+  readable provider diagnostics, shared colour consumers and local-first exclusions;
+  unit/category dirty guards, actual create/save/list/detail and unit name ordering.
+  Purchasing current detail variants, stable selected choices, compact forms,
+  actual PO-000002 draft/save/list/detail and two-order sorting also completed.
+  Billing shared additional-information summary/guarded editor and actual QA
+  note2 Keep editing/save/close/toast/summaryv3 also completed. Separate latest-
+  fields review route, field-history presentation, CRM timeline, platform previews
+  approvals and compact index/source-line spacing remain explicit desktop priorities.
+  Further page/role/negative/
+  pagination and other document variants remain distinct acceptance items.
+OPEN 6: Composed business journeys and complete tenant/role/plan/quota matrix.
+  Existing unit coverage is not a substitute for the disposable-DB and runtime
+  matrix. No disposable database integration suite has been run in this batch.
+OPEN 7: Wave10/11 local-release accounting/document/legal/localization and
+  production-scale/security/recovery/restore/rollout acceptance. Owner confirmed
+  India/local ERP first; external-provider activation is excluded for this release.
+  Four integration features are now globally hard disabled through audited UI
+  controls. Mobile is owner-deferred; no deployment or release acceptance claimed.
+
+Read-only DB ledger check: all 20 source migrations are applied, no unfinished
+or rolled-back entries, and all 20 SHA-256 source checksums match. This verified
+ledger state without executing migrations or modifying application records.
+It is NOT evidence of a successful upgrade/backup/restore rehearsal.
+
+See the newest closeout sections in ui-ux-browser-review.txt and
+ui-ux-remediation-delivery-report.txt for actual records, changes and limitations.
+Older statements that these specific journeys are still unrun are historical.
+
+Current owner scope — 11 November 2026, desktop priority
+The user explicitly deferred mobile review. Desktop work continues; existing
+mobile observations remain historical evidence, not a current acceptance gate.
+QA firm administrator #6 has been recovered through the supported audited APIs,
+its required password change completed, and Incognito sign-in verified. User #8
+is a separate reviewer account and still retains its first-login security gate.
+Assistant Settings and the main Assistant workspace now use the shared desktop
+layout. Named search/draft selections, real quotation/invoice saves, proposal
+cancellation and history ordering were browser-verified. Invoice customer
+hydration, order conversion and manufacturing detail sorting were also fixed
+and inspected. See the browser record and delivery report for exact limits.
+Whole ERP and Wave 10/11 release acceptance remain OPEN.
+
+ERP UI/UX and Wave 10/11 delivery plan
+Created: 10 November 2026
+Owner request: production-quality, consistent workflows across Waves 00..11.
+Primary geography: India. Existing quotation workspace is the local reference.
+Status: ACTIVE IMPLEMENTATION. No 9/10 rating or production acceptance claimed.
+
+Current execution order (owner clarified the older quotation design is preferred)
+1. Extract its compact section headings, label/value hierarchy, record header and
+   action layout into shared components. Adopt them in BOTH older screens and
+   Wave screens. Do not maintain two competing view designs.
+2. Plain-language labels in actions, statuses, filters, histories, confirmation
+   text and feedback. Display VOID as Cancelled, explain consequences, and keep
+   persisted codes/API contracts unchanged. Statutory tax terms keep explanations.
+3. Continue form lifecycle, table numbering/server sorting, empty/error/retry
+   consistency, date selection, navigation, keyboard and responsive review.
+4. Browser-create and verify each remaining workflow and its linked records.
+   Inspect real generated PDFs, including long content and multiple pages.
+5. Complete the separately tracked Wave 10/11 engineering and release gates.
+   Browser success for one record is never full module or release acceptance.
+
+Evidence and scope
+Confirmed in source: duplicate quotation create navigation; Billing defined in
+route metadata but omitted by the layout's separate section list; incomplete
+breadcrumb ancestry; local success snackbars unmounted immediately on navigation;
+always-visible operation forms; inconsistent tables, mobile overflow protection
+and repeated Blob download/request configuration. Existing Axios, form/dialog,
+table, error, page/header, permission and tenancy primitives must be extended.
+The isolated portal client must retain its separate session and tenant boundary.
+Do not replace working quotation calculations or duplicate backend auth/ledgers.
+
+External behavior reference, not a visual clone:
+SAP Fiori object-page finalizing actions and messaging patterns:
+https://www.sap.com/design-system/fiori-design-web/v1-148/discover/frameworks/sap-fiori-elements/object-page/object-page-footer-bar-sap-fiori-elements
+https://www.sap.com/design-system/fiori-design-web/v1-120/foundations/best-practices/global-patterns/messaging/messaging
+Apply consistent Save/Cancel, deliberate destructive actions, recoverable errors,
+unsaved-change protection, task-focused forms and clear list/object navigation.
+
+Delivery stages and acceptance targets
+
+P0 Shared navigation and feedback — IN PROGRESS
+- One primary sidebar link per workspace; create actions inside that workspace.
+- Every authorized declared navigation section renders; create-only roles retain
+  an authorized destination. No link grants missing backend/plan permissions.
+- Breadcrumb hierarchy covers list, create, detail, edit and nested review routes;
+  parents are usable and do not link to a known denied dashboard.
+- Feedback survives route navigation and is cleared on actor/firm change.
+- Errors remain visible with entered values intact; no false success after a
+  committed write whose list refresh later fails.
+
+P1 Forms and consequential actions — IN PROGRESS
+- List-first workspaces; open a form deliberately, Save once, close on successful
+  commit and show updated records; Cancel returns to the existing context.
+- Stable retry identity after lost responses; prevent double submission; preserve
+  field validation and user input on rejection; distinguish background refresh
+  failure from failed persistence.
+- Confirmation includes record/action consequence for stock/financial/destructive
+  operations. Warn before discarding changed fields. Support Escape, focus return,
+  keyboard operation and narrow-screen dialog actions.
+- Full routed-editor navigation blocking and all legacy forms remain individual
+  audit items; a shared component addition alone does not complete them.
+
+P2 Record tables, detail pages, PDFs and mobile — IN PROGRESS
+- Consistent page title, primary action, tab strip, filters, table and pagination.
+- Real column headings, right-aligned exact quantities/money, readable statuses,
+  empty/loading/error/retry states and explicit row actions.
+- Tables scroll within their own region; page actions/tabs/pagination fit 360px,
+  768px and desktop widths. No page-level clipping as an overflow workaround.
+- View pages use grouped detail sections, readable label/value grids, aligned
+  totals, status chips and grouped responsive actions. Review actual generated
+  PDFs for header/party/table/totals alignment, long values and pagination.
+- Preserve sort/filter/page/tab when returning from forms. Date-only fields stay
+  date-only; from/to constraints and timezone labels must match backend semantics.
+
+P3 API/common code — IN PROGRESS
+- One URL/credential/timeout configuration boundary; production feature code has
+  no hardcoded localhost backend origin. Existing apiClient owns refresh and
+  firm-context fencing. Portal requests share config without internal auth hooks.
+- Shared Blob download cleanup; cancellation and errors remain feature-aware.
+- Domain API contracts, query keys, money, permissions and command payloads stay
+  feature-owned. Do not merge files or introduce wrappers merely to reduce count.
+
+P4 Module acceptance — IN PROGRESS, one flow at a time
+Quotation/company/item reference flows -> manufacturing -> inventory/purchasing
+-> CRM/orders/portal -> invoices/payments/recurring -> reports/imports/connections
+-> automation/assistant -> platform/administration/settings/audit.
+For each: list/create/edit/detail/empty/denied/error/retry/success, date entry,
+confirmation, keyboard/focus, mobile layout and actor/firm switching. Keep a
+file-by-file delivery record and distinguish source completion from browser proof.
+
+P5 Wave 10/11 parallel track — OPEN
+Complete existing remaining accounting/localization/provider/reporting scope;
+keep financial authority and immutable history unchanged by UI work. Run actual
+cross-module/security/entitlement/financial/load/restore/recovery acceptance when
+separately authorized. Dashboards/alerts, retention, launch scale/service targets,
+provider accounts and rollout owners still need decisions/environment evidence.
+Do not enable live payment/tax services or invent accounting/tax/legal policies.
+
+Validation and browser acceptance
+Frontend typecheck, lint, tests and build were explicitly authorized by the user.
+Backend typecheck, lint and affected unit tests were also explicitly authorized.
+Installs, migrations, seeds, Git, Docker, backend build and deployment remain deferred. Frontend checks are engineering validation, never browser acceptance.
+Chrome access is now available through native computer use. The user requires
+actual UI observation and QA record creation before a workflow is browser-verified.
+The isolated QA firm (ID 3) now has its existing plan revision 2 with all 33
+registered features; quotas, billing policy and dates were preserved. Assignment
+#7 is audited. Other firms and live external providers were not changed.
+Automation and Assistant have account-type restrictions separate from the plan.
+The user authorized creation of a QA firm role and user. QA UI Reviewer (user #8)
+has the 61 assignable firm permissions in firm #3. Reviewer #8 first-login completion remains unverified and its gate is preserved.
+The existing firm administrator #6 is now recovered and signed in for firm-only
+review. Private credentials remain outside the repository.
+Detailed observed flows and outstanding work:
+  docs/implementation/ui-ux-browser-review.txt
+
+Completion rule
+Each stage needs reviewed implementation plus relevant runtime evidence. Full
+UI/UX and Wave 10/11 acceptance remain open until the module matrix and release
+gates are satisfied. No stage is complete merely because a new component exists.

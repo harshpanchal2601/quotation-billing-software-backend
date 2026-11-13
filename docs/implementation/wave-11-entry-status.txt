@@ -1,0 +1,121 @@
+13 November 2026 — fresh firm5 desktop QA closeout completed
+The remaining independent approval/automation, reversal/cancellation and final
+reconciliation tasks are complete in actual desktop UI. Invoice18 was requested
+by Accounts13, reviewed by Admin9, explicitly issued, notified and settled.
+Receipt5 reversal retained refund20; replacement6 settled both invoices; credit0,
+stock400/reserved0/eight movements. Billed-receipt cancellation safely denied.
+Final frontend build/lint and106 focused checks PASS; read-only DB checks10/10.
+Full evidence and changed paths: newest ui-ux-remediation-delivery-report.txt and
+ui-ux-browser-review.txt. Earlier isolated integration/load/recovery evidence below
+is retained. No known failing case remains in these recorded local scenarios.
+Video is OWNER-DEFERRED; mobile/unverified providers remain owner-excluded.
+Production deployment, legacy upgrade and independent accounting/legal/security/
+operations/rollout acceptance remain separate and are not certified by local QA.
+
+
+13 November 2026 — isolated local acceptance executed (latest update)
+COMPLETED:160/160 real MySQL integration checks across11files;4/4 actual Chromium
+browser/composed/recovery scenarios;1/1 large-data reporting baseline;28/28 scoped
+unit/HTTP checks; backend typecheck and lint. Local performance p95:2515.40ms,
+40 reads,2 simultaneous tenants,100,000 invoices and1,000,000 movements PER tenant.
+This is a measured local baseline, not an approved production latency objective.
+
+Independent requester/reviewer logins, self-approval403, exact invoice approval,
+perform-once issuance, idempotent retry, foreign-firm404 and protected real-PDF
+access were exercised against the real frontend5173 and an isolated real API/DB.
+The same accepted quotation/approved invoice then reconciled partial/full
+receipts, one refunded5.00 despite retry, reversed10.00, credit5.00 and final
+adjusted/allocated15.00/outstanding0.00; original invoice20.00 remains immutable.
+One receipt was entered through the real browser form; later finance commands
+used real authenticated API requests from that browser, with UI result rechecks.
+
+Fresh apply of all20 migrations on13 unique disposable schemas was authorized.
+Application ledger was read only:20/20 source/applied/checksums match, no unfinished
+or rolled-back entry. No application migration or production data edit occurred.
+Recovery passed:104 tables/478 rows exact count/hash match,23 triggers preserved,
+restored immutability guard, final settlement and protected PDF/tenant denial.
+Export166.19ms, import875.29ms, export/import/verification1304.02ms on this
+small synthetic snapshot; these are not production RPO/RTO or scale guarantees.
+Actual isolated healthy-worker and unavailable-DB processes returned safe health
+responses and exited0 on SIGTERM (15ms/8ms). Existing3004 probes all returned200;
+that working process was not restarted or faulted. Disposable schemas removed.
+
+One production defect fixed: foreign supplier-bill source references previously
+hit a composite FK before ownership validation, returning500. The existing firm
+transaction now checks firm/supplier ownership first and safely returns404,
+without bill/line/audit effects. Published-plan fixture setup now adds child
+features/quotas before publication; immutable production triggers remain intact.
+
+Detailed commands, all changed paths, failure history and evidence limits are in
+ui-ux-remediation-delivery-report.txt and ui-ux-browser-review.txt. Private evidence:
+/Users/harshpanchal/Documents/Bhuminex-QA-Artifacts/2026-11-13-closeout-4661f7c4
+This update supersedes older blanket NOT RUN/pending claims only for these named
+scenarios. Exhaustive endpoint/variant matrices, original legacy-snapshot upgrade,
+independent accounting/legal/security acceptance, production SLO/DR/retention,
+monitoring/alert ownership, packaging and rollout remain unaccepted. Mobile and
+unverified external integrations remain owner-excluded. No deployment or whole-ERP
+production certification is claimed. No new known failure in the named local run.
+
+
+11 November 2026 — owner-confirmed India local-first scope
+The owner selected: Local ERP workflows first; keep unverified external
+integrations disabled. Provider activation is excluded from the first release,
+not an unfulfilled requirement to activate a gateway/SMTP/tax/LLM service now.
+
+Applied through the existing audited platform controls, without new environment
+flags, erased credentials, plan-version edits or a parallel authorization path:
+- quotations.email: globally hard disabled,16:27:29 Asia/Kolkata.
+- integrations.api: globally hard disabled,16:27:39.
+- integrations.webhooks: globally hard disabled,16:27:48.
+- ai.credits: globally hard disabled,16:28:06.
+Reason records the owner's India local-first decision and later provider
+acceptance requirement. Platform audit identifies administrator1 for all four.
+The changes affect all firms in this local installation. They are reversible
+through the existing controls, with a new explicit audited change reason.
+
+Reload proved all four persisted. Firm-admin Subscription & Usage independently
+showed Denied / Disabled by the platform administrator for all four; local
+assistant and report downloads remained Allowed / Included in your plan.
+The QA plan still contains33 selected features; its published revision and
+assignment were not edited.29 remain effectively allowed after these exclusions.
+
+Provider readiness: only the read-only diagnostic tab remains for this actor;
+API-key and webhook management tabs are absent. SMTP now Enabled No; payment and
+India e-invoice/e-way services Enabled No and unavailable. No outbound message,
+provider validation call, payment, tax submission, new credential or wider access
+was created. The shared provider table uses readable status/provider names and
+business guidance, while response status/provider identifiers remain unchanged.
+
+Important chronology correction: SMTP configuration was already present and
+quotation-email permission was previously allowed. Configuration alone did not
+mean email was disabled. Earlier broad statements that all integrations were
+off must be read with this later verified exclusion. SMTP secrets were preserved,
+not printed, copied into reports or modified. No .env edit was needed.
+
+This closes the owner scope decision and named exclusion checks only. Desktop
+variants, composed business/access/quota coverage, local accounting/document/
+legal review and operational recovery/load/security/rollout acceptance remain
+open. Mobile is owner-deferred. No release/deployment is accepted by this note.
+
+Wave 11 entry status
+Updated: 11 November 2026
+Primary launch country: India, confirmed by the user.
+
+Wave 10 is incomplete and unaccepted. Earlier waves have not been reaccepted
+as one system. The document's prerequisites are not waived.
+
+Safe infrastructure hardening has proceeded as authorized source work:
+- Separate liveness/readiness and bounded shared database probes.
+- Local worker-cycle freshness and graceful drain with a hard exit deadline.
+- Structured request/process diagnostics without raw URL/provider error payloads.
+- Production origin/signing-secret checks in the existing configuration boundary.
+- Retryable private export removal without duplicate storage release/audit.
+- Regression sources, declaration inventory, verification matrix and runbooks.
+
+See wave-11-delivery-report.txt for every changed file, exact source behavior,
+remaining scope, risks and deferred commands. wave-11-source-inventory.txt freezes
+route/model/migration/feature/worker declarations without asserting runtime
+coverage. wave-11-operations-runbook.txt describes unexecuted operational drills.
+
+Status: WAVE 11 SOURCE HARDENING STARTED; NOT COMPLETE; NOT ACCEPTED.
+Release: NO-GO. No deployment, provider activation or production data mutation.

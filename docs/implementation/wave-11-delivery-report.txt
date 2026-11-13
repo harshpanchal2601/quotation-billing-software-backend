@@ -1,0 +1,428 @@
+13 November 2026 — fresh firm5 desktop QA closeout completed
+The remaining independent approval/automation, reversal/cancellation and final
+reconciliation tasks are complete in actual desktop UI. Invoice18 was requested
+by Accounts13, reviewed by Admin9, explicitly issued, notified and settled.
+Receipt5 reversal retained refund20; replacement6 settled both invoices; credit0,
+stock400/reserved0/eight movements. Billed-receipt cancellation safely denied.
+Final frontend build/lint and106 focused checks PASS; read-only DB checks10/10.
+Full evidence and changed paths: newest ui-ux-remediation-delivery-report.txt and
+ui-ux-browser-review.txt. Earlier isolated integration/load/recovery evidence below
+is retained. No known failing case remains in these recorded local scenarios.
+Video is OWNER-DEFERRED; mobile/unverified providers remain owner-excluded.
+Production deployment, legacy upgrade and independent accounting/legal/security/
+operations/rollout acceptance remain separate and are not certified by local QA.
+
+
+13 November 2026 — isolated local acceptance executed (latest update)
+COMPLETED:160/160 real MySQL integration checks across11files;4/4 actual Chromium
+browser/composed/recovery scenarios;1/1 large-data reporting baseline;28/28 scoped
+unit/HTTP checks; backend typecheck and lint. Local performance p95:2515.40ms,
+40 reads,2 simultaneous tenants,100,000 invoices and1,000,000 movements PER tenant.
+This is a measured local baseline, not an approved production latency objective.
+
+Independent requester/reviewer logins, self-approval403, exact invoice approval,
+perform-once issuance, idempotent retry, foreign-firm404 and protected real-PDF
+access were exercised against the real frontend5173 and an isolated real API/DB.
+The same accepted quotation/approved invoice then reconciled partial/full
+receipts, one refunded5.00 despite retry, reversed10.00, credit5.00 and final
+adjusted/allocated15.00/outstanding0.00; original invoice20.00 remains immutable.
+One receipt was entered through the real browser form; later finance commands
+used real authenticated API requests from that browser, with UI result rechecks.
+
+Fresh apply of all20 migrations on13 unique disposable schemas was authorized.
+Application ledger was read only:20/20 source/applied/checksums match, no unfinished
+or rolled-back entry. No application migration or production data edit occurred.
+Recovery passed:104 tables/478 rows exact count/hash match,23 triggers preserved,
+restored immutability guard, final settlement and protected PDF/tenant denial.
+Export166.19ms, import875.29ms, export/import/verification1304.02ms on this
+small synthetic snapshot; these are not production RPO/RTO or scale guarantees.
+Actual isolated healthy-worker and unavailable-DB processes returned safe health
+responses and exited0 on SIGTERM (15ms/8ms). Existing3004 probes all returned200;
+that working process was not restarted or faulted. Disposable schemas removed.
+
+One production defect fixed: foreign supplier-bill source references previously
+hit a composite FK before ownership validation, returning500. The existing firm
+transaction now checks firm/supplier ownership first and safely returns404,
+without bill/line/audit effects. Published-plan fixture setup now adds child
+features/quotas before publication; immutable production triggers remain intact.
+
+Detailed commands, all changed paths, failure history and evidence limits are in
+ui-ux-remediation-delivery-report.txt and ui-ux-browser-review.txt. Private evidence:
+/Users/harshpanchal/Documents/Bhuminex-QA-Artifacts/2026-11-13-closeout-4661f7c4
+This update supersedes older blanket NOT RUN/pending claims only for these named
+scenarios. Exhaustive endpoint/variant matrices, original legacy-snapshot upgrade,
+independent accounting/legal/security acceptance, production SLO/DR/retention,
+monitoring/alert ownership, packaging and rollout remain unaccepted. Mobile and
+unverified external integrations remain owner-excluded. No deployment or whole-ERP
+production certification is claimed. No new known failure in the named local run.
+
+
+13 November 2026 — desktop closeout evidence update
+The named remaining desktop priorities now have source fixes and actual local
+browser evidence: guarded/pinned field review, version/effective-field conflict
+checks, common numbered/sorted field history, CRM timeline, platform audit detail/
+ordering/paging, truthful read-only revision preview and compact item rows.
+Actual QA metadata save and independent reload, plus injected409 failure/input
+retention were observed. Details and per-file reasons are in the newest sections
+of ui-ux-remediation-delivery-report.txt and ui-ux-browser-review.txt.
+Current focused checks: frontend51+5(non-overlapping), backend41, frontend build,
+backend typecheck and both lint checks passed. Full current suite was not rerun.
+These complete the named desktop closeout list only. Complete composed/tenant/
+role/plan/quota and independent approval acceptance, disposable-DB integration,
+accounting/document/legal review, load/security/backup-restore/recovery/monitoring
+and rollout acceptance remain OPEN. No production release is accepted.
+Owner scope stays India/local ERP first; mobile and unverified external-provider
+activation excluded. No migration, deployment or live integration was executed.
+
+
+11 November 2026 — owner-confirmed India local-first scope
+The owner selected: Local ERP workflows first; keep unverified external
+integrations disabled. Provider activation is excluded from the first release,
+not an unfulfilled requirement to activate a gateway/SMTP/tax/LLM service now.
+
+Applied through the existing audited platform controls, without new environment
+flags, erased credentials, plan-version edits or a parallel authorization path:
+- quotations.email: globally hard disabled,16:27:29 Asia/Kolkata.
+- integrations.api: globally hard disabled,16:27:39.
+- integrations.webhooks: globally hard disabled,16:27:48.
+- ai.credits: globally hard disabled,16:28:06.
+Reason records the owner's India local-first decision and later provider
+acceptance requirement. Platform audit identifies administrator1 for all four.
+The changes affect all firms in this local installation. They are reversible
+through the existing controls, with a new explicit audited change reason.
+
+Reload proved all four persisted. Firm-admin Subscription & Usage independently
+showed Denied / Disabled by the platform administrator for all four; local
+assistant and report downloads remained Allowed / Included in your plan.
+The QA plan still contains33 selected features; its published revision and
+assignment were not edited.29 remain effectively allowed after these exclusions.
+
+Provider readiness: only the read-only diagnostic tab remains for this actor;
+API-key and webhook management tabs are absent. SMTP now Enabled No; payment and
+India e-invoice/e-way services Enabled No and unavailable. No outbound message,
+provider validation call, payment, tax submission, new credential or wider access
+was created. The shared provider table uses readable status/provider names and
+business guidance, while response status/provider identifiers remain unchanged.
+
+Important chronology correction: SMTP configuration was already present and
+quotation-email permission was previously allowed. Configuration alone did not
+mean email was disabled. Earlier broad statements that all integrations were
+off must be read with this later verified exclusion. SMTP secrets were preserved,
+not printed, copied into reports or modified. No .env edit was needed.
+
+This closes the owner scope decision and named exclusion checks only. Desktop
+variants, composed business/access/quota coverage, local accounting/document/
+legal review and operational recovery/load/security/rollout acceptance remain
+open. Mobile is owner-deferred. No release/deployment is accepted by this note.
+
+11 November 2026 — administration/settings evidence update
+Later named desktop checks now cover subscription feature/usage wording and
+ordering; users/roles labels and discard; compact audit detail/paging/order;
+billing configuration's read/write response fix; protected business/quotation
+settings; version-confirmed financial policies; and synthetic bank create/edit
+with the common compact row-action menu. The exact native-browser outcomes,
+modified files, validation and limits are recorded in the newest sections of
+ui-ux-browser-review.txt and ui-ux-remediation-delivery-report.txt.
+These advance desktop group5; the tracker remains4completed/3open workgroups.
+They do not certify whole-module, full ERP or Wave10/11 release acceptance.
+India confirmed, mobile deferred, all unverified live integrations remain off.
+
+11 November 2026 — latest incremental evidence
+Current desktop evidence is in ui-ux-browser-review.txt and the newest section
+of ui-ux-remediation-delivery-report.txt. Recurring worker generation, simulated
+payment refund/cancellation, long proforma PDF, portal invitation/view/revocation,
+controlled mixed import/undo, queued report PDF/download/removal and QA accounting
+mapping/balanced journal download have named real local browser evidence.
+Read-only migration ledger:20source/20applied,allSHA-256checksums match,no missing
+or unfinished/rolled-back entries. No migration command was executed. Whole
+release/role/tenant/quota/provider/load/upgrade/restore acceptance remains OPEN.
+India confirmed; mobile deferred; live external providers remain disabled.
+Older per-batch pending claims are historical where current evidence supersedes.
+
+Wave 11 infrastructure hardening delivery report
+Original batch: 10 November 2026. Status updated: 11 November 2026.
+Status: SOURCE WORK IMPLEMENTED; WAVE 11 IS NOT COMPLETE OR ACCEPTED.
+Primary launch country: India, explicitly confirmed by the user.
+
+Current status update — 11 November 2026
+
+This update supersedes blanket statements below that all checks are unrun or
+that the application's Wave 10 migrations are definitely unapplied. Those
+statements described the original 10 November source-hardening batch.
+
+The user has since authorized frontend typecheck, lint, tests and build, plus
+backend typecheck, lint and affected unit tests. Multiple authorized checks and
+incremental desktop browser journeys have passed. Exact commands, dates,
+results, current limitations and record evidence are maintained in:
+  docs/implementation/ui-ux-remediation-delivery-report.txt
+  docs/implementation/ui-ux-browser-review.txt
+These continuing records are the execution evidence; this historical inventory
+does not duplicate changing pass counts or certify unrecorded checks.
+
+The user reports that the application database has been updated. This report
+does not establish its current migration ledger or certify an isolated upgrade.
+Reviewed migration/schema evidence and an isolated original-snapshot upgrade,
+consistent DB/files/key backup/restore and recovery rehearsal remain pending.
+Do not infer either that every migration is unapplied or that rehearsal passed.
+
+Current UI work prioritizes desktop; the owner has deferred phone/tablet review.
+Shared views, tables, forms and wording have continuing implemented changes;
+source completion and browser acceptance are tracked separately. Missing
+browser acceptance does not mean every matching UI source is unimplemented.
+Whole-ERP and Wave 10/11 release acceptance remain OPEN / NO-GO. Broader
+accounting scope, localization evidence, provider acceptance, operations,
+security/performance/recovery drills and launch-owner decisions remain open.
+
+A. Baseline inventory and repository metadata
+
+Reused the existing Express/bootstrap/health/error boundary, Prisma singleton,
+audit policies, single outbox/lease worker, tenant/entitlement transactions,
+private export artifacts, SMTP and PDF integrations. No business domain, queue,
+ledger, authorization framework or storage provider was replaced.
+
+Read metadata without Git commands:
+backend: feat/wave11; HEAD 7126b9972e12f1853b301e6738a7dfb6be0670fa
+frontend: feat/wave11; HEAD d1d0d73cc44e15b426b83e95067a52bc82742490
+These IDs do not assert clean trees or committed changes. The static declaration
+inventory is wave-11-source-inventory.txt, including API families/local route
+declarations, models, migration hashes, feature/permission mapping and job kinds.
+It is not a fully expanded API schema or proof of runtime middleware coverage.
+
+Wave 10 remains partial: see wave-10-continuation-report.txt and
+wave-10-verification-matrix.txt for the preceding cross-repository file inventory
+and source/provider/localization/accounting/performance gaps. Earlier waves have
+not been reaccepted together. The supplied DOCX's prerequisite/testing/release
+instructions are task evidence; direct user command restrictions prevail.
+
+B. Plan versus executed changes; complete file inventory for this batch
+
+The traced startup/shutdown path stopped the worker only after HTTP closed and
+had no readiness/drain flag, hard deadline or cleanup error handling. Database
+probes could wait indefinitely and launch a query per concurrent request. The
+request logger emitted raw URLs/referrers; several provider/audit/Prisma logs
+could emit raw exception text. Export DELETE tombstoned before unlink, then its
+normal live-row lookup made an unlink failure impossible to retry. Production
+configuration accepted unusable origins and short/shared/example signing keys.
+
+Implemented neutral lifecycle/probe/logging helpers at their existing boundaries,
+updated all traced consumers, and kept domain effects in their original
+transactions. Late review added code-owned route groups, safe SMTP diagnostics,
+storage quota/audit rollback regression sources and a temporary test storage root.
+No diagnostic logs or TODO placeholders were introduced. Operational events below
+are intentional fixed production metadata. Verification was not run in that
+original batch; current approved execution evidence is linked above.
+
+Paths relative to backend; A added, E edited. Why/logic/reuse are listed per file.
+
+src/core/observability/logger.ts | A | Closed JSON event contract; replaces unsafe raw request/provider/error logging without customer payload fields.
+src/core/observability/runtime.ts | A | Process-local drain state, worker success freshness and fixed-cardinality request/worker counters; no persisted tenant data.
+src/core/http/request-observability.ts | A | Local UUID response correlation, finish/close deduplication, code-owned labels, timings and refusal of new work during drain; existing Express boundary.
+src/core/database/database-probe.ts | A | Shared pending query, bounded caller wait and brief settled cache; does not claim driver cancellation.
+src/bootstrap/graceful-shutdown.ts | A | Idempotent concurrent HTTP/worker drain, deadline, failure exit and DB disconnect after successful drains; dependency-injected for failure sources.
+src/bootstrap/app.ts | E | Register observability before parsing, remove Morgan URL/referrer output, add drain gate and exposed request ID, disable x-powered-by; preserve existing router/provider mounts.
+src/bootstrap/server.ts | E | Start worker after listen, handle startup errors/signals through shutdown helper, close idle/forced sockets and emit 60-second process metrics.
+src/bootstrap/outbox-worker.ts | E | Feed existing worker cycle health to runtime; fixed discovery/retention failure events; same six durable job handlers.
+src/bootstrap/registerRoutes.ts | E | Tag each existing API mount with its constant code-owned group; same routers, order and paths.
+src/config/env.ts | E | Bounded port/probe/freshness/shutdown intervals, origin validation/normalization, production HTTPS and distinct non-example signing-secret minimum; errors expose variable names only.
+.env.example | E | Document operational defaults and production credential/origin requirements; no actual environment or secret changed.
+src/routes/health.routes.ts | E | Preserve root/database envelopes; add /live, /ready and /worker with no-store and safe process-only state; recheck drain after probe.
+src/core/database/database-health.ts | E | Existing SELECT 1 now uses bounded/shared probe helper.
+src/core/database/prisma.ts | E | Receive error/warning events and emit only fixed codes; never forward Prisma event text/query values.
+src/core/http/errorHandler.ts | E | Handle headers already sent, malformed/oversized JSON as 400/413 and fixed unexpected-error diagnostics; preserve Zod/AppError contracts.
+src/core/http/notFoundHandler.ts | E | Generic 404 no longer reflects arbitrary request path/query; same status/envelope.
+src/core/audit/audit-log.service.ts | E | Redact best-effort failure logs; REQUIRED failures still propagate to the original transaction.
+src/core/outbox/worker.ts | E | Optional cycle observer, synchronous adapter error recovery and fixed failure event; existing one-in-flight/stop behavior retained.
+src/core/outbox/outbox.repository.ts | E | Structured fixed cleanup-failure event; existing lease/attempt/audit/cleanup semantics retained.
+src/integrations/pdf/pdf.service.ts | E | Fixed rendering-failure event replaces raw exception logging; same renderer/provider behavior.
+src/modules/quotations/communications/quotation-communications.repository.ts | E | Fixed SMTP failure event replaces raw provider message; existing safe failure history and accepted-effect reconciliation retained.
+src/modules/reports/export-jobs.repository.ts | E | Owner-authorized DELETE can find a tombstone only for cleanup retry; quota/audit commit once; all other consumers still exclude tombstones.
+src/types/express.d.ts | E | Type local requestId and code-owned routeGroup alongside existing identity/firm fields.
+tests/health.test.ts | E | Fix async route driver false-completion risk and array paths; add liveness/readiness/drain race sources.
+tests/env.test.ts | E | Production origin/key guards and invalid/bounded lifecycle configuration sources; fixture compatibility retained.
+tests/outbox.test.ts | E | Observer/failure/recovery/stop regression source alongside existing durable job/preparation cases.
+tests/quotation-communications.repository.test.ts | E | Existing failed-SMTP case now asserts raw private provider message is absent from logs.
+tests/wave10.mysql.test.ts | E | Actual DB/filesystem regression sources for unlink retry, quota/audit rollback and same-job recovery; isolate storage with temporary root and cleanup; required audit fault includes ReportExportJob.
+tests/wave11.operations.test.ts | A | Inject stalled probes, worker staleness, repeated/concurrent drain, deadline and cleanup/drain failures.
+tests/wave11.http.test.ts | A | Local HTTP redaction/request ID/client-error/drain behavior and audit policy sources; no external providers.
+docs/implementation/wave-10-delivery-report.txt | E | Mark initial report historical and link current inventory/evidence.
+docs/implementation/wave-10-continuation-report.txt | E | Record India, clarify safe Wave 11 source progress versus unwaived acceptance prerequisites.
+docs/implementation/wave-10-integration-contracts.txt | E | Document authorized idempotent unlink retry after tombstone.
+docs/implementation/wave-10-verification-matrix.txt | A | Explicit Wave 10 source coverage, unrun negative/quota/failure scenarios and remaining gaps.
+docs/implementation/wave-11-entry-status.txt | A | Concise current scope, India decision and unaccepted prerequisites.
+docs/implementation/wave-11-source-inventory.txt | A | Static code declarations/migration hashes and metadata freeze; no live data or authorization certification.
+docs/implementation/wave-11-operations-runbook.txt | A | Concrete probe/drain/log/queue/storage/rotation/restore/privacy/rollout procedures and pending infrastructure/owner decisions; no executed drill claimed.
+docs/implementation/wave-11-verification-matrix.txt | A | Whole-platform journeys/security/financial/operations/browser/provider/recovery evidence plan and actual NOT RUN state.
+docs/implementation/wave-11-delivery-report.txt | A | This complete batch inventory, behavior, validation limits and go/no-go.
+
+No frontend source was changed in the original infrastructure batch. Continuing
+frontend implementation is recorded in the current remediation report. The
+preceding Wave 10 frontend implementation is inventoried in its continuation
+report. apiBaseUrl.ts was read but not modified; its caller was not implicated
+in the operational defects.
+
+C. Database, migration and compatibility impact
+
+No Wave 11 model, column, permission, feature key, SQL migration or data backfill
+was added by the original infrastructure batch. That batch did not apply or
+validate the six preceding Wave 10 migrations. The owner has since reported an
+updated application DB; its exact current migration ledger is not established
+by this report. Confirm the reviewed schema/client and ledger for the intended
+environment before isolated upgrade/integration rehearsals. No counter,
+sequence, ledger or document snapshot was reset by the original batch, and it
+made no dependency/package/lockfile changes.
+
+Export retry uses the existing deletedAt/file reference and firm lock. Live
+lookup remains mandatory for list/worker/download; only DELETE may read its
+same owner/firm tombstone. The first transaction releases logical usage and
+records required deletion audit; subsequent DELETE calls only reauthorize and
+attempt the same bounded private path unlink. Physical backlog still needs
+operational reconciliation; a tombstone is not proof that bytes disappeared.
+
+Existing root/database health response contracts remain. New health responses
+are additive; 404 text becomes generic, malformed/oversized bodies correctly
+return client errors, and drain intentionally returns 503 for new work. Worker
+observer is optional; old startOutboxWorker callers remain valid. REQUIRED audit
+behavior is unchanged. Production startup deliberately rejects formerly accepted
+unsafe configurations; development/test fixture secrets remain compatible.
+No runtime backward-compatibility claim is made before regression execution.
+
+Forward-fix/rollback/restore constraints are in the operations runbook and
+Wave 10 report: preserve additive metadata, issue snapshots, numbering/stock/
+payment history, private file references and durable event identities. Do not
+roll an older worker onto unknown job kinds or remove referenced encryption keys.
+
+D. API, authorization, tenancy and architecture impact
+
+GET /api/v1/health[/live]: public liveness, no tenant data or dependencies.
+GET /api/v1/health/database: public generic DB availability, shared bounded wait.
+GET /api/v1/health/ready: public generic process drain + DB + configured worker
+readiness; no identifiers, credentials, queue rows or per-firm metric exposure.
+GET /api/v1/health/worker: public generic local health/disabled state. It does
+not certify business delivery, enabled providers or a cluster's other workers.
+Health responses are no-store. No unguarded private metrics/admin endpoint added.
+
+Existing DELETE /api/v1/exports/:id: cookie/session, firm context, reports.export,
+reports.exports and current source rights remain; private actor+firm ownership
+still applies to cleanup retry, with Origin and request budget unchanged.
+Other business routes, feature/RBAC mapping, scopes and tenant selection are
+unchanged. The inventory records their code declarations, not complete proof.
+
+Architecture: bootstrap wires process lifecycle; business-neutral state/logging/
+probe helpers are core; config owns environment reads; provider mechanics stay
+in integrations; export lifecycle stays in its owning repository. Source-level
+consumer review covered health, server, worker, error/audit, Prisma, SMTP/PDF and
+all live/deleted export readers. No duplicate authorization/ledger/store added.
+
+E. Scope mapped to specification sections 2 and 11
+
+Section 2 feature | State
+1 Business journeys | Incremental module/browser journeys and approved checks exist; complete composed system acceptance remains NOT VERIFIED. See current remediation evidence.
+2 Cross-tenant certification | Existing two-firm sources and full negative matrix enumerated; exhaustive API/DB/file/audit/search/queue/webhook/portal/AI certification NOT VERIFIED.
+3 Entitlement/permission certification | Existing registry/guards retained; matrix includes async access and new quota/failure sources; all route/action certification NOT VERIFIED.
+4 Financial data verification | Existing exact-money/source-ledger and historical snapshot sources retained; reconciliation/restore evidence NOT VERIFIED; Wave 10 broader journals remain partial.
+5 Migration/rollback | Migration hashes and safe rehearsal/restore/forward-fix procedure exist; owner reports DB updates. Current migration-ledger review and isolated upgrade, backup-integrity and restore evidence remain pending.
+6 Operations | SOURCE IMPLEMENTED for safe structured metadata/process counters, probes, worker freshness, bounded shutdown and unlink retry; collector/dashboards/paging/error-budget configuration and incident drills NOT IMPLEMENTED/NOT VERIFIED.
+7 Performance/accessibility | Existing tests/opt-in large fixture inventoried and role/browser/keyboard evidence matrix added; real load/a11y/browser/PDF concurrency certification NOT RUN.
+8 Privacy/release | Source production guards/redaction and operational rotation/privacy/recovery/release procedures added; retention policy, whole-tenant request automation, scanning, rehearsals, staged release and verified customer notes remain NOT IMPLEMENTED/NOT VERIFIED.
+
+Section 11 acceptance | State
+Earlier waves reaccepted as system | NOT VERIFIED; Wave 10 known source gaps remain.
+Tenant/feature/permission matrices no critical failures | Exhaustive release matrix NOT VERIFIED; incremental approved checks do not certify every route/action.
+Financial/stock balances reconcile | NOT VERIFIED; source tests do not establish balances.
+Backup/restore, migration, security and runbooks verified | SOURCE RUNBOOKS ONLY; drills NOT RUN.
+Staged monitoring/rollback release, no bundled secrets | NOT DEPLOYED; packaging/scans NOT RUN.
+Unverified provider/compliance/AI capabilities excluded | Gateway/tax diagnostics remain unavailable; launch entitlement/provider decisions and runtime exclusion proof remain pending.
+
+F. Validation, commands and evidence
+
+The original 10 November infrastructure batch executed only file/source reading
+(rg/cat/sed/textutil and read-only metadata), source/document edits and static
+inventory generation. No application, compiler,
+test runner, package manager, SQL migration, DB query, provider call, browser,
+dependency scanner, container or release command was executed in this batch.
+Manual review found the causal defects and checked updated caller/callee flows,
+types and boundaries in source. This is not a build/lint/test pass.
+
+Historical commands proposed on 10 November are listed below. They are not a
+current ALL NOT RUN assertion, a pass record or additional authorization.
+Current per-command execution/results belong to the linked remediation report;
+frontend checks and backend typecheck/lint/affected unit tests are now approved.
+backend: npm run prisma:generate
+backend: npm run prisma:validate
+backend: npm run typecheck
+backend: npm run lint
+backend: npm test
+backend: npm run build
+frontend: npm run typecheck
+frontend: npm run lint
+frontend: npm test
+frontend: npm run build
+backend focused: npm test -- tests/health.test.ts tests/env.test.ts tests/outbox.test.ts tests/wave11.operations.test.ts tests/wave11.http.test.ts tests/quotation-communications.repository.test.ts tests/audit-log.test.ts
+backend architecture: npm test -- tests/architecture/dependency-boundaries.test.ts
+backend integration: npm test -- tests/tenant-isolation.mysql.test.ts tests/platform-entitlements.mysql.test.ts tests/wave03.mysql.test.ts tests/wave04.mysql.test.ts tests/wave05.mysql.test.ts tests/wave06.mysql.test.ts tests/wave07.mysql.test.ts tests/wave08.mysql.test.ts tests/wave09.mysql.test.ts tests/wave10.mysql.test.ts
+backend performance: npm test -- tests/wave10.performance.mysql.test.ts
+frontend architecture: npm test -- src/architecture-boundaries.test.ts
+
+The original command restriction has been explicitly relaxed for the approved
+frontend and backend checks above. Installs, migrations, seeds, Git, Docker,
+backend build and deployment remain deferred. Isolated integration/recovery
+work still needs separately prepared disposable databases, a matching generated
+client, isolated file roots, approved provider accounts/receivers and owner-set
+performance/recovery criteria. The original batch did not inspect a live
+migration ledger; later DB updates are owner-reported, not proof of an isolated
+upgrade rehearsal. A missing optional test URL is a skip, never a passing
+integration suite. Remaining security, accessibility, migration/restore,
+failover, scanning and provider drills need their approved environment/tooling.
+
+Validation conclusions at source level: causal paths addressed in their owning
+layers; traced consumers updated; existing authorization/ledger architecture
+preserved; no duplicate domain logic; intended compatibility retained except
+documented safety/error-response changes. Continuing scoped runtime evidence is
+linked above; complete release correctness remains UNVERIFIED.
+
+G. Risks, assumptions, pending decisions and go/no-go
+
+Recommendation: NO-GO for production release and Wave 10/11 acceptance. This is
+reviewable source progress, not formal security/compliance/production certification.
+
+Known risks/limits:
+- Multiple approved checks and scoped browser journeys have now passed; they
+  do not establish complete system acceptance. Reviewed migration-ledger and
+  isolated schema/client/SQL upgrade evidence remain independently necessary.
+- Earlier-wave source scope and full composed journeys remain incomplete.
+- Probe timeout bounds the caller, not the SQL driver; a pending query stays
+  single-flight. Readiness removes traffic but does not restart a stalled worker.
+- Deadline exit can interrupt pending HTTP/rendering/delivery; durable recovery
+  and remote deduplication still need real failure/restart evidence.
+- Worker freshness is local loop health. Application DEAD/RECONCILE outcomes,
+  schedule-discovery failures, backlog age and provider state need separate alerts.
+- Request/process counters reset on restart and require a collector. All latency,
+  throughput, error budgets, alert thresholds and launch scale are unmeasured.
+- Existing fixed module notices and external proxy/provider/browser logs require
+  separate review; the new closed logger is not whole-platform leak certification.
+- Production configuration now fails for non-HTTPS origins and weak/shared/example
+  keys. Secret entropy and approved rotation/storage cannot be established by
+  length checks. Existing JWT rotation is coordinated, without old-key overlap.
+- File unlink failures leave physical bytes despite logical quota release. Retry
+  needs the same authorized actor/job ID; tombstones are not in normal lists.
+  Crashed preparation can leave orphan files; no retention deletion was invented.
+- Selected real one-page PDFs have been inspected in the continuing browser
+  record. Long/multipage and broader font/Office output, render concurrency,
+  reverse-proxy/cluster limits, security scans, performance/accessibility and
+  disaster recovery remain outside that scoped acceptance evidence.
+- India is the only newly supplied launch decision. No tax, privacy, certified
+  filing, RPO/RTO, retention duration, enabled gateway or service promise is assumed.
+
+Pending owners/decisions: intended optional modules/providers and approved test
+accounts; target tenants/concurrency/data scale; service and delivery objectives;
+retention/legal holds/request handling; incident/support/recovery ownership;
+rollout cohorts, halt/rollback owners and acceptance reviewers. These block the
+dependent release/policy work, not safe source investigation and fixes.
+
+Achievements: corrected traced infrastructure and cleanup failure paths, added
+safe diagnostic contracts and configuration guards, expanded meaningful failure
+regression sources, recorded India, and supplied explicit evidence/runbook/status
+artifacts. The original infrastructure batch executed no restricted commands.
+Subsequent explicitly approved checks and isolated QA edits are recorded in the
+continuing remediation evidence. No production release/provider activation is
+established by this report.

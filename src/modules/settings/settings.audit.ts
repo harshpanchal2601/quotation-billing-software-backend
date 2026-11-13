@@ -9,12 +9,13 @@ import {
 export { pickChangedFields, type RequestMetadata };
 
 export async function createSettingsAuditLog(
-  db: PrismaClient,
+  db: PrismaClient | Prisma.TransactionClient,
   input: {
     metadata: RequestMetadata;
     entityType: string;
     entityId: string;
     action: AuditAction;
+    policy?: 'REQUIRED' | 'BEST_EFFORT';
     oldValues?: Prisma.InputJsonObject;
     newValues?: Prisma.InputJsonObject;
   },

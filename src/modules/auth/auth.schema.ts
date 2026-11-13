@@ -3,8 +3,12 @@ import { z } from 'zod';
 export const usernameSchema = z
   .string()
   .trim()
-  .min(1)
-  .regex(/^[A-Za-z0-9._-]+$/, 'Username may contain letters, numbers, dots, underscores and hyphens');
+  .min(1, 'Username is required')
+  .max(191, 'Username must be 191 characters or fewer')
+  .regex(
+    /^[A-Za-z0-9._ -]+$/,
+    'Username may contain letters, numbers, spaces, dots, underscores and hyphens',
+  );
 
 export const passwordPolicySchema = z
   .string()
@@ -39,6 +43,14 @@ export const initialAdminSeedSchema = z.object({
   password: passwordPolicySchema,
 });
 
+export const platformAdminSeedSchema = z.object({
+  name: z.string().trim().min(1, 'PLATFORM_ADMIN_NAME is required'),
+  email: z.string().trim().email('PLATFORM_ADMIN_EMAIL must be a valid email'),
+  username: usernameSchema,
+  password: passwordPolicySchema,
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type InitialAdminSeedInput = z.infer<typeof initialAdminSeedSchema>;
+export type PlatformAdminSeedInput = z.infer<typeof platformAdminSeedSchema>;

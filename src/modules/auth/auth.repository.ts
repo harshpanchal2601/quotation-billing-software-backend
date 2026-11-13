@@ -1,7 +1,14 @@
-import { AuditAction, type PrismaClient } from '@prisma/client';
+import { AuditAction, Prisma, type PrismaClient } from '@prisma/client';
 
 import type { RequestMetadata } from '../../core/audit/audit-log.service.js';
 import { prisma } from '../../core/database/prisma.js';
+
+const userAccessInclude = {
+  firm: true,
+  firmRole: true,
+} satisfies Prisma.UserInclude;
+
+export type UserAccessRecord = Prisma.UserGetPayload<{ include: typeof userAccessInclude }>;
 
 export class AuthRepository {
   constructor(private readonly db: PrismaClient) {}
@@ -12,11 +19,12 @@ export class AuthRepository {
         deletedAt: null,
         OR: [{ email: identifier }, { username: identifier }],
       },
+      include: userAccessInclude,
     });
   }
 
   findUserById(userId: number) {
-    return this.db.user.findUnique({ where: { id: userId } });
+    return this.db.user.findUnique({ where: { id: userId }, include: userAccessInclude });
   }
 
   createSession(userId: number, expiresAt: Date, ipAddress?: string, userAgent?: string) {
@@ -51,7 +59,7 @@ export class AuthRepository {
   findSessionWithUserById(sessionId: number) {
     return this.db.authSession.findUnique({
       where: { id: sessionId },
-      include: { user: true },
+      include: { user: { include: userAccessInclude } },
     });
   }
 
@@ -78,6 +86,7 @@ export class AuthRepository {
       data: {
         passwordHash,
         passwordChangedAt: new Date(),
+        mustChangePassword: false,
       },
     });
   }
@@ -85,6 +94,7 @@ export class AuthRepository {
   createAuditLog(userId: number, action: AuditAction, metadata: RequestMetadata) {
     return this.db.auditLog.create({
       data: {
+        firmId: metadata.firmId,
         userId,
         entityType: 'User',
         entityId: String(userId),

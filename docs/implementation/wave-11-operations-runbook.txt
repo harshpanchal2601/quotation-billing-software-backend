@@ -1,0 +1,359 @@
+13 November 2026 — executed local operations rehearsal
+Authorized fresh isolated migration, real-MySQL/performance and backup/restore
+checks were completed. Application ledger read-only20/20; source/provider data
+not migrated, reset, faulted or copied. Private evidence is in:
+/Users/harshpanchal/Documents/Bhuminex-QA-Artifacts/2026-11-13-closeout-4661f7c4
+
+Actual Node/tsx processes used dynamic local ports and a disposable database:
+healthy enabled worker/live/ready/database/worker200; unavailable schema live200,
+ready/database503 and workerDisabled200; malformed JSON400 without echoing its
+private marker or database credentials. Both processes received realSIGTERM and
+exited0 (15ms/8ms). WorkingBE3004 was probed read-only, all four health routes200.
+These are startup/idle-signal drills; busy drain/deadline behavior remains covered
+by injected unit dependencies, not a new production outage/recovery claim.
+
+Current-schema database/private storage recovery PASS:104tables/478rows exact
+hash/count match,23 triggers' names/targets/events/timing/bodies preserved; actual
+immutable approval guard blocked a restored edit. Issued20.00, credit5.00 and
+receivable15.00/15.00/0.00/Paid survived. Historical protected PDF checksum and
+restored repository download succeeded; foreign firm404. Snapshot writers were
+stopped, credentials used a temporary0600 client file removed in finally, source/
+restore schemas and artifacts were isolated. All owned test schemas were removed.
+Export166.19ms/import875.29ms/verified total1304.02ms for this SMALL synthetic
+snapshot; no production RPO/RTO or retention objective has been approved.
+
+Reproducible local acceptance: tests/wave11.browser.mysql.test.ts is opt-in with
+WAVE11_BROWSER_ENABLED=1,WAVE11_TEST_DATABASE_URL=local wave11_test_<suffix>,
+WAVE11_RESTORE_DATABASE_URL=separate fresh wave11_test_restore_<suffix>, and
+optional WAVE11_BROWSER_ARTIFACT_ROOT (existing private directory). Migrate the
+source first using reviewed existing migrations; the restore target must not
+exist. Requires running local FE5173, installed Puppeteer browser and native
+MySQL/mysql binaries at /usr/local/mysql/bin in this local harness. No install,
+real provider or existing-account password reset is part of acceptance.
+
+MySQL9.7.1 trigger-safe export/import learned from the real rehearsal:
+- With writes stopped, export each exact SHOW CREATE TRIGGER definition to a
+  restricted artifact. The Prisma SHOW metadata may use f2 for its SQL field;
+  validate that this is a CREATE TRIGGER statement before preserving it.
+- Export consistent table/schema/data with mysqldump --single-transaction
+  --routines --skip-triggers --hex-blob --set-gtid-purged=OFF --no-tablespaces.
+  A plain --triggers dump hit a native-client syntax error on SIGNAL-only bodies.
+- Restore table/data into a NEW isolated schema first; import preserved trigger
+  definitions using native mysql and a collision-checked delimiter <=15chars.
+  Do not use Prisma prepared statements for CREATE TRIGGER (protocol1295).
+- Compare every table's count/canonical row hash, migration ledger and protected
+  file hashes. Compare trigger name/event/timing/table/body, permitting only an
+  optional trailing semicolon normalized by the text client. Exercise a real
+  immutable guard after restore. Never omit triggers to make restore 'pass'.
+- Capture export/import/verification timings and retain safe evidence. Remove
+  client credential files and the owned disposable schema in finally/runner.
+  Synthetic local artifacts here are protected by0700/0600; production backup
+  encryption/key escrow, retention and verified operator access remain required.
+
+Large-data reporting:200k invoices/2m stock entries across2tenants,40paired reads,
+p95=2515.40ms; reconciliation PASS. Explicit baseline mode has no service gate.
+If running with WAVE10_PERF_SCHEMA_TEARDOWN=external, the dedicated DB's invoking
+operator/runner MUST actually drop its owned schema after process disconnect;
+this avoids massive row cleanup and was executed here. Default row cleanup is
+still used otherwise. Recreate/migrate a new dedicated schema for another run.
+
+Original legacy-snapshot upgrade/partial-DDL forward fix, busy-process failure,
+production workload/memory/pool/queue thresholds, encrypted production recovery,
+external duplicate-effect recovery, key rotation, dashboards/paging, retention
+and rollout sign-off remain unexecuted. Live providers remain excluded; no
+production operator/SLO/RPO/RTO/legal policy is invented by this local exercise.
+Older NOT EXECUTED recovery sections below apply to those wider drills, not the
+newly documented current-schema local rehearsal.
+
+
+11 November 2026 — owner-confirmed India local-first scope
+The owner selected: Local ERP workflows first; keep unverified external
+integrations disabled. Provider activation is excluded from the first release,
+not an unfulfilled requirement to activate a gateway/SMTP/tax/LLM service now.
+
+Applied through the existing audited platform controls, without new environment
+flags, erased credentials, plan-version edits or a parallel authorization path:
+- quotations.email: globally hard disabled,16:27:29 Asia/Kolkata.
+- integrations.api: globally hard disabled,16:27:39.
+- integrations.webhooks: globally hard disabled,16:27:48.
+- ai.credits: globally hard disabled,16:28:06.
+Reason records the owner's India local-first decision and later provider
+acceptance requirement. Platform audit identifies administrator1 for all four.
+The changes affect all firms in this local installation. They are reversible
+through the existing controls, with a new explicit audited change reason.
+
+Reload proved all four persisted. Firm-admin Subscription & Usage independently
+showed Denied / Disabled by the platform administrator for all four; local
+assistant and report downloads remained Allowed / Included in your plan.
+The QA plan still contains33 selected features; its published revision and
+assignment were not edited.29 remain effectively allowed after these exclusions.
+
+Provider readiness: only the read-only diagnostic tab remains for this actor;
+API-key and webhook management tabs are absent. SMTP now Enabled No; payment and
+India e-invoice/e-way services Enabled No and unavailable. No outbound message,
+provider validation call, payment, tax submission, new credential or wider access
+was created. The shared provider table uses readable status/provider names and
+business guidance, while response status/provider identifiers remain unchanged.
+
+Important chronology correction: SMTP configuration was already present and
+quotation-email permission was previously allowed. Configuration alone did not
+mean email was disabled. Earlier broad statements that all integrations were
+off must be read with this later verified exclusion. SMTP secrets were preserved,
+not printed, copied into reports or modified. No .env edit was needed.
+
+This closes the owner scope decision and named exclusion checks only. Desktop
+variants, composed business/access/quota coverage, local accounting/document/
+legal review and operational recovery/load/security/rollout acceptance remain
+open. Mobile is owner-deferred. No release/deployment is accepted by this note.
+
+Wave 11 operations runbook
+Updated: 11 November 2026
+Primary launch country: India (user confirmed).
+State: SOURCE RUNBOOK; no drill, rollout or recovery has been executed.
+
+Authority and scope
+
+Use named operations/security/data owners and the approved release environment.
+The owner explicitly approved frontend typecheck/lint/tests/build and backend
+typecheck/lint/affected unit checks. Installs, format commands, migrations/seeds,
+Git, Docker, backend build and deployment remain deferred. The procedures below
+are reviewable future work, not authorization for operational drills. Do not place
+secrets, database URLs, tokens, customer data or raw audit exports in evidence.
+Do not select a retention term, RPO/RTO, service objective or release provider on
+the owner's behalf. India geography does not establish tax/privacy compliance.
+
+1. Probes and drain contract
+
+All paths are under /api/v1/health and respond with Cache-Control: no-store.
+GET / and /live: existing healthy envelope, independent of database and worker.
+GET /database: 200 healthy or 503 generic unavailable; no connection details.
+GET /ready: 200 only if not draining, DB probe succeeds and an enabled local
+worker has completed a successful recent cycle. Otherwise 503 generic not_ready.
+GET /worker: 200 healthy/disabled or 503 unavailable; no firm, queue IDs or data.
+Disabled means this process is not configured to run a worker. It does not mean
+that pending work elsewhere has been delivered or that a worker is required.
+
+HEALTH_PROBE_TIMEOUT_MS defaults to 2000 (100..10000). The request wait is bounded;
+the SQL driver operation is not canceled. Only one underlying probe is pending
+per process, with a one-second settled-result cache. A pool/driver timeout must
+also be configured and rehearsed at infrastructure level. Sustained failed
+readiness should remove a node from routing without making the DB-dependent
+probe its liveness restart condition.
+
+WORKER_STALE_AFTER_MS defaults to 300000 (60000..3600000), and must exceed the
+OUTBOX_POLL_INTERVAL_MS. A cycle that hangs eventually becomes stale, even if it
+is marked in flight. A rejected cycle is immediately unhealthy until recovery.
+Outbox processing can successfully record DEAD/RECONCILE and finish its cycle:
+worker readiness proves loop activity, not successful business delivery. The
+schedule discovery/retention sweep have separate failure events.
+
+SIGINT/SIGTERM mark the process draining synchronously. New business requests on
+existing connections receive generic 503, Retry-After: 1 and Connection: close.
+Health probes remain reachable on connections that have not closed. The HTTP
+listener stops accepting connections; idle connections close and the worker
+stops claiming while existing HTTP/worker operations drain concurrently. Prisma
+disconnect happens only after both drains succeed. Failures exit nonzero. The
+SHUTDOWN_TIMEOUT_MS deadline (default 60000; 1000..300000) forces socket closure
+and exit 1 if work or disconnect stalls; it does not declare that work rolled
+back or external delivery was canceled. Existing durable lease recovery applies.
+Repeated signals reuse the same shutdown. Startup listener/worker failure uses
+the same nonzero cleanup path. There is no new cancellation/financial engine.
+
+For a future deploy, set the orchestrator's termination allowance above the app
+deadline plus routing propagation allowance. Rehearse long requests, keep-alive,
+idle connections, PDF work, DB outage, in-flight events and duplicate signals.
+Record exit codes, committed source events and retry results. Do not infer a
+successful drain from a missing process alone.
+
+2. Logs, process metrics and dashboard specification
+
+The application uses JSON operational events on stdout/stderr. http.completed
+contains a server-generated UUID requestId, method, code-owned API group and
+local route pattern, status, elapsed milliseconds and aborted flag. Header
+X-Request-Id returns that ID; client-provided IDs are not trusted. A response
+finish/close is counted once. Aborted requests use status 499 as a log marker.
+The route group plus local pattern may not expand nested/dynamic router mounts;
+wave-11-source-inventory.txt remains the declaration reference.
+
+No originalUrl/baseUrl, query, cookie, Authorization, referrer, user agent, body,
+client IP, customer name, SQL or exception message is included by that contract.
+Unmatched paths use an unmatched label. Error events contain fixed codes and
+request ID when available. Prisma event payloads, audit errors, PDF exceptions
+and SMTP exception messages are not forwarded. Existing fixed module notices
+remain; no whole-platform logging certification is claimed. Proxy, CDN, browser,
+mailer and hosting logs need separate redaction review; disabling Morgan in this
+app does not change those services. Never enable SQL/SMTP debug in production.
+
+process.metrics is emitted every 60 seconds while serving, with uptime, RSS,
+heap used, active/completed/aborted requests, server-error count, total duration,
+worker configured/in-flight state, cycles and rejected cycles. Counts are local
+and cumulative since process start. Collector identity/boot boundaries must be
+used for deltas and restart detection. No public metrics endpoint exposes tenant
+counts. There is no unbounded per-tenant/per-request metric label map in memory.
+
+Dashboard/alert definitions to configure in the approved collector (NOT DEPLOYED):
+- Request throughput and p50/p95/p99 latency grouped by code-owned group/pattern.
+- 5xx/completed and aborted/completed rates; graph 401/403/429 separately.
+- Ready/live/worker probe states, RSS/heap, active requests and restart counts.
+- Outbox status/kind counts, oldest eligible age, retry attempts, DEAD and
+  RECONCILE via approved read-only operational access. Do not export event bodies.
+- outbox.cycle.failed, outbox.discovery.failed, outbox.artifact_cleanup.failed,
+  assistant.retention.failed, audit.best_effort.failed, database.client.failed,
+  smtp.failed, pdf.failed and shutdown deadline/failure events.
+
+Actual dashboards, metric storage, alert recipients and paging are NOT CONFIGURED
+by this source change. Select availability/latency/delivery objectives, eligible
+traffic, maintenance exclusions, measurement window and burn-rate thresholds
+with the owner before defining an error budget. No uptime promise is invented.
+
+3. Database or queue incident
+
+Correlate fixed event codes, readiness and infrastructure DB/pool metrics without
+collecting raw customer errors. A stalled probe is shared, not a reason to flood
+the pool with manual probes. Preserve the first incident timeline and version
+identity. Quiesce affected writes/dispatch using existing scoped controls if
+needed; feature kills do not cancel an external effect already accepted.
+
+For queue backlog, determine disabled worker versus stale worker versus a
+persisted terminal/reconciliation outcome. Revalidate the source actor, firm,
+plan and resource before a supported retry. Keep the original event/delivery
+identity and attempt history. Never clone a financial event or reset attempts,
+number sequences, quota counters or lock tokens by ad hoc SQL. Lease expiry
+coordinates recovery, but network exactly-once delivery is not guaranteed.
+
+SMTP acceptance followed by DB failure requires delivery-history/provider
+reconciliation before resending; the existing response explicitly marks accepted
+effects. Webhook receivers must durably deduplicate stable delivery IDs. A DEAD
+event is an investigation outcome, not authorization to create a fresh effect.
+Record investigation and any support access using existing required audit paths.
+
+4. Export storage incident
+
+Report artifacts are private and verified by owner/firm/current source access,
+path, hash and size. After DELETE commits, quota is released exactly once and
+the job is unavailable for download/generation, even if unlink fails. Retry the
+same authenticated DELETE job ID to remove the file; a retry rechecks ownership
+and access and does not release quota or append deletion audit again.
+
+The normal list omits tombstoned jobs. Preserve the failed job ID from the
+authenticated request/required deletion audit for authorized cleanup; there is
+no unscoped public orphan endpoint. Crashes during preparation can leave attempt
+files without a reference. Stop workers for an approved reconciliation window,
+compare private attempt paths against committed job/file references, preserve
+uncertain/referenced files and obtain review of the candidate set before deleting
+anything. Tombstoned unlink backlog and unreferenced attempts must be considered
+alongside physical disk usage, since released logical quota is not physical free
+space. Never remove historical legal documents using report-export rules.
+No automatic TTL or unapproved retention purge was added.
+
+5. Credential rotation and production configuration
+
+FRONTEND_URL must be one HTTP(S) browser origin without credentials, path, query
+or fragment, normalized to origin. Production requires HTTPS and distinct access
+and refresh signing secrets of at least 32 UTF-8 bytes; example-file values are
+rejected. Length is not proof of
+entropy: provision independent random keys through the approved secret manager.
+Development/test retain existing short fixture-key support. Invalid configuration
+reports variable names only. Port and lifecycle intervals are bounded.
+
+JWT rotation has no overlapping old-key mechanism in the existing token code:
+coordinate a login/session reset window and all instances, or approve/design
+versioned verification keys before requiring seamless rotation. Do not pretend
+that rolling one instance at a time preserves sessions with different secrets.
+Never copy credentials into release notes, a shell transcript or these reports.
+
+API key rotation is actor/firm scoped: return the replacement once, revoke the
+old credential atomically, update the consumer, then verify old denial and new
+scope/current-permission checks. Store only the consumer's secret-manager value.
+Revoked user/role/plan rights must invalidate use independently of token rotation.
+
+Webhook signing rotation preserves each pending delivery's captured signing
+version. Root encryption rotation requires retaining all referenced prior keys
+in WEBHOOK_ENCRYPTION_PREVIOUS_KEYS (up to five), moving active endpoint secrets
+to the current key through supported signing rotation and settling old pending
+deliveries before dropping old decryption keys. Restore needs the matching key
+versions. Receiver verification versions must overlap pending retries. Keep exact
+approved hosts and receiver deduplication; no redirect or private-address bypass.
+Worker/hosts/encryption configuration stays opt-in. No key was rotated here.
+
+6. Migration, backup, restore and disaster recovery rehearsal
+
+Prerequisites: approved isolated restore environment and encrypted DB/files/key
+backup, owner RPO/RTO and recovery operator, original legacy snapshot, current
+migration sources and matching generated client/application versions. Record a
+consistent DB/storage recovery point and key-version inventory, not key values.
+Archive schema/migration identifiers and hashes from the source inventory. Verify
+backup integrity and access independently before scheduling a maintenance window.
+
+Future rehearsal sequence (NOT EXECUTED):
+1. Restore the original snapshot to isolated infrastructure with outbound SMTP,
+   callbacks, assistant providers and worker dispatch disabled. Use synthetic or
+   approved protected data and restricted access; do not connect a clone to live
+   providers. Keep live and restored queues physically isolated.
+2. Review every intervening SQL file in order, legacy preconditions, trigger
+   privileges, indexes/unique/FK constraints and MySQL partial-DDL recovery. Apply
+   reviewed migrations only with separate explicit authorization; generate the
+   matching client. Do not invoke migrate dev against production.
+3. Reconcile firm/user ownership, quotation revisions, issued snapshots and
+   number high-water marks, allocation/reversal/refund totals by currency, stock
+   movement/value totals, source-event uniqueness, usage and file hashes. Compare
+   pre/post counts and immutable values; no numbering or usage reset is allowed.
+4. Exercise an interrupted migration and a reviewed forward fix in the clone.
+   Restore DB/files/key versions together and show that historical PDFs remain
+   readable. Existing legacy imports remain distinguishable from the new lifecycle.
+5. Simulate death after a committed business event and after a remote acceptance.
+   Recover leases and reconcile the same event identities with a controlled
+   receiver. Before any live recovery, fence the old writers/workers so two
+   installations cannot send the same restored backlog independently.
+6. Measure restore/recovery times and actual data-loss interval against the
+   owner-approved RPO/RTO. Capture redacted evidence, approvals and failures.
+
+Prefer additive forward fixes. Retain Wave 10 metadata/tables, outbox identities,
+financial/stock ledgers and issue snapshots. An older worker lacks new job kinds;
+do not let it claim the new queue. Older strict business-policy readers may reject
+presentation fields, so publish an audited compatibility policy with compatible
+code before rollback or choose a forward fix. No destructive down SQL is supplied.
+
+7. Privacy/support requests
+
+Retention duration, legal holds, jurisdiction review, request verification,
+export recipients and deletion approvals remain owner decisions. Existing tenant
+and portal authorization boundaries do not define a complete privacy-request API.
+No whole-tenant export/deletion automation is implemented or claimed here.
+
+Verify requester authority through the approved support process, record required
+support audit, scope every data/file query to the verified firm and minimize the
+export. Encrypt delivery via an approved channel; do not attach raw audit payloads
+or credentials to support tickets. Separate revocation from legally permitted
+erasure. Preserve immutable financial/stock/numbering/audit history and legal
+holds until an approved domain-specific retention design permits action. Ensure
+restores honor approved deletion/revocation records. Revoke portal sessions,
+invitations, grants/API keys using existing authorized controls when applicable.
+The assistant's existing opt-in content retention sweep remains its own policy;
+it is not an application-wide retention policy.
+
+8. Release and rollback gates
+
+Current recommendation: NO-GO. Named local desktop journeys and approved checks
+have execution evidence; full local-release acceptance is incomplete. The owner
+confirmed India/local ERP first and excluded unverified external integrations.
+Before release, obtain owners for enabled modules, support/emergency actions,
+incident response, service targets, retention, recovery and rollout. External
+provider activation requires a later separately accepted scope; it is not a
+first-release task. See the current delivery report for verified exclusion flags.
+
+Run the full verification matrix in isolated environments, resolve critical
+failures, demonstrate recoverability and establish dashboards/paging first.
+Dependency/security/license scanning, secret scanning and release packaging must
+exclude .env, backups, storage, test records and sensitive logs. No scanner ran.
+Do not publish a privacy/compliance/security certification without real evidence.
+
+Use owner-selected staged cohorts after acceptance, with explicit halt criteria
+for foreign-data exposure, financial/stock/numbering mismatch, lost audit, queue
+duplicates, unavailable dependencies or latency/error-budget breach. Retain the
+release identity, old compatible application and reviewed forward-fix plan.
+Enable only separately accepted entitlements/providers; no beta or gateway/tax
+capability becomes enabled merely because its UI exists. At halt, fence dispatch,
+preserve evidence and reconcile effects before deciding forward fix or rollback.
+Customer release notes must describe only verified enabled capabilities and
+known limits; this source report is not a customer release announcement.
